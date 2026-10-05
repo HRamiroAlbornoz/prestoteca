@@ -88,3 +88,13 @@ slug: prestoteca-mvp
 - decision: cookie httpOnly + sameSite=lax + maxAge=1h; express.Router factory con inyección de dependencias
 - blocker: none
 - commit: e6f57d6
+
+## T009 — 2026-10-04
+- status: complete
+- red: client/ no existe — proyecto nuevo con Vite + React + TS
+- green: 6/6 tests — Register (4 fields, POST /api/auth/register, error alert), Login (2 fields, POST /api/auth/login, error alert)
+- triangulation: Tailwind v4 requiere @tailwindcss/postcss; vitest globals + jsdom; @testing-library/jest-dom/vitest para type declarations
+- files: client/src/pages/RegisterPage.tsx, LoginPage.tsx, authPages.test.tsx, vitest.config.ts, tailwind.config.js, postcss.config.js
+- decision: React Router 7.x con BrowserRouter + Routes; Vite 8 + TypeScript ~6.0.2; Vitest + jsdom + Testing Library
+- blocker: none
+- commit: cf67727
