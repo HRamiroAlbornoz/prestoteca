@@ -78,3 +78,13 @@ slug: prestoteca-mvp
 - decision: AuthService recibe UserRepository + jwtSecret + jwtIssuer por constructor (inyección de dependencias)
 - blocker: none
 - commit: e93bc07
+
+## T008 — 2026-10-04
+- status: complete
+- red: módulo authRoutes no existe — import falló con "Cannot find module"
+- green: 57/57 tests — register (201 + cookie), login (200 + cookie), logout (204 + cookie expirada), 400 missing fields, 409 duplicate, 401 wrong pw, 404 not found
+- triangulation: cookie-parser instalado; clearCookie usa Expires=1970 (no Max-Age=0) — assertion ajustada
+- files: server/src/modules/auth/authRoutes.ts, server/tests/authRoutes.test.ts
+- decision: cookie httpOnly + sameSite=lax + maxAge=1h; express.Router factory con inyección de dependencias
+- blocker: none
+- commit: e6f57d6
