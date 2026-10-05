@@ -1,10 +1,11 @@
 import express from 'express'
 import helmet from 'helmet'
 import { loadEnv } from './modules/config/env.js'
+import { checkDbConnection } from './modules/db/pool.js'
 
 export type ExpressApplication = ReturnType<typeof express>
 
-export function createApp(): ExpressApplication {
+export async function createApp(): Promise<ExpressApplication> {
   const env = loadEnv()
 
   const app = express()
@@ -21,8 +22,9 @@ export function createApp(): ExpressApplication {
   app.use(express.urlencoded({ extended: true, limit: '10kb' }))
 
   // Health endpoint (no auth required)
-  app.get('/api/health', (_req: express.Request, res: express.Response) => {
-    res.json({ status: 'ok', env: env.NODE_ENV })
+  app.get('/api/health', async (_req: express.Request, res: express.Response) => {
+    const db = await checkDbConnection()
+    res.json({ status: 'ok', db })
   })
 
   return app
@@ -30,9 +32,11 @@ export function createApp(): ExpressApplication {
 
 // Start server when run directly
 if (process.argv[1]?.includes('index.ts') || process.argv[1]?.includes('index.js')) {
-  const env = loadEnv()
-  const app = createApp()
-  app.listen(env.PORT, () => {
-    console.log(`Server running on port ${env.PORT} (${env.NODE_ENV})`)
-  })
+  ;(async () => {
+    const env = loadEnv()
+    const app = await createApp()
+    app.listen(env.PORT, () => {
+      console.log(`Server running on port ${env.PORT} (${env.NODE_ENV})`)
+    })
+  })()
 }
