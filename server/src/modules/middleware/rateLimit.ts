@@ -27,6 +27,10 @@ function cleanup(): void {
 // Clean up every 30 seconds
 setInterval(cleanup, 30 * 1000)
 
+export function resetRateLimiter(): void {
+  store.clear()
+}
+
 export function rateLimiter(req: Request, res: Response, next: NextFunction): void {
   const ip = getIp(req)
   const now = Date.now()

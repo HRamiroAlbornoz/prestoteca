@@ -3,6 +3,8 @@ import request from 'supertest'
 import express from 'express'
 import cookieParser from 'cookie-parser'
 import { authRoutes } from '../src/modules/auth/authRoutes.js'
+import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
+import { rateLimiter } from '../src/modules/middleware/rateLimit.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
 
 function createMockApp() {
@@ -32,6 +34,7 @@ function createMockApp() {
   const app = express()
   app.use(express.json())
   app.use(cookieParser())
+  app.use(rateLimiter)
   app.use('/api/auth', authRoutes(mockRepo as UserRepository, 'test-secret', 'http://localhost:5173'))
 
   return { app, usersByEmail }
@@ -40,7 +43,8 @@ function createMockApp() {
 describe('auth routes', () => {
   let { app } = createMockApp()
 
-  afterEach(() => {
+  beforeEach(() => {
+    resetRateLimiter()
     vi.restoreAllMocks()
   })
 
@@ -123,6 +127,39 @@ describe('auth routes', () => {
       // Cookie should be expired (Expires in the past or Max-Age=0)
       const cookieHeader = res.headers['set-cookie'][0]
       expect(cookieHeader).toMatch(/(Expires=.*1970|Max-Age=0)/)
+    })
+  })
+
+  describe('rate limiting', () => {
+    beforeEach(() => {
+      resetRateLimiter()
+    })
+
+    it('returns 429 after 5 requests in 1 minute from same IP', async () => {
+      // Register first to have a valid endpoint
+      for (let i = 0; i < 5; i++) {
+        await request(app)
+          .post('/api/auth/register')
+          .send({
+            name: `RateUser${i}`,
+            email: `rate${i}@example.com`,
+            password: 'password123',
+            neighborhood: 'Centro',
+          })
+      }
+
+      // 6th request should be rate limited
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({
+          name: 'RateUser6',
+          email: 'rate6@example.com',
+          password: 'password123',
+          neighborhood: 'Centro',
+        })
+
+      expect(res.status).toBe(429)
+      expect(res.body.error.code).toBe('TOO_MANY_REQUESTS')
     })
   })
 })

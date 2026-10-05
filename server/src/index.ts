@@ -2,6 +2,7 @@ import express from 'express'
 import helmet from 'helmet'
 import { loadEnv } from './modules/config/env.js'
 import { checkDbConnection } from './modules/db/pool.js'
+import { rateLimiter } from './modules/middleware/rateLimit.js'
 
 export type ExpressApplication = ReturnType<typeof express>
 
@@ -20,6 +21,9 @@ export async function createApp(): Promise<ExpressApplication> {
   // Body parsing with size limit (10kb per constitution)
   app.use(express.json({ limit: '10kb' }))
   app.use(express.urlencoded({ extended: true, limit: '10kb' }))
+
+  // Rate limiting (5 requests per minute per IP)
+  app.use(rateLimiter)
 
   // Health endpoint (no auth required)
   app.get('/api/health', async (_req: express.Request, res: express.Response) => {
