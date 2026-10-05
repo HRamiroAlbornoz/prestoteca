@@ -108,3 +108,13 @@ slug: prestoteca-mvp
 - decision: AuthContext maneja estado de auth sin navigate (navegación se hace en componentes que usan useAuth)
 - blocker: none
 - commit: 558c981
+
+## T011 — 2026-10-04
+- status: complete
+- red: rate limit no aplicado en index.ts ni en mock app; store global compartido entre tests
+- green: 58/58 tests — rate limit (429 after 5 req/min), session persist (JWT cookie on mount, invalid token ignored)
+- triangulation: `resetRateLimiter()` export para limpiar store; `beforeEach` en describe principal; `rateLimiter` en mock app; `atob` para decode JWT en test
+- files: server/src/index.ts, rateLimit.ts, authRoutes.test.ts, client/src/contexts/sessionPersist.test.tsx
+- decision: rate limiter global en app; store reseteable para testing limpio
+- blocker: none
+- commit: 0d8c32c
