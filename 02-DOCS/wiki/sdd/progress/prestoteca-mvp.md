@@ -98,3 +98,13 @@ slug: prestoteca-mvp
 - decision: React Router 7.x con BrowserRouter + Routes; Vite 8 + TypeScript ~6.0.2; Vitest + jsdom + Testing Library
 - blocker: none
 - commit: cf67727
+
+## T010 — 2026-10-04
+- status: complete
+- red: AuthContext no existe — import falló
+- green: 7/7 tests — useAuth (currentUser null, login/logout functions, isLoading boolean), ProtectedRoute (renders child when auth, null when not)
+- triangulation: `atob` en vez de `Buffer` para decoding JWT en jsdom; `forceExit` para cleanup de vitest; `authState | undefined` para TS strict
+- files: client/src/contexts/AuthContext.tsx, authContext.test.tsx, vitest.config.ts
+- decision: AuthContext maneja estado de auth sin navigate (navegación se hace en componentes que usan useAuth)
+- blocker: none
+- commit: 558c981
