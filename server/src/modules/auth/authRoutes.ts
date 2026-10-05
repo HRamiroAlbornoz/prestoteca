@@ -20,8 +20,17 @@ export function authRoutes(
       return
     }
 
+    // Email length validation (RFC 5321: max 254 chars)
+    if (email.length > 254) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Email too long' } })
+      return
+    }
+
+    // Normalize email to lowercase for case-insensitive matching
+    const normalizedEmail = email.toLowerCase()
+
     try {
-      const result = await service.register({ name, email, password, neighborhood })
+      const result = await service.register({ name, email: normalizedEmail, password, neighborhood })
       res.cookie('token', result.token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -47,8 +56,11 @@ export function authRoutes(
       return
     }
 
+    // Normalize email to lowercase for case-insensitive matching
+    const normalizedEmail = email.toLowerCase()
+
     try {
-      const result = await service.login({ email, password })
+      const result = await service.login({ email: normalizedEmail, password })
       res.cookie('token', result.token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
