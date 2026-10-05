@@ -1,0 +1,68 @@
+version: 1
+project:
+  root: .
+  stacks:
+    - server: Express 5 + TypeScript (Node.js)
+    - client: React + Vite + TypeScript + Tailwind + React Router
+    - database: PostgreSQL (pg, sin ORM)
+  package_managers:
+    - npm
+  monorepo: true
+  signals:
+    - server/package.json
+    - client/package.json
+    - server/src
+    - client/src
+sdd:
+  artifact_store: 02-DOCS/wiki/sdd
+  execution_mode: interactive
+  registry_path: .rsc/skill-registry.json
+  review_budget:
+    line_budget: 400
+    file_budget: 12
+  delivery_strategy:
+    default: ask-on-risk
+testing:
+  strict_tdd: true
+  runners:
+    - vitest (unit)
+    - supertest (API)
+    - testing-library (components)
+  commands:
+    apply:
+      - cd server && npm run build
+      - cd client && npm run build
+    verify:
+      - cd server && npm test
+      - cd client && npm test
+phase_rules:
+  proposal: optional-on-ambiguity
+  specify: requires intent or proposal
+  plan: requires spec
+  tasks: requires plan and spec
+  analyze: requires spec plan tasks
+  implement: requires analyze pass, strict_tdd when testing.strict_tdd is true
+  verify: requires spec tasks evidence
+  archive: requires verify record and review/ship outcome
+models:
+  enabled: false
+  provider: anthropic
+  tiers:
+    heavy: claude-opus-4-8
+    balanced: claude-sonnet-4-6
+    light: claude-haiku-4-5-20251001
+  phases:
+    constitution: heavy
+    specify: balanced
+    clarify: balanced
+    plan: heavy
+    tasks: balanced
+    analyze: heavy
+    implement: balanced
+    verify: balanced
+    review: heavy
+    ship: light
+    debug: heavy
+    worktrees: light
+    sdd-init: light
+  overrides: {}
