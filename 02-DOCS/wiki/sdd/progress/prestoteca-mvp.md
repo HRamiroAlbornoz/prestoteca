@@ -38,3 +38,13 @@ slug: prestoteca-mvp
 - decision: `verbatimModuleSyntax` requiere `import type` para Request/Response/NextFunction
 - blocker: none
 - commit: aa43a0a
+
+## T004 — 2026-10-04
+- status: complete
+- red: archivos de migración no existen — ENOENT en readFileSync
+- green: 23/23 tests — 3 migraciones SQL con tablas, FKs, índices; test verifica contenido SQL
+- triangulation: SQL con un solo espacio entre columnas para que las assertions de substring coincidan
+- files: server/src/migrations/001_create_users.sql, 002_create_tools.sql, 003_create_loans.sql, server/tests/migrations.test.ts
+- decision: pg-migrate instalado como devDep; migraciones usan `IF NOT EXISTS` para ser idempotentes
+- blocker: none
+- commit: 5140bed
