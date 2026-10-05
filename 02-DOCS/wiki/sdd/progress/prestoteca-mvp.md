@@ -138,3 +138,13 @@ slug: prestoteca-mvp
 - decision: validaciones en repo (no en service) para mantener guardas cercanas a la DB; ILIKE para case-insensitive search; WHERE deleted_at IS NULL + is_paused = false en findAll
 - blocker: none
 - commit: cd0e084
+
+## T013 — 2026-10-04
+- status: complete
+- red: toolService no existe — módulo nuevo
+- green: 92/92 tests — publish (create via repo), edit (owner OK, 403 non-owner, 404 not found), delete (409 active loans, 403 non-owner, soft delete OK), pause (OK even with loans, 403 non-owner), getDetail (returns tool, null not found)
+- triangulation: mock repo con Map por ID; hasActiveLoans mockeado dinámicamente por test; ownership check antes de cada operación
+- files: server/src/modules/tools/toolService.ts, tests/toolService.test.ts
+- decision: service hace ownership checks + business rules (active loans); repo hace validaciones de datos (length, category, condition)
+- blocker: none
+- commit: 6a7aaeb
