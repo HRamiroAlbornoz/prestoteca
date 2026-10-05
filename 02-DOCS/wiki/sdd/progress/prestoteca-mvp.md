@@ -58,3 +58,13 @@ slug: prestoteca-mvp
 - decision: test usa mock de pool pg; bcrypt 12 rounds tarda ~4.4s en tests (6 hashing calls)
 - blocker: none
 - commit: 19c4bb1
+
+## T006 — 2026-10-04
+- status: complete
+- red: módulo userRepo no existe — import falló con "Cannot find module"
+- green: 42/42 tests — create (con RETURNING), findById, findByEmail, findAll, update (SET dinámico), delete; duplicate email → Error; null en not-found
+- triangulation: mock pool parsea SET clause dinámicamente; UPDATE params shift según fields presentes; rowCount ?? 0 para TS strict
+- files: server/src/modules/auth/userRepo.ts, server/tests/userRepo.test.ts
+- decision: `res.rowCount ?? 0` porque pg puede retornar null; mock pool parsea SET clause con regex para mapear params a fields
+- blocker: none
+- commit: 1827f20
