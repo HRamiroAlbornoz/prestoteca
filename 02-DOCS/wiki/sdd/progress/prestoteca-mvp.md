@@ -148,3 +148,13 @@ slug: prestoteca-mvp
 - decision: service hace ownership checks + business rules (active loans); repo hace validaciones de datos (length, category, condition)
 - blocker: none
 - commit: 6a7aaeb
+
+## T014 — 2026-10-04
+- status: complete
+- red: toolsRoutes no existe — import falló; authMiddleware no mockable con spy (carga al import)
+- green: 99/99 tests — POST /tools (201, 400 missing, 401 no auth), PATCH /tools/:id (200 owner, 403 non-owner), DELETE /tools/:id (204 owner/no-loans, 403 non-owner)
+- triangulation: routes inlinean auth check (req.userId) en vez de importar authMiddleware; test usa middleware inline + dynamic import; `.then/.catch` en vez de async/await para evitar type issues
+- files: server/src/modules/tools/toolsRoutes.ts, tests/toolsRoutes.test.ts
+- decision: auth inline en routes para testing más fácil; AuthRequest type de middleware/auth
+- blocker: none
+- commit: 88d2d1d
