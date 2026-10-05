@@ -128,3 +128,13 @@ slug: prestoteca-mvp
 - decision: normalización en routes (no en service) para mantener service agnóstico
 - blocker: none
 - commit: aefee30
+
+## T012 (plan) — 2026-10-04
+- status: complete
+- red: toolRepo no existe — módulo nuevo
+- green: 81/81 tests — create (validations name 3-60, desc ≤500, category, condition), findById, findByOwner, findAll (pagination, category/neighborhood search, ILIKE, wildcard escape), update (partial SET, null on not found), softDelete, pause, hasActiveLoans
+- triangulation: mock pool simula RETURNING, SET dinámico, COUNT; wildcards % y _ escapados con backslash
+- files: server/src/modules/tools/toolRepo.ts, tests/toolRepo.test.ts
+- decision: validaciones en repo (no en service) para mantener guardas cercanas a la DB; ILIKE para case-insensitive search; WHERE deleted_at IS NULL + is_paused = false en findAll
+- blocker: none
+- commit: cd0e084
