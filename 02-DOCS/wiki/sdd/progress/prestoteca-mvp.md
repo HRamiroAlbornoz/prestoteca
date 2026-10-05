@@ -68,3 +68,13 @@ slug: prestoteca-mvp
 - decision: `res.rowCount ?? 0` porque pg puede retornar null; mock pool parsea SET clause con regex para mapear params a fields
 - blocker: none
 - commit: 1827f20
+
+## T007 — 2026-10-04
+- status: complete
+- red: módulo authService no existe — import falló con "Cannot find module"
+- green: 50/50 tests — register (user creado + JWT), login (JWT con user id), bcrypt hash ≠ plain text, duplicate email → Error, wrong pw → Error, non-existent → Error, generateToken payload verifica id
+- triangulation: mock repo con Map por email; JWT payload decodificado con base64 para verificar id
+- files: server/src/modules/auth/authService.ts, server/tests/authService.test.ts
+- decision: AuthService recibe UserRepository + jwtSecret + jwtIssuer por constructor (inyección de dependencias)
+- blocker: none
+- commit: e93bc07
