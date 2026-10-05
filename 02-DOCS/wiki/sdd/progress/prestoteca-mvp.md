@@ -118,3 +118,13 @@ slug: prestoteca-mvp
 - decision: rate limiter global en app; store reseteable para testing limpio
 - blocker: none
 - commit: 0d8c32c
+
+## T012 — 2026-10-04
+- status: complete
+- red: email >254 chars no validado; email duplicate case-sensitive (Map exact match)
+- green: 60/60 tests — email length (400 on >254), case-insensitive duplicate (409 on ANA@EXAMPLE.COM after ana@example.com)
+- triangulation: normalize email con `.toLowerCase()` en routes antes de service/repo; mock repo recibe email ya normalizado
+- files: server/src/modules/auth/authRoutes.ts, tests/authValidation.test.ts
+- decision: normalización en routes (no en service) para mantener service agnóstico
+- blocker: none
+- commit: aefee30
