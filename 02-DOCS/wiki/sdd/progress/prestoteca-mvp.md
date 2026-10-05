@@ -48,3 +48,13 @@ slug: prestoteca-mvp
 - decision: pg-migrate instalado como devDep; migraciones usan `IF NOT EXISTS` para ser idempotentes
 - blocker: none
 - commit: 5140bed
+
+## T005 — 2026-10-04
+- status: complete
+- red: módulo seed no existe — import falló con "Cannot find module"
+- green: 29/29 tests — 3 users, 6 tools, 3 loans; idempotencia (ON CONFLICT / WHERE NOT EXISTS); bcrypt 12 rounds; transacción BEGIN/COMMIT
+- triangulation: pool mockeado (sin DB real) — queries tracked, usersByEmail map, toolsByNameAndOwner map
+- files: server/src/modules/seed/index.ts, server/tests/seed.test.ts
+- decision: test usa mock de pool pg; bcrypt 12 rounds tarda ~4.4s en tests (6 hashing calls)
+- blocker: none
+- commit: 19c4bb1
