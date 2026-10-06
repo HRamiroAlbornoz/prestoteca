@@ -168,3 +168,13 @@ slug: prestoteca-mvp
 - decision: GET público (sin auth), detail endpoint para ToolDetail page
 - blocker: none
 - commit: c9e8b2d
+
+## T016 — 2026-10-06
+- status: complete
+- red: ToolCard y ToolDetailPage no existen — imports fallaron
+- green: 9/9 client tests — ToolCard (nombre, categoría, condición, link a detalle); ToolDetailPage (detalle completo, botón Pedir, error handling)
+- triangulation: ToolCard renderiza category icon, name, condition, status badge; ToolDetailPage fetches GET /api/tools/:id, muestra info + botón Pedir; mocks con vi.mock para react-router-dom y AuthContext
+- files: client/src/components/ToolCard.tsx, client/src/pages/ToolDetailPage.tsx, client/src/pages/toolPages.test.tsx, client/src/App.tsx
+- decision: ToolCard como Link a /tools/:id; ToolDetailPage sin auth (público); botón Pedir condicional (solo si no pausada y autenticado)
+- blocker: none — client tests individuales pasan (9/9), pero suite completa se cuelga por vi.mock contaminando otros archivos; se resuelve en T019 con separación de suites
+- commit: ed369a4
