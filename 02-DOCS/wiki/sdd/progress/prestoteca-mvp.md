@@ -158,3 +158,13 @@ slug: prestoteca-mvp
 - decision: auth inline en routes para testing más fácil; AuthRequest type de middleware/auth
 - blocker: none
 - commit: 88d2d1d
+
+## T015 — 2026-10-05
+- status: complete
+- red: GET /api/tools/:id no existe — Express devuelve 404 por defecto
+- green: 101/101 tests — GET /tools/:id (200 con detalle completo, 404 not found)
+- triangulation: GET sin auth (público); service.getDetail retorna Tool | null; 404 si null
+- files: server/src/modules/tools/toolsRoutes.ts, tests/toolDetail.test.ts
+- decision: GET público (sin auth), detail endpoint para ToolDetail page
+- blocker: none
+- commit: c9e8b2d
