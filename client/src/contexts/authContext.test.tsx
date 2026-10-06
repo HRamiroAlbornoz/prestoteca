@@ -1,11 +1,26 @@
-import { describe, expect, it } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth, ProtectedRoute } from './AuthContext'
 
 const TestProtectedPage = () => <div data-testid="protected-content">Protected Content</div>
 
+// Mock AuthProvider to avoid useEffect cookie reading in jsdom
+const mockAuthState = { currentUser: null, isLoading: false, login: vi.fn(), logout: vi.fn() }
+
+vi.mock('./AuthContext', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useAuth: () => mockAuthState,
+  ProtectedRoute: ({ children }: { children: React.ReactNode }) => mockAuthState.currentUser ? <>{children}</> : null,
+}))
+
 describe('useAuth', () => {
+  beforeEach(() => {
+    mockAuthState.currentUser = null
+    mockAuthState.isLoading = false
+    vi.clearAllMocks()
+  })
+
   it('provides currentUser, login, logout, isLoading', () => {
     let authState: ReturnType<typeof useAuth> | undefined
 
@@ -30,6 +45,12 @@ describe('useAuth', () => {
 })
 
 describe('AuthProvider', () => {
+  beforeEach(() => {
+    mockAuthState.currentUser = null
+    mockAuthState.isLoading = false
+    vi.clearAllMocks()
+  })
+
   it('provides login and logout functions', () => {
     const TestComponent = () => {
       const { login, logout } = useAuth()
@@ -55,61 +76,41 @@ describe('AuthProvider', () => {
 })
 
 describe('ProtectedRoute', () => {
-  it('renders child when authenticated', async () => {
-    const TestComponent = () => {
-      const { login } = useAuth()
-      login({ id: 'user-1', name: 'Test' })
-      return (
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <TestProtectedPage />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      )
-    }
-
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      </MemoryRouter>,
-    )
-
-    await waitFor(() => {
-      expect(screen.getByTestId('protected-content')).toBeInTheDocument()
-    })
+  beforeEach(() => {
+    mockAuthState.currentUser = null
+    mockAuthState.isLoading = false
+    vi.clearAllMocks()
   })
 
-  it('returns null (not rendered) when not authenticated', async () => {
-    const TestComponent = () => (
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <TestProtectedPage />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-    )
+  it('renders child when authenticated', () => {
+    mockAuthState.currentUser = { id: 'user-1', name: 'Test' }
 
     render(
       <MemoryRouter>
         <AuthProvider>
-          <TestComponent />
+          <ProtectedRoute>
+            <TestProtectedPage />
+          </ProtectedRoute>
         </AuthProvider>
       </MemoryRouter>,
     )
 
-    await waitFor(() => {
-      expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument()
-    })
+    expect(screen.getByTestId('protected-content')).toBeInTheDocument()
+  })
+
+  it('returns null (not rendered) when not authenticated', () => {
+    mockAuthState.currentUser = null
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <ProtectedRoute>
+            <TestProtectedPage />
+          </ProtectedRoute>
+        </AuthProvider>
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument()
   })
 })

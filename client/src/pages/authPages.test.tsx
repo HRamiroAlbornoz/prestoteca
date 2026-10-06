@@ -4,17 +4,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { RegisterPage } from './RegisterPage'
 import { LoginPage } from './LoginPage'
 
-const createFetchMock = () => {
-  const mockFetch = vi.fn()
-  return mockFetch
-}
-
 describe('RegisterPage', () => {
-  let mockFetch: ReturnType<typeof createFetchMock>
+  let mockFetch: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    mockFetch = createFetchMock()
-    globalThis.fetch = mockFetch
+    mockFetch = vi.fn()
+    vi.spyOn(globalThis, 'fetch').mockImplementation(mockFetch)
   })
 
   it('renders all form fields', () => {
@@ -103,11 +98,11 @@ describe('RegisterPage', () => {
 })
 
 describe('LoginPage', () => {
-  let mockFetch: ReturnType<typeof createFetchMock>
+  let mockFetch: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
-    mockFetch = createFetchMock()
-    globalThis.fetch = mockFetch
+    mockFetch = vi.fn()
+    vi.spyOn(globalThis, 'fetch').mockImplementation(mockFetch)
   })
 
   it('renders all form fields', () => {
