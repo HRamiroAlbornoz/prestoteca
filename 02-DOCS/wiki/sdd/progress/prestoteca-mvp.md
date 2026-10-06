@@ -176,5 +176,15 @@ slug: prestoteca-mvp
 - triangulation: ToolCard renderiza category icon, name, condition, status badge; ToolDetailPage fetches GET /api/tools/:id, muestra info + botón Pedir; mocks con vi.mock para react-router-dom y AuthContext
 - files: client/src/components/ToolCard.tsx, client/src/pages/ToolDetailPage.tsx, client/src/pages/toolPages.test.tsx, client/src/App.tsx
 - decision: ToolCard como Link a /tools/:id; ToolDetailPage sin auth (público); botón Pedir condicional (solo si no pausada y autenticado)
-- blocker: none — client tests individuales pasan (9/9), pero suite completa se cuelga por vi.mock contaminando otros archivos; se resuelve en T019 con separación de suites
+- blocker: none — client tests individuales pasan (9/9), pero suite completa se cuelga por vi.mock contaminando otros archivos; se resuelve con DOM cleanup global + mockeo de AuthProvider
 - commit: ed369a4
+
+## T016-fix — 2026-10-06
+- status: complete
+- red: suite completa de client se colgaba (timeout 60s) al combinar 4 archivos de test
+- green: 22/22 tests en todos los archivos — 4 test files, 0 fallos
+- triangulation: 3 fixes: (1) afterEach cleanup() en setup.ts para limpiar jsdom DOM; (2) vi.spyOn(globalThis, 'fetch') en authPages en vez de asignación directa; (3) vi.mock completo de AuthContext en authContext.test.tsx para evitar useEffect que lee cookies en jsdom
+- files: client/src/tests/setup.ts, client/src/pages/authPages.test.tsx, client/src/contexts/authContext.test.tsx
+- decision: mockear AuthProvider en tests aislados; usar vi.spyOn para globalThis; cleanup global en setup
+- blocker: none
+- commit: 7dbaa2e
