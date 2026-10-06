@@ -6,6 +6,27 @@ import type { AuthRequest } from '../middleware/auth.js'
 export function toolsRoutes(service: ToolService): Router {
   const router = express.Router()
 
+  // GET /api/tools/:id — get tool detail (no auth required)
+  router.get('/:id', (req: express.Request, res: express.Response) => {
+    const id = req.params.id
+    if (typeof id !== 'string') {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Invalid tool ID' } })
+      return
+    }
+
+    service.getDetail(id)
+      .then((tool) => {
+        if (!tool) {
+          res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Tool not found' } })
+          return
+        }
+        res.status(200).json(tool)
+      })
+      .catch(() => {
+        res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to get tool' } })
+      })
+  })
+
   // POST /api/tools — publish a new tool
   router.post('/', (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
