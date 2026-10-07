@@ -62,6 +62,48 @@ export function ToolDetailPage() {
     navigate(`/tools/${id}/request`)
   }
 
+  const isOwner = tool?.owner_id === currentUser?.id
+
+  const handleEdit = () => {
+    navigate(`/publish/${tool.id}`)
+  }
+
+  const handlePause = async () => {
+    try {
+      const res = await fetch(`/api/tools/${tool.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_paused: true }),
+      })
+
+      if (res.ok) {
+        setTool({ ...tool, is_paused: true })
+      }
+    } catch {
+      setError('Error al pausar la herramienta')
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirm('¿Estás seguro de que querés eliminar esta herramienta?')) return
+
+    try {
+      const res = await fetch(`/api/tools/${tool.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (res.ok) {
+        navigate('/')
+      } else {
+        const data = await res.json()
+        setError(data.error?.message || 'Error al eliminar la herramienta')
+      }
+    } catch {
+      setError('Error de conexión. Intentá de nuevo.')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -152,6 +194,29 @@ export function ToolDetailPage() {
           {tool.is_paused && (
             <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded mt-4">
               Esta herramienta está pausada momentáneamente.
+            </div>
+          )}
+
+          {isOwner && (
+            <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col gap-2">
+              <button
+                onClick={handleEdit}
+                className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200"
+              >
+                Editar
+              </button>
+              <button
+                onClick={handlePause}
+                className="w-full bg-yellow-100 text-yellow-700 py-2 px-4 rounded-md hover:bg-yellow-200"
+              >
+                Pausar
+              </button>
+              <button
+                onClick={handleDelete}
+                className="w-full bg-red-100 text-red-700 py-2 px-4 rounded-md hover:bg-red-200"
+              >
+                Eliminar
+              </button>
             </div>
           )}
         </div>

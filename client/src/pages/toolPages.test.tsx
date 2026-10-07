@@ -1,16 +1,18 @@
 import { describe, expect, it, vi, beforeEach, afterAll } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ToolCard } from '../components/ToolCard'
 import { ToolDetailPage } from './ToolDetailPage'
 
-// Mock react-router-dom — useParams returns tool id
+// Mock react-router-dom — useParams returns tool id, useNavigate tracks calls
 const mockParams = { id: 'tool-1' }
+const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>()
   return {
     ...actual,
     useParams: () => mockParams,
+    useNavigate: () => mockNavigate,
   }
 })
 
@@ -85,6 +87,7 @@ describe('ToolDetailPage', () => {
     mockFetch = vi.fn()
     globalThis.fetch = mockFetch
     mockUseAuthValue.currentUser = null
+    mockNavigate.mockClear()
     vi.restoreAllMocks()
   })
 
@@ -165,6 +168,127 @@ describe('ToolDetailPage', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument()
+    })
+  })
+
+  it('does NOT show owner actions for non-owner user', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => toolData,
+    })
+
+    renderPage('/tools/tool-1', { id: 'user-2', name: 'Other User' })
+
+    await waitFor(() => {
+      expect(screen.getByText('Taladro')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /pausar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /eliminar/i })).not.toBeInTheDocument()
+  })
+
+  it('does NOT show owner actions when not logged in', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => toolData,
+    })
+
+    renderPage('/tools/tool-1', null)
+
+    await waitFor(() => {
+      expect(screen.getByText('Taladro')).toBeInTheDocument()
+    })
+
+    expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /pausar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /eliminar/i })).not.toBeInTheDocument()
+  })
+
+  it('shows owner actions for tool owner', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => toolData,
+    })
+
+    renderPage('/tools/tool-1', { id: 'user-1', name: 'Owner User' })
+
+    await waitFor(() => {
+      expect(screen.getByText('Taladro')).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('button', { name: /editar/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /pausar/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /eliminar/i })).toBeInTheDocument()
+  })
+
+  it('calls PATCH /api/tools/:id on pause', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => toolData,
+    })
+
+    renderPage('/tools/tool-1', { id: 'user-1', name: 'Owner User' })
+
+    await waitFor(() => {
+      expect(screen.getByText('Taladro')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /pausar/i }))
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/tools/tool-1', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_paused: true }),
+      })
+    })
+  })
+
+  it('calls DELETE /api/tools/:id on delete', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => toolData,
+    })
+
+    // Mock confirm() since jsdom doesn't implement it
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    renderPage('/tools/tool-1', { id: 'user-1', name: 'Owner User' })
+
+    await waitFor(() => {
+      expect(screen.getByText('Taladro')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /eliminar/i }))
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith('/api/tools/tool-1', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+
+    confirmSpy.mockRestore()
+  })
+
+  it('navigates to /publish on edit', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => toolData,
+    })
+
+    renderPage('/tools/tool-1', { id: 'user-1', name: 'Owner User' })
+
+    await waitFor(() => {
+      expect(screen.getByText('Taladro')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /editar/i }))
+
+    await waitFor(() => {
+      // navigate() was called — verify via mockNavigate calls
+      expect(mockNavigate).toHaveBeenCalledWith('/publish/tool-1')
     })
   })
 })
