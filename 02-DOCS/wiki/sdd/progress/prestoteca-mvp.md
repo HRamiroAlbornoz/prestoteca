@@ -228,3 +228,13 @@ slug: prestoteca-mvp
 - decision: ACTIVE_STATUSES constant; hasActiveLoans usa SELECT 1 LIMIT 1 para eficiencia; hasOverlappingDates usa start_date <= new_end AND end_date >= new_start
 - blocker: none
 - commit: 2f2895e
+
+## T021 — 2026-10-07
+- status: complete
+- red: loanService no existe — import falló con "Cannot find module"
+- green: 13/13 tests — own-tool rejection, overlap check, create pendiente, invalid transition (pendiente→devuelto), 6 valid transitions (pendiente→aceptado, aceptado→entregado, entregado→devuelto, aceptado→cancelado borrower, pendiente→cancelado owner, aceptado→cancelado), non-participant rejection, not-found, auto-vencido past/not-past
+- triangulation: service recibe repo + query fn para autoVencido; VALID_TRANSITIONS map para state machine; mock query para SELECT status='entregado'; Date.now mock para fecha actual
+- files: server/src/modules/loans/loanService.ts, server/tests/loanService.test.ts
+- decision: state machine: pendiente→[aceptado,rechazado,cancelado], aceptado→[entregado,cancelado], entregado→[devuelto]; autoVencido usa query directa
+- blocker: none
+- commit: 4f2f9ec
