@@ -198,3 +198,13 @@ slug: prestoteca-mvp
 - decision: select con categorías y condiciones fijas; validación client-side antes de fetch; error display con role="alert"
 - blocker: none
 - commit: ea8e31c
+
+## T018 — 2026-10-07
+- status: complete
+- red: owner action buttons no existen — `queryByRole("button", /editar/i)` retorna null para owner
+- green: 15/15 tests — owner actions render for owner (editar, pausar, eliminar), no render for non-owner, no render when not logged in, pause calls PATCH, delete calls DELETE, edit navigates to /publish/:id
+- triangulation: mock confirm() returns true; mock useNavigate tracks calls; optional chaining en tool?.owner_id previene null crash
+- files: client/src/pages/ToolDetailPage.tsx, client/src/pages/toolPages.test.tsx
+- decision: isOwner = tool?.owner_id === currentUser?.id; confirm() para delete; PATCH actualiza estado local; navigate a /publish/:id para editar
+- blocker: none
+- commit: e1923ea
