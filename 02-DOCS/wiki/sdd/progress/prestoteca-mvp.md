@@ -188,3 +188,13 @@ slug: prestoteca-mvp
 - decision: mockear AuthProvider en tests aislados; usar vi.spyOn para globalThis; cleanup global en setup
 - blocker: none
 - commit: 7dbaa2e
+
+## T017 — 2026-10-07
+- status: complete
+- red: PublishForm no existe — import falló con "Cannot find module"
+- green: 9/9 tests — render form fields (nombre, descripción, categoría, estado), category options (9), condition options (3), POST /api/tools on valid submit, name too short validation, name too long validation, description too long validation, API error alert, no-submit on invalid
+- triangulation: form no llama fetch cuando validación falla (name < 3 chars)
+- files: client/src/pages/PublishForm.tsx, client/src/pages/publishForm.test.tsx, client/src/App.tsx
+- decision: select con categorías y condiciones fijas; validación client-side antes de fetch; error display con role="alert"
+- blocker: none
+- commit: ea8e31c
