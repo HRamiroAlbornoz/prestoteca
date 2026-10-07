@@ -218,3 +218,13 @@ slug: prestoteca-mvp
 - decision: todos los ACs de tools verificados — 41 tests green
 - blocker: none
 - commit: (sin commit nuevo — task de verificación)
+
+## T020 — 2026-10-07
+- status: complete
+- red: loanRepo no existe — import falló con "Cannot find module"
+- green: 14/14 tests — create, findById (null on not found), findAllByTool/Borrower/Owner, updateStatus (null on not found), hasActiveLoans (true with active, false empty, false terminated), hasOverlappingDates (true overlap, false no overlap, false terminated)
+- triangulation: mock pool distingue hasActiveLoans de hasOverlappingDates por presencia de `<=` en SQL; overlap excludes terminated loans; params order $2=endDate $3=startDate
+- files: server/src/modules/loans/loanRepo.ts, server/tests/loanRepo.test.ts
+- decision: ACTIVE_STATUSES constant; hasActiveLoans usa SELECT 1 LIMIT 1 para eficiencia; hasOverlappingDates usa start_date <= new_end AND end_date >= new_start
+- blocker: none
+- commit: 2f2895e
