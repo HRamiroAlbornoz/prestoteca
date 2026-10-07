@@ -1,5 +1,3 @@
-import type { QueryResultHeader } from 'pg'
-
 export interface CreateLoanInput {
   toolId: string
   borrowerId: string

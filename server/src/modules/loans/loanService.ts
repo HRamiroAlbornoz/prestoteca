@@ -52,6 +52,20 @@ export class LoanService {
     })
   }
 
+  async getDetail(loanId: string, userId: string): Promise<import('./loanRepo.js').Loan> {
+    const loan = await this.repo.findById(loanId)
+    if (!loan) {
+      throw new Error('Préstamo no encontrado')
+    }
+
+    // User must be participant (owner or borrower)
+    if (loan.owner_id !== userId && loan.borrower_id !== userId) {
+      throw new Error('No participás en este préstamo')
+    }
+
+    return loan
+  }
+
   async transition(
     loanId: string,
     newStatus: string,
@@ -75,12 +89,14 @@ export class LoanService {
       )
     }
 
-    return this.repo.updateStatus(loanId, newStatus)
+    const updated = await this.repo.updateStatus(loanId, newStatus)
+    if (!updated) throw new Error('Préstamo no encontrado')
+    return updated
   }
 
   async autoVencido(): Promise<number> {
     const today = new Date()
-    const todayStr = today.toISOString().split('T')[0]
+    const todayStr = today.toISOString().split('T')[0]!
 
     // Get all delivered loans
     const deliveredLoans = await this.findAllDeliveredLoans()
