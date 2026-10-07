@@ -66,3 +66,6 @@ server/node_modules/
 # Client build artifacts
 client/dist/
 client/node_modules/
+
+# rsc local state (hooks, seals, logs) and managed skill links — machine-local
+.worktrees/
