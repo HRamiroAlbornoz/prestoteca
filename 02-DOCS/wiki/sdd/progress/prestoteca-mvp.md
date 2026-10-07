@@ -208,3 +208,13 @@ slug: prestoteca-mvp
 - decision: isOwner = tool?.owner_id === currentUser?.id; confirm() para delete; PATCH actualiza estado local; navigate a /publish/:id para editar
 - blocker: none
 - commit: e1923ea
+
+## T019 — 2026-10-07
+- status: complete
+- red: N/A — verificación de ACs existentes
+- green: 41/41 tests server tools — publish (create via repo), edit (owner OK, 403 non-owner, 404 not found), delete (409 active loans, 403 non-owner, soft delete), pause (OK con loans, 403 non-owner), detail (200 con info completa, 404 not found), validations (name 3-60, desc ≤500, category, condition), pagination, search, wildcard escape
+- triangulation: mock pool con Maps; hasActiveLoans mockeado; ILIKE case-insensitive; WHERE deleted_at IS NULL + is_paused = false
+- files: server/tests/toolRepo.test.ts, toolService.test.ts, toolsRoutes.test.ts, toolDetail.test.ts
+- decision: todos los ACs de tools verificados — 41 tests green
+- blocker: none
+- commit: (sin commit nuevo — task de verificación)
