@@ -238,3 +238,13 @@ slug: prestoteca-mvp
 - decision: state machine: pendiente→[aceptado,rechazado,cancelado], aceptado→[entregado,cancelado], entregado→[devuelto]; autoVencido usa query directa
 - blocker: none
 - commit: 4f2f9ec
+
+## T022 — 2026-10-07
+- status: complete
+- red: loansRoutes no existe — import falló con "Cannot find module"
+- green: 13/13 tests — POST crea loan 201 pendiente, 400 own-tool, 404 tool-not-found, 409 overlap, 401 no-auth; GET detail 200 borrower, 404 non-participant, 404 not-found; PATCH 200 owner-accept, 409 invalid transition, 404 non-participant, 401 no-auth, 200 borrower-cancel
+- triangulation: route factory recibe service + query fn para lookup de tool owner; mock query devuelve owner del tool según toolId; GET usa nuevo método getDetail en service
+- files: server/src/modules/loans/loansRoutes.ts, server/tests/loansRoutes.test.ts
+- decision: POST /tools/:id/loans hace lookup SQL del tool owner; GET /loans/:id usa getDetail con participant check; PATCH /loans/:id/status usa transition con state machine; 409 para conflict (overlap, invalid transition), 404 para not-found/non-participant
+- blocker: none
+- commit: 3eaded7
