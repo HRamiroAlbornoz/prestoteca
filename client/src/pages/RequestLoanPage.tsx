@@ -62,7 +62,7 @@ export function RequestLoanPage() {
       <div className="max-w-lg mx-auto">
         <button
           onClick={() => navigate(-1)}
-          className="text-blue-600 hover:underline mb-4 inline-block"
+          className="text-blue-600 hover:underline mb-4 inline-block py-2 px-3"
         >
           ← Volver
         </button>
