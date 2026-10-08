@@ -288,3 +288,13 @@ slug: prestoteca-mvp
 - decision: endpoints GET /api/loans?type=pedidos|recibidos; page con tabs ARIA; counts en tab labels; LoanStatus badge en cada item; click navigate a detalle
 - blocker: none
 - commit: 6922782
+
+## T027 — 2026-10-08
+- status: complete
+- red: 3 ACs de loans sin test — AC 137 (rechazar), AC 148 (concurrentes), AC 151 (re-solicitar tras terminación)
+- green: 3/3 nuevos tests — PATCH rechazado 200, dos usuarios distintos solicitan misma herramienta no-overlapping → ambos 201 pendiente, re-solicitud tras cancelado → 201
+- triangulation: mock pool simula INSERT RETURNING para cada request; loans store por id; overlap check filtra por status activo; AC 151 verifica que status cancelado no activa hasActiveLoans ni hasOverlappingDates
+- files: server/tests/loansRoutes.test.ts
+- decision: tests añadidos al archivo existente; no se requirieron cambios en código
+- blocker: none
+- commit: 11f8375
