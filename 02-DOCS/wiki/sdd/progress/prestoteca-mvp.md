@@ -268,3 +268,13 @@ slug: prestoteca-mvp
 - decision: badge component reutilizable; page usa useAuth + useParams; buttons: pendiente→(aceptar/rechazar/cancelar), aceptado→(marcar entregado/cancelar), entregado→(marcar devuelto); final states sin botones
 - blocker: none
 - commit: 5c815b3
+
+## T025 — 2026-10-08
+- status: complete
+- red: RequestLoanPage no existe — import falló con "Cannot find module"
+- green: 15/15 tests — render fields (startDate, endDate, note, button), validation (empty, past date, end<start, char count, >300), POST submit, navigate on success, server error, auth gate
+- triangulation: form usa useState para 3 campos; validación en tiempo real con isStartDateInPast/isEndDateBeforeStart/noteTooLong; submit deshabilitado hasta que endDate ≥ startDate; mock fetch responde POST 201 → navigate a /loans/:id; page retorna null si no hay currentUser; route /tools/:id/request en App.tsx
+- files: client/src/pages/RequestLoanPage.tsx, client/src/pages/requestLoan.test.tsx, client/src/App.tsx
+- decision: form con inputs type="date" y min attributes; note textarea con maxLength=300 y contador; submit disabled hasta validación; POST body incluye note solo si presente (undefined para omitir); redirige a loan detail tras éxito
+- blocker: none
+- commit: dadc54f
