@@ -69,3 +69,6 @@ client/node_modules/
 
 # rsc local state (hooks, seals, logs) and managed skill links — machine-local
 .worktrees/
+
+# rsc local state (hooks, seals, logs) and managed skill links — machine-local
+.opencode/agents/finding-verifier.md
