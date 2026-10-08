@@ -145,7 +145,7 @@ export function ToolDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="max-w-2xl mx-auto">
-        <Link to="/" className="text-blue-600 hover:underline mb-4 inline-block">
+        <Link to="/" className="text-blue-600 hover:underline mb-4 inline-block py-2 px-3">
           ← Volver al inicio
         </Link>
 
