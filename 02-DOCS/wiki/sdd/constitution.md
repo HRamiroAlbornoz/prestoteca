@@ -16,9 +16,9 @@ version: v1.0.0
 
 ## 1. Stack canon
 
-1. Server: Node.js + Express 5 + TypeScript. Pinned in `server/package.json`.
+1. Server: Node.js >= 18 + Express 5.2.1 + TypeScript ~6.0.2. Pinned in `server/package.json`.
 2. Database: PostgreSQL. Queries via `pg` (no ORM). Detail: `02-DOCS/wiki/stack/postgresdb.md`.
-3. Client: React + Vite + TypeScript + Tailwind + React Router. Pinned in `client/package.json`.
+3. Client: React 19.2.7 + Vite 8.1.0 + TypeScript ~6.0.2 + Tailwind CSS + React Router 7.x. Pinned in `client/package.json`.
 4. Package manager: npm (one lockfile per workspace, committed).
 
 ## 2. Quality bar
@@ -45,7 +45,7 @@ version: v1.0.0
 ## 5. Security & privacy floor
 
 12. No secret is ever committed. Secrets load from `server/.env` (gitignored). Baseline: `secure-coding`.
-13. All external data validated server-side (Zod schemas, length limits). SQL always parameterized. Passwords hashed with bcrypt (max 72 chars). XSS: React default escaping, no `dangerouslySetInnerHTML`. CSRF: `SameSite=Lax` + Origin header check on mutating requests. Rate limiting on login/register (5/min/IP). JSON body max 10kb. Helmet + CORS.
+13. All external data validated server-side (Zod schemas, length limits, safeParse). SQL always parameterized. Passwords hashed with bcrypt (max 72 chars, 12 salt rounds). XSS: React default escaping, no `dangerouslySetInnerHTML`. CSRF: `SameSite=Lax` + Origin header check on mutating requests. Rate limiting on login/register (5/min/IP). JSON body max 10kb. Helmet 8+ (HSTS 365d default) + CORS. `app.disable('x-powered-by')`. `app.set('trust proxy', 1)`.
 
 ## 6. UX / accessibility floor
 
@@ -78,3 +78,4 @@ A change ships only when ALL hold:
 |------|---------|--------|-----|
 | 2026-10-03 | v1.0.0 | Ratified initial constitution. | Project kickoff. |
 | 2026-10-04 | v1.0.1 | Filled stack canon, quality bar, conventions, security, accessibility, performance from product brief. | Brief review. |
+| 2026-10-04 | v1.0.2 | Pinned versions: Express 5.2.1, Node >= 18, React 19.2.7, Vite 8.1.0, TS ~6.0.2, React Router 7.x, Helmet 8+. Added `app.disable('x-powered-by')`, `trust proxy`, bcrypt 12 rounds, Zod safeParse. | Context7 library docs consultation. |

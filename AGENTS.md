@@ -27,9 +27,9 @@ Big, or decisions that affect each other → **SDD**: enter the chain; the perso
 clarify, then picks manual or autopilot. Say which and why in one line; switch if asked.
 → `../ftd/SKILL.md` · `../sdd/SKILL.md`.
 
-**Where.** Complex or in production → never commit on the default branch: branch yourself, close with
-a PR. Simple → the default branch. Another session in this checkout → `.worktrees/<branch>`. «desbloquea
-main» = `rsc main unlock`; «no uses worktrees» = `rsc isolation off`.
+**Where.** Default branch open (chosen at install, or nothing complex) → work on it, no branch
+question. Closed («ramas y PR», CI, team) → before each code change ask: this branch, a new one, or
+`rsc main unlock`? Never branch alone. Another session here → `.worktrees/<branch>`.
 
 Judge the **meaning**, not the wording: the trigger is semantic in any language. A bug fix restoring
 intended behaviour is `debug`. Autopilot consent covers a whole run — advance without re-asking.
@@ -101,12 +101,13 @@ Offer once per session. Never mention any of it when the harness is healthy.
 
 Before handling the first request of a session, check the workspace:
 
-- No `02-DOCS/wiki/harness/user-profile.md` **and** no `.rsc/.no-harness` → the harness has never
-  been set up here. Invoke `init` first; it opens with one question: technical terms or analogies.
-  Do not start the user's task before first contact is done.
+- No `02-DOCS/wiki/harness/user-profile.md` **and** no `.rsc/.no-harness` → invoke `init` first
+  (one question: technical terms or analogies) before the task.
+- A clone (`.rsc.json` committed) is not first contact: ask that once, in one line, then continue
+  with their task; with `.rsc/.profile-offered`, never again.
 - The user declines a harness here ("sin harness", "solo código") → create an empty
   `.rsc/.no-harness`, confirm in one line, and never auto-start `init` in this repo again.
-- Once the profile exists, this gate is inert. Never re-onboard.
+- With a profile, this gate is inert. Never re-onboard.
 
 ## Explain without assuming
 
