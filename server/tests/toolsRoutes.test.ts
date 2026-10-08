@@ -4,6 +4,7 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import { ToolRepository, type Tool } from '../src/modules/tools/toolRepo.js'
 import { ToolService } from '../src/modules/tools/toolService.js'
+import { SearchService } from '../src/modules/search/searchService.js'
 
 // Dynamic import — routes now use req.userId directly (no authMiddleware import)
 const { toolsRoutes } = await import('../src/modules/tools/toolsRoutes.js')
@@ -48,6 +49,14 @@ function createMockApp(authUserId = 'user-1') {
   }
 
   const service = new ToolService(mockRepo as ToolRepository)
+
+  // Mock SearchService
+  const mockSearchRepo = {
+    search: vi.fn(async () => ({ items: [], total: 0, page: 1, pages: 1 })),
+    count: vi.fn(async () => 0),
+  }
+  const searchService = new SearchService(mockSearchRepo as never)
+
   const app = express()
   app.use(express.json())
   app.use(cookieParser())
@@ -63,7 +72,7 @@ function createMockApp(authUserId = 'user-1') {
     next()
   })
 
-  app.use('/api/tools', toolsRoutes(service))
+  app.use('/api/tools', toolsRoutes(service, searchService))
 
   return { app, toolsById }
 }
