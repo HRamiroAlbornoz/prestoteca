@@ -122,4 +122,18 @@ export class LoanRepository {
     )
     return result.rows as Loan[]
   }
+
+  async anonymizeByBorrower(borrowerId: string): Promise<void> {
+    await this.query(
+      `UPDATE loans SET borrower_id = NULL WHERE borrower_id = $1`,
+      [borrowerId],
+    )
+  }
+
+  async anonymizeByOwner(ownerId: string): Promise<void> {
+    await this.query(
+      `UPDATE loans SET owner_id = NULL WHERE owner_id = $1`,
+      [ownerId],
+    )
+  }
 }

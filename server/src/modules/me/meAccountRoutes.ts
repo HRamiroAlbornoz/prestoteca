@@ -3,6 +3,7 @@ import express from 'express'
 import bcrypt from 'bcrypt'
 import type { UserRepository } from '../auth/userRepo.js'
 import type { ToolRepository } from '../tools/toolRepo.js'
+import type { LoanRepository } from '../loans/loanRepo.js'
 import type { AuthRequest } from '../middleware/auth.js'
 
 const SALT_ROUNDS = 12
@@ -10,6 +11,7 @@ const SALT_ROUNDS = 12
 export function meAccountRoutes(
   userRepo: UserRepository,
   toolRepo: ToolRepository,
+  loanRepo: LoanRepository,
 ): Router {
   const router = express.Router()
 
@@ -75,6 +77,10 @@ export function meAccountRoutes(
       for (const tool of tools) {
         await toolRepo.softDelete(tool.id)
       }
+
+      // Anonymize loans — keep history but remove user identity
+      await loanRepo.anonymizeByBorrower(userId)
+      await loanRepo.anonymizeByOwner(userId)
 
       // Delete user account
       await userRepo.delete(userId)
