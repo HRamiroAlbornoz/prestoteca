@@ -308,3 +308,13 @@ slug: prestoteca-mvp
 - decision: module nuevo en src/modules/search/; QueryFn type definido localmente; mock query detecta hasSearch vs hasCategory por patrón de valor (% prefix)
 - blocker: none
 - commit: 834f921
+
+## T029 — 2026-10-08
+- status: complete
+- red: searchService no existe — import falló con "Cannot find module" (mismo error ruta T028)
+- green: 10/10 tests — no filters, category, neighborhood, category+neighborhood, pagination, page<1 error, case-insensitive, page count
+- triangulation: service valida page >= 1, delega a toolRepo.findAll() que ya hace ILIKE + escape wildcards + category + neighborhood + pagination; mock repo simula filtrado por neighborhood via owner_id mapping
+- files: server/src/modules/search/searchService.ts, server/tests/searchService.test.ts
+- decision: service thin-layer (validación + delegación); toolRepo.findAll() ya cubre SQL pesado; SearchInput interface expone q/category/neighborhood/page/limit
+- blocker: none
+- commit: b64d090
