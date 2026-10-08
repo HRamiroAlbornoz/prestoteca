@@ -1,12 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import { AuthProvider, useAuth, ProtectedRoute } from './AuthContext'
 
 const TestProtectedPage = () => <div data-testid="protected-content">Protected Content</div>
 
 // Mock AuthProvider to avoid useEffect cookie reading in jsdom
-const mockAuthState = { currentUser: null, isLoading: false, login: vi.fn(), logout: vi.fn() }
+interface User {
+  id: string
+  name: string
+}
+const mockAuthState = { currentUser: null as User | null, isLoading: false, login: vi.fn(), logout: vi.fn() }
 
 vi.mock('./AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,

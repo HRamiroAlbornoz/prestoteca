@@ -17,7 +17,11 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 // Mock AuthContext — set via mockUseAuthValue in beforeEach
-const mockUseAuthValue = { currentUser: null, isLoading: false, login: vi.fn(), logout: vi.fn() }
+interface User {
+  id: string
+  name: string
+}
+const mockUseAuthValue = { currentUser: null as User | null, isLoading: false, login: vi.fn(), logout: vi.fn() }
 vi.mock('../contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useAuth: () => mockUseAuthValue,
@@ -85,13 +89,13 @@ describe('ToolDetailPage', () => {
 
   beforeEach(() => {
     mockFetch = vi.fn()
-    globalThis.fetch = mockFetch
+    globalThis.fetch = mockFetch as unknown as typeof fetch
     mockUseAuthValue.currentUser = null
     mockNavigate.mockClear()
     vi.restoreAllMocks()
   })
 
-  const renderPage = (initialEntry = '/tools/tool-1', user = null) => {
+  const renderPage = (initialEntry = '/tools/tool-1', user: User | null = null) => {
     mockUseAuthValue.currentUser = user
 
     render(

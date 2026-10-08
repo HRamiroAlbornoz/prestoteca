@@ -9,7 +9,7 @@ describe('RegisterPage', () => {
 
   beforeEach(() => {
     mockFetch = vi.fn()
-    vi.spyOn(globalThis, 'fetch').mockImplementation(mockFetch)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(mockFetch as unknown as typeof fetch)
   })
 
   it('renders all form fields', () => {
@@ -102,7 +102,7 @@ describe('LoginPage', () => {
 
   beforeEach(() => {
     mockFetch = vi.fn()
-    vi.spyOn(globalThis, 'fetch').mockImplementation(mockFetch)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(mockFetch as unknown as typeof fetch)
   })
 
   it('renders all form fields', () => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LoanStatus } from '../components/LoanStatus'
 
@@ -19,7 +19,6 @@ interface Loan {
 export function LoanDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { currentUser } = useAuth()
-  const navigate = useNavigate()
   const [loan, setLoan] = useState<Loan | null>(null)
   const [toolName, setToolName] = useState<string>('')
   const [error, setError] = useState<string>('')

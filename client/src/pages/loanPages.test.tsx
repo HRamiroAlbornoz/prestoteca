@@ -1,8 +1,13 @@
 import { describe, expect, it, vi, beforeEach, afterAll } from 'vitest'
-import { render, screen, waitFor, fireEvent, getAllByLabelText } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { LoanStatus } from '../components/LoanStatus'
 import { LoanDetailPage } from '../pages/LoanDetailPage'
+
+interface User {
+  id: string
+  name: string
+}
 
 // Mock react-router-dom
 const mockParams = { id: 'loan-1' }
@@ -17,7 +22,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 })
 
 // Mock AuthContext
-const mockUseAuthValue = { currentUser: null, isLoading: false, login: vi.fn(), logout: vi.fn() }
+const mockUseAuthValue = { currentUser: null as User | null, isLoading: false, login: vi.fn(), logout: vi.fn() }
 vi.mock('../contexts/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useAuth: () => mockUseAuthValue,
@@ -63,7 +68,7 @@ function setupFetch() {
     }
     return { ok: false, json: async () => ({}) }
   })
-  globalThis.fetch = mockFetch
+  globalThis.fetch = mockFetch as unknown as typeof fetch
   return mockFetch
 }
 
@@ -159,7 +164,7 @@ describe('LoanDetailPage', () => {
     vi.restoreAllMocks()
   })
 
-  const renderPage = (initialEntry = '/loans/loan-1', user = null) => {
+  const renderPage = (initialEntry = '/loans/loan-1', user: User | null = null) => {
     mockUseAuthValue.currentUser = user
     render(
       <MemoryRouter initialEntries={[initialEntry]}>

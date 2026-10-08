@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Tool } from '../components/ToolCard'
+import type { Tool } from '../components/ToolCard'
 
 const categoryLabels: Record<string, string> = {
   electricas: 'Eléctricas',
@@ -65,10 +65,12 @@ export function ToolDetailPage() {
   const isOwner = tool?.owner_id === currentUser?.id
 
   const handleEdit = () => {
+    if (!tool) return
     navigate(`/publish/${tool.id}`)
   }
 
   const handlePause = async () => {
+    if (!tool) return
     try {
       const res = await fetch(`/api/tools/${tool.id}`, {
         method: 'PATCH',
@@ -85,6 +87,7 @@ export function ToolDetailPage() {
   }
 
   const handleDelete = async () => {
+    if (!tool) return
     if (!confirm('¿Estás seguro de que querés eliminar esta herramienta?')) return
 
     try {

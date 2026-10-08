@@ -22,7 +22,7 @@ describe('PublishForm', () => {
 
   beforeEach(() => {
     mockFetch = vi.fn()
-    vi.spyOn(globalThis, 'fetch').mockImplementation(mockFetch)
+    vi.spyOn(globalThis, 'fetch').mockImplementation(mockFetch as unknown as typeof fetch)
   })
 
   it('renders all form fields', () => {
