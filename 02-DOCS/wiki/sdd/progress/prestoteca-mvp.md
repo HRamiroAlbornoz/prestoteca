@@ -278,3 +278,13 @@ slug: prestoteca-mvp
 - decision: form con inputs type="date" y min attributes; note textarea con maxLength=300 y contador; submit disabled hasta validación; POST body incluye note solo si presente (undefined para omitir); redirige a loan detail tras éxito
 - blocker: none
 - commit: dadc54f
+
+## T026 — 2026-10-08
+- status: complete
+- red: GET /api/loans y MyLoansPage no existen — imports fallaron, endpoint 404
+- green: 6/6 server (auth 401, missing type 400, invalid type 400, pedidos 200, recibidos 200, empty []) + 8/8 client (tabs render, fetch both, loan items, tab switch, badge, empty state, error)
+- triangulation: GET /api/loans usa query param type (pedidos/recibidos); service wrappea repo.findAllByBorrower/findAllByOwner; frontend usa Promise.all para fetch paralelo; tabs con role=tab/tablist/tabpanel; items clickeables → navigate a /loans/:id; empty messages por tab
+- files: server/src/modules/loans/loanService.ts, server/src/modules/loans/loansRoutes.ts, server/tests/loansRoutes.test.ts, client/src/pages/MyLoansPage.tsx, client/src/pages/myLoans.test.tsx
+- decision: endpoints GET /api/loans?type=pedidos|recibidos; page con tabs ARIA; counts en tab labels; LoanStatus badge en cada item; click navigate a detalle
+- blocker: none
+- commit: 6922782
