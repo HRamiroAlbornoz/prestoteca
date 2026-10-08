@@ -18,7 +18,7 @@ interface Loan {
   updated_at: string
 }
 
-type TabType = 'tools' | 'received' | 'made' | 'history'
+type TabType = 'tools' | 'received' | 'made' | 'history' | 'settings'
 
 interface ProfileData {
   tools: Tool[]
@@ -38,6 +38,14 @@ export function ProfilePage() {
   const [history, setHistory] = useState<Loan[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+
+  // Settings state
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [settingsError, setSettingsError] = useState('')
+  const [settingsSuccess, setSettingsSuccess] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -80,6 +88,73 @@ export function ProfilePage() {
     return date.toLocaleDateString('es-AR')
   }
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSettingsError('')
+    setSettingsSuccess('')
+
+    if (newPassword !== confirmPassword) {
+      setSettingsError('Las contraseñas no coinciden')
+      return
+    }
+
+    if (newPassword.length < 8 || newPassword.length > 72) {
+      setSettingsError('La contraseña debe tener entre 8 y 72 caracteres')
+      return
+    }
+
+    if (/^\s+$/.test(newPassword)) {
+      setSettingsError('La contraseña no puede ser solo espacios')
+      return
+    }
+
+    try {
+      const res = await fetch('/api/me/password', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+
+      if (res.ok) {
+        setSettingsSuccess('Contraseña cambiada correctamente')
+        setCurrentPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      } else {
+        const data = await res.json()
+        setSettingsError(data.error?.message || 'Error al cambiar la contraseña')
+      }
+    } catch {
+      setSettingsError('Error de conexión. Intentá de nuevo.')
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('¿Estás seguro? Esta acción no se puede deshacer.')) return
+
+    setDeleting(true)
+    setSettingsError('')
+
+    try {
+      const res = await fetch('/api/me/account', {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        // Clear auth and redirect to home
+        localStorage.removeItem('token')
+        window.location.href = '/'
+      } else {
+        const data = await res.json()
+        setSettingsError(data.error?.message || 'Error al eliminar la cuenta')
+      }
+    } catch {
+      setSettingsError('Error de conexión. Intentá de nuevo.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const handleLoanClick = (loanId: string) => {
     navigate(`/loans/${loanId}`)
   }
@@ -97,6 +172,7 @@ export function ProfilePage() {
     { key: 'received', label: 'Pedidos recibidos', count: profileData.receivedLoans.length },
     { key: 'made', label: 'Pedidos hechos', count: profileData.madeLoans.length },
     { key: 'history', label: 'Historial', count: history.length },
+    { key: 'settings', label: 'Configuración', count: 0 },
   ]
 
   return (
@@ -256,6 +332,101 @@ export function ProfilePage() {
                 </div>
               )}
             </>
+          )}
+
+          {/* Settings tab */}
+          {activeTab === 'settings' && (
+            <div className="space-y-8">
+              {/* Change password */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                  Cambiar contraseña
+                </h2>
+
+                {settingsError && activeTab === 'settings' && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+                    {settingsError}
+                  </div>
+                )}
+
+                {settingsSuccess && (
+                  <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4" role="status">
+                    {settingsSuccess}
+                  </div>
+                )}
+
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <div>
+                    <label htmlFor="current-password" className="block text-sm font-medium text-gray-700 mb-1">
+                      Contraseña actual
+                    </label>
+                    <input
+                      id="current-password"
+                      type="password"
+                      required
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">
+                      Nueva contraseña
+                    </label>
+                    <input
+                      id="new-password"
+                      type="password"
+                      required
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="8-72 caracteres"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
+                      Confirmar nueva contraseña
+                    </label>
+                    <input
+                      id="confirm-password"
+                      type="password"
+                      required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Repetí la nueva contraseña"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Cambiar contraseña
+                  </button>
+                </form>
+              </div>
+
+              {/* Delete account */}
+              <div className="bg-white rounded-lg shadow-sm p-6 border border-red-200">
+                <h2 className="text-lg font-semibold text-red-700 mb-2">
+                  Eliminar cuenta
+                </h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Esta acción eliminará todas tus herramientas (borrado lógico) y tu cuenta. Los préstamos mantendrán su historio pero tu nombre será borrado.
+                </p>
+
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  {deleting ? 'Eliminando...' : 'Eliminar mi cuenta'}
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
