@@ -258,3 +258,13 @@ slug: prestoteca-mvp
 - decision: cron usa setInterval (no librería externa); scan corre inmediatamente al iniciar; interval configurable para testing; stop() para cleanup; errors catched sin crash
 - blocker: none
 - commit: f979eef
+
+## T024 — 2026-10-07
+- status: complete
+- red: LoanStatus y LoanDetailPage no existen — imports fallaron
+- green: 19/19 tests — 7 LoanStatus (todos los colores), 12 LoanDetailPage (render status/note/fechas, buttons por rol, PATCH accept, error fetch, non-participant)
+- triangulation: LoanStatus usa statusConfig map con labels+colores; LoanDetailPage fetch loan + tool name; action buttons conditional por status y participant (owner/borrower); mock fetch shared por URL pattern; toLocaleDateString('es-AR') para fechas
+- files: client/src/components/LoanStatus.tsx, client/src/pages/LoanDetailPage.tsx, client/src/pages/loanPages.test.tsx
+- decision: badge component reutilizable; page usa useAuth + useParams; buttons: pendiente→(aceptar/rechazar/cancelar), aceptado→(marcar entregado/cancelar), entregado→(marcar devuelto); final states sin botones
+- blocker: none
+- commit: 5c815b3
