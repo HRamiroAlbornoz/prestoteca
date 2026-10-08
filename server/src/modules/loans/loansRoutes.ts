@@ -137,5 +137,30 @@ export function loansRoutes(
     }
   })
 
+  // GET /api/loans — list loans for a user
+  router.get('/loans', async (req: AuthRequest, res: express.Response) => {
+    const userId = req.userId
+    if (!userId) {
+      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      return
+    }
+
+    const { type } = req.query as Record<string, string>
+
+    if (type !== 'pedidos' && type !== 'recibidos') {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing or invalid type (pedidos/recibidos)' } })
+      return
+    }
+
+    try {
+      const loans = type === 'pedidos'
+        ? await service.findLoansByBorrower(userId)
+        : await service.findLoansByOwner(userId)
+      res.status(200).json(loans)
+    } catch {
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to list loans' } })
+    }
+  })
+
   return router
 }

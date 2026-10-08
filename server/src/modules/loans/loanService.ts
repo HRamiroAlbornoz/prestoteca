@@ -112,6 +112,14 @@ export class LoanService {
     return count
   }
 
+  async findLoansByBorrower(borrowerId: string): Promise<import('./loanRepo.js').Loan[]> {
+    return this.repo.findAllByBorrower(borrowerId)
+  }
+
+  async findLoansByOwner(ownerId: string): Promise<import('./loanRepo.js').Loan[]> {
+    return this.repo.findAllByOwner(ownerId)
+  }
+
   private async findAllDeliveredLoans(): Promise<Array<{ id: string; end_date: string }>> {
     // Query all loans with status 'entregado'
     // We use a direct query since the repo doesn't have findAllByStatus

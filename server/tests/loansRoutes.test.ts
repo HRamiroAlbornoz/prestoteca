@@ -351,4 +351,106 @@ describe('loans routes', () => {
       expect(res.body.status).toBe('cancelado')
     })
   })
+
+  describe('GET /api/loans', () => {
+    it('returns 401 without auth', async () => {
+      const { app } = createMockApp()
+
+      const res = await request(app)
+        .get('/api/loans?type=pedidos')
+
+      expect(res.status).toBe(401)
+    })
+
+    it('returns 400 when type is missing', async () => {
+      const { app } = createMockApp()
+
+      const res = await request(app)
+        .get('/api/loans')
+        .set('Authorization', 'Bearer user-1')
+
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 400 when type is invalid', async () => {
+      const { app } = createMockApp()
+
+      const res = await request(app)
+        .get('/api/loans?type=invalid')
+        .set('Authorization', 'Bearer user-1')
+
+      expect(res.status).toBe(400)
+    })
+
+    it('returns loans when type=pedidos (user is borrower)', async () => {
+      const { app, mockRepo } = createMockApp()
+
+      const mockLoans = [
+        {
+          id: 'loan-1',
+          tool_id: 'tool-1',
+          borrower_id: 'user-2',
+          owner_id: 'user-1',
+          start_date: '2026-10-10',
+          end_date: '2026-10-20',
+          status: 'pendiente',
+          note: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]
+      mockRepo.findAllByBorrower = vi.fn().mockResolvedValueOnce(mockLoans)
+
+      const res = await request(app)
+        .get('/api/loans?type=pedidos')
+        .set('Authorization', 'Bearer user-2')
+
+      expect(res.status).toBe(200)
+      expect(res.body).toHaveLength(1)
+      expect(res.body[0].id).toBe('loan-1')
+      expect(mockRepo.findAllByBorrower).toHaveBeenCalledWith('user-2')
+    })
+
+    it('returns loans when type=recibidos (user is owner)', async () => {
+      const { app, mockRepo } = createMockApp()
+
+      const mockLoans = [
+        {
+          id: 'loan-2',
+          tool_id: 'tool-1',
+          borrower_id: 'user-3',
+          owner_id: 'user-1',
+          start_date: '2026-10-15',
+          end_date: '2026-10-25',
+          status: 'aceptado',
+          note: 'Lo necesito',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]
+      mockRepo.findAllByOwner = vi.fn().mockResolvedValueOnce(mockLoans)
+
+      const res = await request(app)
+        .get('/api/loans?type=recibidos')
+        .set('Authorization', 'Bearer user-1')
+
+      expect(res.status).toBe(200)
+      expect(res.body).toHaveLength(1)
+      expect(res.body[0].id).toBe('loan-2')
+      expect(mockRepo.findAllByOwner).toHaveBeenCalledWith('user-1')
+    })
+
+    it('returns empty array when no loans found', async () => {
+      const { app, mockRepo } = createMockApp()
+
+      mockRepo.findAllByBorrower = vi.fn().mockResolvedValueOnce([])
+
+      const res = await request(app)
+        .get('/api/loans?type=pedidos')
+        .set('Authorization', 'Bearer user-99')
+
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual([])
+    })
+  })
 })
