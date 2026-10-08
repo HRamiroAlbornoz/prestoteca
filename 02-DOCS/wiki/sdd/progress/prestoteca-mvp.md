@@ -318,3 +318,23 @@ slug: prestoteca-mvp
 - decision: service thin-layer (validación + delegación); toolRepo.findAll() ya cubre SQL pesado; SearchInput interface expone q/category/neighborhood/page/limit
 - blocker: none
 - commit: b64d090
+
+## T033 — 2026-10-08
+- status: complete
+- red: me/password y me/account no existen — endpoints 404; ProfilePage sin tab Configuración
+- green: 8/8 tests — PATCH /me/password (401 sin auth, 400 missing fields, 400 short, 400 long, 400 spaces, 204 success); DELETE /me/account (401 sin auth, 204 success)
+- triangulation: bcrypt.compare valida current pw; bcrypt.hash con 12 salt rounds; soft delete tools antes de borrar user; form frontend valida longitud, espacios, coincidencia passwords
+- files: server/src/modules/me/meAccountRoutes.ts, server/src/modules/auth/userRepo.ts (updatePassword), server/src/routes.ts, client/src/pages/ProfilePage.tsx, server/tests/meAccountRoutes.test.ts
+- decision: PATCH devuelve 204; DELETE soft-deletes tools + deletes user; ProfilePage tab "Configuración" con formulario cambio contraseña + botón eliminar con confirmación
+- blocker: none
+- commit: (pendiente)
+
+## T034 — 2026-10-08
+- status: complete
+- red: category validation no testeada en routes — mock repo saltea validación
+- green: 9/9 toolsRoutes tests + 13/13 searchRepo + 10/10 searchService + 11/11 t030_routes + 14/14 meAccountRoutes = 57/57 tests green; 198 server + 109 client = 307 total
+- triangulation: validación de categoría en ToolService (no solo en repo); mock repo en tests ahora refleja comportamiento real; ACs de búsqueda (155-162) y perfil (166-167) verificados
+- files: server/src/modules/tools/toolService.ts, server/tests/toolsRoutes.test.ts
+- decision: ToolService valida category y condition antes de delegar al repo; fixed list: electricas, manuales, jardineria, plomeria, gas, pintura, medicion, construccion, otros
+- blocker: none
+- commit: (pendiente)

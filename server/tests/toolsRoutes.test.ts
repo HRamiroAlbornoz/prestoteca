@@ -114,6 +114,23 @@ describe('tools CRUD routes', () => {
       expect(res.status).toBe(400)
     })
 
+    it('returns 400 on invalid category', async () => {
+      const { app } = createMockApp('user-1')
+
+      const res = await request(app)
+        .post('/api/tools')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({
+          name: 'Taladro',
+          description: 'Un taladro',
+          category: 'invalida',
+          condition: 'bueno',
+        })
+
+      expect(res.status).toBe(400)
+    })
+
     it('returns 401 without auth token', async () => {
       const { app } = createMockApp('user-1')
 
@@ -180,6 +197,31 @@ describe('tools CRUD routes', () => {
         .send({ name: 'Hacked' })
 
       expect(res.status).toBe(403)
+    })
+
+    it('returns 400 on invalid category in edit', async () => {
+      const { app, toolsById } = createMockApp('user-1')
+
+      const toolId = 'uuid-1'
+      toolsById.set(toolId, {
+        id: toolId,
+        owner_id: 'user-1',
+        name: 'Taladro',
+        description: 'Desc',
+        category: 'electricas',
+        condition: 'bueno',
+        is_paused: false,
+        deleted_at: null,
+        created_at: new Date().toISOString(),
+      })
+
+      const res = await request(app)
+        .patch(`/api/tools/${toolId}`)
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({ category: 'invalida' })
+
+      expect(res.status).toBe(400)
     })
   })
 
