@@ -129,4 +129,16 @@ export class UserRepository {
       client.release()
     }
   }
+
+  async updatePassword(id: string, passwordHash: string): Promise<void> {
+    const client = await this.pool.connect()
+    try {
+      await client.query(
+        `UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2`,
+        [passwordHash, id],
+      )
+    } finally {
+      client.release()
+    }
+  }
 }

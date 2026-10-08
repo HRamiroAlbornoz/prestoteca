@@ -111,4 +111,15 @@ export class LoanRepository {
     const result = await this.query(sql, values)
     return (result.rowCount ?? 0) > 0
   }
+
+  async findTerminatedByUserId(userId: string): Promise<Loan[]> {
+    const result = await this.query(
+      `SELECT * FROM loans
+       WHERE (borrower_id = $1 OR owner_id = $1)
+         AND status IN ('devuelto', 'rechazado', 'cancelado')
+       ORDER BY updated_at DESC`,
+      [userId],
+    )
+    return result.rows as Loan[]
+  }
 }

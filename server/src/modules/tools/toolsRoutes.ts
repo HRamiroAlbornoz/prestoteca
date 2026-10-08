@@ -1,10 +1,34 @@
 import type { Router } from 'express'
 import express from 'express'
 import type { ToolService } from './toolService.js'
+import type { SearchService } from '../search/searchService.js'
 import type { AuthRequest } from '../middleware/auth.js'
 
-export function toolsRoutes(service: ToolService): Router {
+export function toolsRoutes(service: ToolService, searchService: SearchService): Router {
   const router = express.Router()
+
+  // GET /api/tools — list tools with pagination and filters
+  router.get('/', (req: express.Request, res: express.Response) => {
+    const { page, q, category, neighborhood } = req.query
+
+    const pageNum = page ? parseInt(String(page), 10) : 1
+
+    if (page !== undefined && (isNaN(pageNum) || pageNum < 1)) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Page must be a positive integer' } })
+      return
+    }
+
+    searchService.search({
+      q: q as string | undefined,
+      category: category as string | undefined,
+      neighborhood: neighborhood as string | undefined,
+      page: pageNum,
+    }).then((result) => {
+      res.status(200).json(result)
+    }).catch(() => {
+      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to list tools' } })
+    })
+  })
 
   // GET /api/tools/:id — get tool detail (no auth required)
   router.get('/:id', (req: express.Request, res: express.Response) => {

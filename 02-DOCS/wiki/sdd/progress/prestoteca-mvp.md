@@ -288,3 +288,53 @@ slug: prestoteca-mvp
 - decision: endpoints GET /api/loans?type=pedidos|recibidos; page con tabs ARIA; counts en tab labels; LoanStatus badge en cada item; click navigate a detalle
 - blocker: none
 - commit: 6922782
+
+## T027 — 2026-10-08
+- status: complete
+- red: 3 ACs de loans sin test — AC 137 (rechazar), AC 148 (concurrentes), AC 151 (re-solicitar tras terminación)
+- green: 3/3 nuevos tests — PATCH rechazado 200, dos usuarios distintos solicitan misma herramienta no-overlapping → ambos 201 pendiente, re-solicitud tras cancelado → 201
+- triangulation: mock pool simula INSERT RETURNING para cada request; loans store por id; overlap check filtra por status activo; AC 151 verifica que status cancelado no activa hasActiveLoans ni hasOverlappingDates
+- files: server/tests/loansRoutes.test.ts
+- decision: tests añadidos al archivo existente; no se requirieron cambios en código
+- blocker: none
+- commit: 11f8375
+
+## T028 — 2026-10-08
+- status: complete
+- red: searchRepo no existe — import falló con "Cannot find module"
+- green: 13/13 tests — no filters, category filter, case-insensitive (lower/upper), % escape, _ escape, paused exclude, pagination, page<1 error, count, count+category
+- triangulation: ILIKE para búsqueda case-insensitive; replace(/%/g, '\\%').replace(/_/g, '\\_') para escape SQL LIKE; WHERE conditions dinámicas; LIMIT/OFFSET para paginación; COUNT con mismas condiciones
+- files: server/src/modules/search/searchRepo.ts, server/tests/searchRepo.test.ts
+- decision: module nuevo en src/modules/search/; QueryFn type definido localmente; mock query detecta hasSearch vs hasCategory por patrón de valor (% prefix)
+- blocker: none
+- commit: 834f921
+
+## T029 — 2026-10-08
+- status: complete
+- red: searchService no existe — import falló con "Cannot find module" (mismo error ruta T028)
+- green: 10/10 tests — no filters, category, neighborhood, category+neighborhood, pagination, page<1 error, case-insensitive, page count
+- triangulation: service valida page >= 1, delega a toolRepo.findAll() que ya hace ILIKE + escape wildcards + category + neighborhood + pagination; mock repo simula filtrado por neighborhood via owner_id mapping
+- files: server/src/modules/search/searchService.ts, server/tests/searchService.test.ts
+- decision: service thin-layer (validación + delegación); toolRepo.findAll() ya cubre SQL pesado; SearchInput interface expone q/category/neighborhood/page/limit
+- blocker: none
+- commit: b64d090
+
+## T033 — 2026-10-08
+- status: complete
+- red: me/password y me/account no existen — endpoints 404; ProfilePage sin tab Configuración
+- green: 8/8 tests — PATCH /me/password (401 sin auth, 400 missing fields, 400 short, 400 long, 400 spaces, 204 success); DELETE /me/account (401 sin auth, 204 success)
+- triangulation: bcrypt.compare valida current pw; bcrypt.hash con 12 salt rounds; soft delete tools antes de borrar user; form frontend valida longitud, espacios, coincidencia passwords
+- files: server/src/modules/me/meAccountRoutes.ts, server/src/modules/auth/userRepo.ts (updatePassword), server/src/routes.ts, client/src/pages/ProfilePage.tsx, server/tests/meAccountRoutes.test.ts
+- decision: PATCH devuelve 204; DELETE soft-deletes tools + deletes user; ProfilePage tab "Configuración" con formulario cambio contraseña + botón eliminar con confirmación
+- blocker: none
+- commit: (pendiente)
+
+## T034 — 2026-10-08
+- status: complete
+- red: category validation no testeada en routes — mock repo saltea validación
+- green: 9/9 toolsRoutes tests + 13/13 searchRepo + 10/10 searchService + 11/11 t030_routes + 14/14 meAccountRoutes = 57/57 tests green; 198 server + 109 client = 307 total
+- triangulation: validación de categoría en ToolService (no solo en repo); mock repo en tests ahora refleja comportamiento real; ACs de búsqueda (155-162) y perfil (166-167) verificados
+- files: server/src/modules/tools/toolService.ts, server/tests/toolsRoutes.test.ts
+- decision: ToolService valida category y condition antes de delegar al repo; fixed list: electricas, manuales, jardineria, plomeria, gas, pintura, medicion, construccion, otros
+- blocker: none
+- commit: (pendiente)
