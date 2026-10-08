@@ -3,6 +3,7 @@ import helmet from 'helmet'
 import { loadEnv } from './modules/config/env.js'
 import { checkDbConnection } from './modules/db/pool.js'
 import { rateLimiter } from './modules/middleware/rateLimit.js'
+import { wireRoutes } from './routes.js'
 
 export type ExpressApplication = ReturnType<typeof express>
 
@@ -30,6 +31,9 @@ export async function createApp(): Promise<ExpressApplication> {
     const db = await checkDbConnection()
     res.json({ status: 'ok', db })
   })
+
+  // Wire all API routes
+  wireRoutes(app)
 
   return app
 }

@@ -4,6 +4,7 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import { ToolRepository, type Tool } from '../src/modules/tools/toolRepo.js'
 import { ToolService } from '../src/modules/tools/toolService.js'
+import { SearchService } from '../src/modules/search/searchService.js'
 
 // Dynamic import — routes now use req.userId directly (no authMiddleware import)
 const { toolsRoutes } = await import('../src/modules/tools/toolsRoutes.js')
@@ -48,6 +49,14 @@ function createMockApp(authUserId = 'user-1') {
   }
 
   const service = new ToolService(mockRepo as ToolRepository)
+
+  // Mock SearchService
+  const mockSearchRepo = {
+    search: vi.fn(async () => ({ items: [], total: 0, page: 1, pages: 1 })),
+    count: vi.fn(async () => 0),
+  }
+  const searchService = new SearchService(mockSearchRepo as never)
+
   const app = express()
   app.use(express.json())
   app.use(cookieParser())
@@ -63,7 +72,7 @@ function createMockApp(authUserId = 'user-1') {
     next()
   })
 
-  app.use('/api/tools', toolsRoutes(service))
+  app.use('/api/tools', toolsRoutes(service, searchService))
 
   return { app, toolsById }
 }
@@ -101,6 +110,23 @@ describe('tools CRUD routes', () => {
         .set('Authorization', 'Bearer user-1')
         .set('Origin', 'http://localhost:5173')
         .send({ name: 'Taladro' })
+
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 400 on invalid category', async () => {
+      const { app } = createMockApp('user-1')
+
+      const res = await request(app)
+        .post('/api/tools')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({
+          name: 'Taladro',
+          description: 'Un taladro',
+          category: 'invalida',
+          condition: 'bueno',
+        })
 
       expect(res.status).toBe(400)
     })
@@ -171,6 +197,31 @@ describe('tools CRUD routes', () => {
         .send({ name: 'Hacked' })
 
       expect(res.status).toBe(403)
+    })
+
+    it('returns 400 on invalid category in edit', async () => {
+      const { app, toolsById } = createMockApp('user-1')
+
+      const toolId = 'uuid-1'
+      toolsById.set(toolId, {
+        id: toolId,
+        owner_id: 'user-1',
+        name: 'Taladro',
+        description: 'Desc',
+        category: 'electricas',
+        condition: 'bueno',
+        is_paused: false,
+        deleted_at: null,
+        created_at: new Date().toISOString(),
+      })
+
+      const res = await request(app)
+        .patch(`/api/tools/${toolId}`)
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({ category: 'invalida' })
+
+      expect(res.status).toBe(400)
     })
   })
 

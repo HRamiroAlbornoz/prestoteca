@@ -1,9 +1,29 @@
 import type { ToolRepository, CreateToolInput, Tool } from './toolRepo.js'
 
+const VALID_CATEGORIES = [
+  'electricas',
+  'manuales',
+  'jardineria',
+  'plomeria',
+  'gas',
+  'pintura',
+  'medicion',
+  'construccion',
+  'otros',
+] as const
+
+const VALID_CONDITIONS = ['nuevo', 'bueno', 'usado'] as const
+
 export class ToolService {
   constructor(private repo: ToolRepository) {}
 
   async publish(input: CreateToolInput): Promise<Tool> {
+    if (!(VALID_CATEGORIES as readonly string[]).includes(input.category)) {
+      throw new Error('Invalid category')
+    }
+    if (!(VALID_CONDITIONS as readonly string[]).includes(input.condition)) {
+      throw new Error('Invalid condition')
+    }
     return this.repo.create(input)
   }
 
@@ -19,6 +39,16 @@ export class ToolService {
     }
     if (tool.owner_id !== userId) {
       throw new Error('You can only edit your own tools')
+    }
+
+    // Validate category if provided
+    if (updates.category !== undefined && !(VALID_CATEGORIES as readonly string[]).includes(updates.category)) {
+      throw new Error('Invalid category')
+    }
+
+    // Validate condition if provided
+    if (updates.condition !== undefined && !(VALID_CONDITIONS as readonly string[]).includes(updates.condition)) {
+      throw new Error('Invalid condition')
     }
 
     return this.repo.update(id, updates)
