@@ -298,3 +298,13 @@ slug: prestoteca-mvp
 - decision: tests añadidos al archivo existente; no se requirieron cambios en código
 - blocker: none
 - commit: 11f8375
+
+## T028 — 2026-10-08
+- status: complete
+- red: searchRepo no existe — import falló con "Cannot find module"
+- green: 13/13 tests — no filters, category filter, case-insensitive (lower/upper), % escape, _ escape, paused exclude, pagination, page<1 error, count, count+category
+- triangulation: ILIKE para búsqueda case-insensitive; replace(/%/g, '\\%').replace(/_/g, '\\_') para escape SQL LIKE; WHERE conditions dinámicas; LIMIT/OFFSET para paginación; COUNT con mismas condiciones
+- files: server/src/modules/search/searchRepo.ts, server/tests/searchRepo.test.ts
+- decision: module nuevo en src/modules/search/; QueryFn type definido localmente; mock query detecta hasSearch vs hasCategory por patrón de valor (% prefix)
+- blocker: none
+- commit: 834f921
