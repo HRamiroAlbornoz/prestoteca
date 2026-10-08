@@ -57,3 +57,15 @@
 .opencode/rsc/react
 .opencode/rsc/testing-web
 .opencode/commands/test-coverage.md
+
+# Server build artifacts
+server/dist/
+server/tsconfig.tsbuildinfo
+server/node_modules/
+
+# Client build artifacts
+client/dist/
+client/node_modules/
+
+# rsc local state (hooks, seals, logs) and managed skill links — machine-local
+.worktrees/
