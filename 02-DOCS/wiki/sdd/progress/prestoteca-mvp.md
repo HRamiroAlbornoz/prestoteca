@@ -248,3 +248,13 @@ slug: prestoteca-mvp
 - decision: POST /tools/:id/loans hace lookup SQL del tool owner; GET /loans/:id usa getDetail con participant check; PATCH /loans/:id/status usa transition con state machine; 409 para conflict (overlap, invalid transition), 404 para not-found/non-participant
 - blocker: none
 - commit: 3eaded7
+
+## T023 — 2026-10-07
+- status: complete
+- red: loanScan no existe — import falló con "Cannot find module"
+- green: 4/4 tests — scan inmediato, intervalo, stop() cleanup, error handling sin crash
+- triangulation: createLoanScan crea repo+service interno, corre scan inmediato + setInterval; mock query maneja SELECT findById + UPDATE status + SELECT status; vi.useFakeTimers() para controlar intervalos
+- files: server/src/modules/loans/loanScan.ts, server/tests/loanScan.test.ts
+- decision: cron usa setInterval (no librería externa); scan corre inmediatamente al iniciar; interval configurable para testing; stop() para cleanup; errors catched sin crash
+- blocker: none
+- commit: f979eef
