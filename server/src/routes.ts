@@ -1,4 +1,3 @@
-import express from 'express'
 import { getPool } from './modules/db/pool.js'
 import { authRoutes } from './modules/auth/authRoutes.js'
 import { toolsRoutes } from './modules/tools/toolsRoutes.js'
@@ -13,6 +12,7 @@ import { LoanService } from './modules/loans/loanService.js'
 import { UserRepository } from './modules/auth/userRepo.js'
 import type { ExpressApplication } from './index.js'
 import { loadEnv } from './modules/config/env.js'
+import { authMiddleware } from './modules/middleware/auth.js'
 
 export function wireRoutes(app: ExpressApplication): void {
   const env = loadEnv()
@@ -28,24 +28,13 @@ export function wireRoutes(app: ExpressApplication): void {
   const searchService = new SearchService(toolRepo)
   const loanService = new LoanService(loanRepo, pool.query.bind(pool))
 
-  // Auth middleware for protected routes
-  const authMiddleware = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const authHeader = req.headers.authorization
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } })
-      return
-    }
-    ;(req as any).userId = authHeader.replace('Bearer ', '')
-    next()
-  }
-
   // Auth routes (handles its own auth)
   app.use('/api/auth', authRoutes(userRepo, env.JWT_SECRET, env.CORS_ORIGIN))
 
   // Tools routes — GET / is public, rest needs auth
   app.use('/api/tools', (req, res, next) => {
     if (req.method === 'GET' && req.path === '/') return next()
-    return authMiddleware(req, res, next)
+    return authMiddleware(req as any, res, next)
   })
   app.use('/api/tools', toolsRoutes(toolService, searchService))
 

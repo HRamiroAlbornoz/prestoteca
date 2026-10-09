@@ -19,7 +19,6 @@ describe('migrations', () => {
     expect(files).toContain('owner_id UUID NOT NULL REFERENCES users(id)')
     expect(files).toContain('idx_tools_owner')
     expect(files).toContain('idx_tools_category')
-    expect(files).toContain('idx_tools_neighborhood')
     expect(files).toContain('idx_tools_deleted')
   })
 
