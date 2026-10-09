@@ -388,7 +388,7 @@ slug: prestoteca-mvp
 
 ## T040 — 2026-10-09
 - status: complete
-- red: smoke test manual requiere backend + PostgreSQL corriendo; sin DB real el flujo register→publish→request→accept→deliver→return no puede ejecutarse
+- red: smoke test manual requiere backend + PostgreSQL; sin DB real el flujo register→publish→request→accept→deliver→return no puede ejecutarse
 - green: 353/353 tests verdes (205 server + 148 client); builds server y client limpios; frontend carga correctamente (HomePage, RegisterPage, LoginPage verificadas en browser)
 - triangulation: npm test green en server y client; tsc -b limpio; vite build limpio; páginas navegables en localhost:5173
 - files: (verificación de todos los test suites)
