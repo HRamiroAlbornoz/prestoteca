@@ -63,6 +63,16 @@ server/dist/
 server/tsconfig.tsbuildinfo
 server/node_modules/
 
+# Environment files (never commit secrets)
+server/.env
+client/.env
+server/.env.local
+client/.env.local
+server/.env.development
+client/.env.development
+server/.env.production
+client/.env.production
+
 # Client build artifacts
 client/dist/
 client/node_modules/
