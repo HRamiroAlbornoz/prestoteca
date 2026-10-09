@@ -60,6 +60,7 @@
 
 # Server build artifacts
 server/dist/
+server/client-dist/
 server/tsconfig.tsbuildinfo
 server/node_modules/
 
