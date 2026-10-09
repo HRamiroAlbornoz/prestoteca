@@ -15,5 +15,4 @@ CREATE TABLE IF NOT EXISTS tools (
 
 CREATE INDEX IF NOT EXISTS idx_tools_owner ON tools (owner_id);
 CREATE INDEX IF NOT EXISTS idx_tools_category ON tools (category);
-CREATE INDEX IF NOT EXISTS idx_tools_neighborhood ON tools (neighborhood);
 CREATE INDEX IF NOT EXISTS idx_tools_deleted ON tools (deleted_at) WHERE deleted_at IS NULL;
