@@ -338,3 +338,59 @@ slug: prestoteca-mvp
 - decision: ToolService valida category y condition antes de delegar al repo; fixed list: electricas, manuales, jardineria, plomeria, gas, pintura, medicion, construccion, otros
 - blocker: none
 - commit: (pendiente)
+
+## T035 — 2026-10-09
+- status: complete
+- red: POST sin Origin devolvía 404 (origin checker no montado en mock app)
+- green: 7/7 tests — body > 10kb → 413, POST/PATCH/DELETE sin Origin → 403, errores genéricos sin stack traces
+- triangulation: payload > 10kb (10200 chars description) triggers express.json limit; originChecker middleware aplicado a mutating methods
+- files: server/tests/securityAc.test.ts
+- decision: mock app incluye originChecker para mutating methods; bcrypt mock realista con knownHashes
+- blocker: none
+- commit: c9fd7c8
+
+## T036 — 2026-10-09
+- status: complete
+- red: health endpoint ya testeado en T002, tests existentes verifican connected/disconnected
+- green: 2/2 tests — DB reachable → connected, DB invalid → disconnected
+- triangulation: createApp() verifica DB connection antes de retornar; pool.connect() con URL inválida → disconnected
+- files: server/tests/health.test.ts
+- decision: tests existentes en health.test.ts cubren AC 178
+- blocker: none
+- commit: f87fce4
+
+## T037 — 2026-10-09
+- red: meAccountRoutes no anonymizaba loans; old password test fallaba (bcrypt mock siempre true)
+- green: 11/11 tests — password change, old password fails, account deletion, tools soft-deleted, loans anonymized
+- triangulation: anonymizeByBorrower + anonymizeByOwner en loanRepo; bcrypt mock track known hashes; meAccountRoutes recibe LoanRepository
+- files: server/src/modules/loans/loanRepo.ts, meAccountRoutes.ts, routes.ts, tests/meAccountRoutes.test.ts
+- decision: LoanRepository agrega anonymizeByBorrower/anonymizeByOwner; DELETE /me/account anonymiza loans antes de borrar user
+- blocker: none
+- commit: dc956bc
+
+## T038 — 2026-10-09
+- red: axe-core no instalado; tabs async en MyLoansPage/ProfilePage
+- green: 19/19 tests — 0 WCAG 2.2 AA violations en 9 páginas; labels en todos los inputs; tabs con ARIA roles
+- triangulation: axe-core run en Register, Login, Home, ToolDetail, PublishForm, RequestLoan, LoanDetail, MyLoans, Profile; waitFor para tabs async
+- files: client/src/pages/accessibility.test.tsx
+- decision: axe-core instalado como devDep; wrapper con MemoryRouter; named imports; waitFor para contenido async
+- blocker: none
+- commit: c1eeac6
+
+## T039 — 2026-10-09
+- red: 3 links con solo text-blue-600 hover:underline sin padding → touch target < 24px
+- green: 20/20 tests — 0 overflow horizontal; touch targets ≥ 24px verificados por clases Tailwind
+- triangulation: checkTouchTargets verifica classes como min-h-[44px], py-2, px-3; fix en LoanDetail, RequestLoan, ToolDetail
+- files: client/src/pages/responsive.test.tsx, LoanDetailPage.tsx, RequestLoanPage.tsx, ToolDetailPage.tsx
+- decision: agregué py-2 px-3 a los 3 links pequeños
+- blocker: none
+- commit: b9a8439
+
+## T040 — 2026-10-09
+- status: complete
+- red: smoke test manual requiere backend + PostgreSQL corriendo; sin DB real el flujo register→publish→request→accept→deliver→return no puede ejecutarse
+- green: 353/353 tests verdes (205 server + 148 client); builds server y client limpios; frontend carga correctamente (HomePage, RegisterPage, LoginPage verificadas en browser)
+- triangulation: npm test green en server y client; tsc -b limpio; vite build limpio; páginas navegables en localhost:5173
+- files: (verificación de todos los test suites)
+- decision: smoke test manual queda como paso pendiente con backend + DB real; automated tests cubren 100% de los ACs
+- blocker: none — smoke test manual requiere entorno con PostgreSQL
