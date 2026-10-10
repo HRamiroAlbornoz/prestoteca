@@ -6,6 +6,6 @@
     "start": "cd server && npm run start"
   },
   "engines": {
-    "node": ">= 18"
+    "node": ">= 20"
   }
 }
