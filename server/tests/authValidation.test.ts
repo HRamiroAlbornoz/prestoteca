@@ -63,12 +63,12 @@ describe('auth validation ACs', () => {
       // Register with lowercase
       await request(app.app)
         .post('/api/auth/register')
-        .send({ name: 'Ana', email: 'ana@example.com', password: 'ana123', neighborhood: 'Centro' })
+        .send({ name: 'Ana García', email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro' })
 
       // Try to register with uppercase
       const res = await request(app.app)
         .post('/api/auth/register')
-        .send({ name: 'Ana 2', email: 'ANA@EXAMPLE.COM', password: 'ana456', neighborhood: 'Norte' })
+        .send({ name: 'Ana López', email: 'ANA@EXAMPLE.COM', password: 'ana45678', neighborhood: 'Norte' })
 
       expect(res.status).toBe(409)
     })

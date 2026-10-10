@@ -20,9 +20,21 @@ export function authRoutes(
       return
     }
 
+    // Name validation: 2-50 characters
+    if (name.length < 2 || name.length > 50) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'El nombre debe tener entre 2 y 50 caracteres' } })
+      return
+    }
+
+    // Password validation: 8-72 characters
+    if (password.length < 8 || password.length > 72) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'La contraseña debe tener entre 8 y 72 caracteres' } })
+      return
+    }
+
     // Email length validation (RFC 5321: max 254 chars)
     if (email.length > 254) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Email too long' } })
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Email demasiado largo' } })
       return
     }
 

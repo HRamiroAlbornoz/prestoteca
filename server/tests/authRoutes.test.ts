@@ -52,7 +52,7 @@ describe('auth routes', () => {
     it('returns 201 with Set-Cookie header', async () => {
       const res = await request(app)
         .post('/api/auth/register')
-        .send({ name: 'Ana', email: 'ana@example.com', password: 'ana123', neighborhood: 'Centro' })
+        .send({ name: 'Ana García', email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro' })
 
       expect(res.status).toBe(201)
       expect(res.headers['set-cookie']).toBeDefined()
@@ -71,11 +71,11 @@ describe('auth routes', () => {
     it('returns 409 on duplicate email', async () => {
       await request(app)
         .post('/api/auth/register')
-        .send({ name: 'Ana', email: 'ana@example.com', password: 'ana123', neighborhood: 'Centro' })
+        .send({ name: 'Ana García', email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro' })
 
       const res = await request(app)
         .post('/api/auth/register')
-        .send({ name: 'Ana 2', email: 'ana@example.com', password: 'ana456', neighborhood: 'Norte' })
+        .send({ name: 'Ana López', email: 'ana@example.com', password: 'ana45678', neighborhood: 'Norte' })
 
       expect(res.status).toBe(409)
     })

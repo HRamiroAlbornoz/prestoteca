@@ -8,6 +8,19 @@ interface RegisterFormData {
   neighborhood: string
 }
 
+const NEIGHBORHOODS = [
+  'Centro',
+  'Villa Lugano',
+  'Villa Martelli',
+  'San Justo',
+  'Vicente López',
+  'Florida',
+  'Liniers',
+  'Flores',
+  'Palermo',
+  'Recoleta',
+] as const
+
 export function RegisterPage() {
   const [formData, setFormData] = useState<RegisterFormData>({
     name: '',
@@ -104,14 +117,18 @@ export function RegisterPage() {
             <label htmlFor="neighborhood" className="block text-sm font-medium text-gray-700 mb-1">
               Barrio
             </label>
-            <input
+            <select
               id="neighborhood"
-              type="text"
               required
               value={formData.neighborhood}
               onChange={(e) => setFormData({ ...formData, neighborhood: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="">Seleccioná un barrio</option>
+              {NEIGHBORHOODS.map((nb) => (
+                <option key={nb} value={nb}>{nb}</option>
+              ))}
+            </select>
           </div>
 
           <button

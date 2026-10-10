@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 
 interface LoginFormData {
   email: string
@@ -14,6 +14,8 @@ export function LoginPage() {
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get('returnTo') || '/'
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -28,7 +30,7 @@ export function LoginPage() {
       })
 
       if (res.ok) {
-        navigate('/')
+        navigate(returnTo)
       } else {
         const data = await res.json()
         setError(data.error?.message || 'Login failed')

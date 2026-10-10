@@ -66,6 +66,18 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
       return
     }
 
+    // Name validation: 3-60 characters
+    if (name.length < 3 || name.length > 60) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The tool name must be between 3 and 60 characters' } })
+      return
+    }
+
+    // Description validation: max 500 characters
+    if (description.length > 500) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The tool description must be at most 500 characters' } })
+      return
+    }
+
     service.publish({
       name,
       description,

@@ -11,6 +11,9 @@ import { wireRoutes } from './routes.js'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
+// Set timezone for date operations
+process.env.TZ = 'America/Argentina/Tucuman'
+
 export type ExpressApplication = ReturnType<typeof express>
 
 export async function createApp(): Promise<ExpressApplication> {
