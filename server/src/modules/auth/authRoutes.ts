@@ -15,34 +15,40 @@ export function authRoutes(
   router.post('/register', async (req, res) => {
     const { name, email, password, neighborhood } = req.body
 
-    if (!name || !email || !password || !neighborhood) {
+    // Trim whitespace before validation (brief: "recortan antes de validar")
+    const trimmedName = name?.trim()
+    const trimmedEmail = email?.trim()
+    const trimmedPassword = password?.trim()
+    const trimmedNeighborhood = neighborhood?.trim()
+
+    if (!trimmedName || !trimmedEmail || !trimmedPassword || !trimmedNeighborhood) {
       res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing required fields' } })
       return
     }
 
     // Name validation: 2-50 characters
-    if (name.length < 2 || name.length > 50) {
+    if (trimmedName.length < 2 || trimmedName.length > 50) {
       res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'El nombre debe tener entre 2 y 50 caracteres' } })
       return
     }
 
     // Password validation: 8-72 characters
-    if (password.length < 8 || password.length > 72) {
+    if (trimmedPassword.length < 8 || trimmedPassword.length > 72) {
       res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'La contraseña debe tener entre 8 y 72 caracteres' } })
       return
     }
 
     // Email length validation (RFC 5321: max 254 chars)
-    if (email.length > 254) {
+    if (trimmedEmail.length > 254) {
       res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Email demasiado largo' } })
       return
     }
 
     // Normalize email to lowercase for case-insensitive matching
-    const normalizedEmail = email.toLowerCase()
+    const normalizedEmail = trimmedEmail.toLowerCase()
 
     try {
-      const result = await service.register({ name, email: normalizedEmail, password, neighborhood })
+      const result = await service.register({ name: trimmedName, email: normalizedEmail, password: trimmedPassword, neighborhood: trimmedNeighborhood })
       res.cookie('token', result.token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -63,16 +69,20 @@ export function authRoutes(
   router.post('/login', async (req, res) => {
     const { email, password } = req.body
 
-    if (!email || !password) {
+    // Trim whitespace before validation
+    const trimmedEmail = email?.trim()
+    const trimmedPassword = password?.trim()
+
+    if (!trimmedEmail || !trimmedPassword) {
       res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing required fields' } })
       return
     }
 
     // Normalize email to lowercase for case-insensitive matching
-    const normalizedEmail = email.toLowerCase()
+    const normalizedEmail = trimmedEmail.toLowerCase()
 
     try {
-      const result = await service.login({ email: normalizedEmail, password })
+      const result = await service.login({ email: normalizedEmail, password: trimmedPassword })
       res.cookie('token', result.token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',

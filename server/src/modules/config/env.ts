@@ -9,6 +9,7 @@ export const envSchema = z.object({
     return num
   }),
   DATABASE_URL: z.string().min(1).url(),
+  TEST_DATABASE_URL: z.string().min(1).url().optional(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().min(1).default('1h'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -23,6 +24,7 @@ export function loadEnv(): Env {
   for (const key of [
     'PORT',
     'DATABASE_URL',
+    'TEST_DATABASE_URL',
     'JWT_SECRET',
     'JWT_EXPIRES_IN',
     'NODE_ENV',

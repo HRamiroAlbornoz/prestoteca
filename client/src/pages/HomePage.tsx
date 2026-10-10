@@ -3,27 +3,21 @@ import { useSearchParams } from 'react-router-dom'
 import { ToolCard, type Tool } from '../components/ToolCard'
 
 const CATEGORIES = [
-  'electricas',
-  'manuales',
-  'jardineria',
-  'plomeria',
-  'gas',
-  'pintura',
-  'medicion',
-  'construccion',
-  'otros',
+  'Herramientas eléctricas',
+  'Herramientas manuales',
+  'Jardín',
+  'Limpieza',
+  'Escaleras y altura',
+  'Otros',
 ] as const
 
 const CATEGORY_LABELS: Record<string, string> = {
-  electricas: 'Eléctricas',
-  manuales: 'Manuales',
-  jardineria: 'Jardinería',
-  plomeria: 'Plomería',
-  gas: 'Gas',
-  pintura: 'Pintura',
-  medicion: 'Medición',
-  construccion: 'Construcción',
-  otros: 'Otros',
+  'Herramientas eléctricas': 'Herramientas eléctricas',
+  'Herramientas manuales': 'Herramientas manuales',
+  'Jardín': 'Jardín',
+  'Limpieza': 'Limpieza',
+  'Escaleras y altura': 'Escaleras y altura',
+  'Otros': 'Otros',
 }
 
 interface PaginatedTools {

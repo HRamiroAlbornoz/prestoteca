@@ -13,15 +13,12 @@ export interface Tool {
 }
 
 const categoryLabels: Record<string, string> = {
-  electricas: 'Eléctricas',
-  manuales: 'Manuales',
-  jardineria: 'Jardinería',
-  plomeria: 'Plomería',
-  gas: 'Gas',
-  pintura: 'Pintura',
-  medicion: 'Medición',
-  construccion: 'Construcción',
-  otros: 'Otros',
+  'Herramientas eléctricas': 'Herramientas eléctricas',
+  'Herramientas manuales': 'Herramientas manuales',
+  'Jardín': 'Jardín',
+  'Limpieza': 'Limpieza',
+  'Escaleras y altura': 'Escaleras y altura',
+  'Otros': 'Otros',
 }
 
 const conditionLabels: Record<string, string> = {

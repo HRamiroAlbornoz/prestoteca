@@ -36,15 +36,12 @@ export interface PaginatedResult<T> {
 }
 
 const VALID_CATEGORIES = [
-  'electricas',
-  'manuales',
-  'jardineria',
-  'plomeria',
-  'gas',
-  'pintura',
-  'medicion',
-  'construccion',
-  'otros',
+  'Herramientas eléctricas',
+  'Herramientas manuales',
+  'Jardín',
+  'Limpieza',
+  'Escaleras y altura',
+  'Otros',
 ] as const
 
 const VALID_CONDITIONS = ['nuevo', 'bueno', 'usado'] as const

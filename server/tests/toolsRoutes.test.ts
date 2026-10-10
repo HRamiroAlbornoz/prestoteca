@@ -93,7 +93,7 @@ describe('tools CRUD routes', () => {
         .send({
           name: 'Taladro',
           description: 'Un taladro potente',
-          category: 'electricas',
+          category: 'Herramientas eléctricas',
           condition: 'bueno',
         })
 
@@ -139,7 +139,7 @@ describe('tools CRUD routes', () => {
         .send({
           name: 'Taladro',
           description: 'Desc',
-          category: 'electricas',
+          category: 'Herramientas eléctricas',
           condition: 'bueno',
         })
 
@@ -157,7 +157,7 @@ describe('tools CRUD routes', () => {
         owner_id: 'user-1',
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         is_paused: false,
         deleted_at: null,
@@ -183,7 +183,7 @@ describe('tools CRUD routes', () => {
         owner_id: 'user-1',
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         is_paused: false,
         deleted_at: null,
@@ -208,7 +208,7 @@ describe('tools CRUD routes', () => {
         owner_id: 'user-1',
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         is_paused: false,
         deleted_at: null,
@@ -235,7 +235,7 @@ describe('tools CRUD routes', () => {
         owner_id: 'user-1',
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         is_paused: false,
         deleted_at: null,
@@ -259,7 +259,7 @@ describe('tools CRUD routes', () => {
         owner_id: 'user-1',
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         is_paused: false,
         deleted_at: null,

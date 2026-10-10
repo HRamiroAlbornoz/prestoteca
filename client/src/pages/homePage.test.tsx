@@ -45,14 +45,11 @@ describe('HomePage', () => {
   it('renders all category options', () => {
     renderHome()
 
-    expect(screen.getByRole('option', { name: /eléctricas/i })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /manuales/i })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /jardinería/i })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /plomería/i })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /gas/i })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /pintura/i })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /medición/i })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /construcción/i })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /herramientas eléctricas/i })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /herramientas manuales/i })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /jardín/i })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /limpieza/i })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /escaleras y altura/i })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /otros/i })).toBeInTheDocument()
   })
 
@@ -82,7 +79,7 @@ describe('HomePage', () => {
             owner_id: 'user-1',
             name: 'Taladro',
             description: 'Un taladro',
-            category: 'electricas',
+            category: 'Herramientas eléctricas',
             condition: 'bueno',
             is_paused: false,
             deleted_at: null,
@@ -116,7 +113,7 @@ describe('HomePage', () => {
             owner_id: 'user-1',
             name: 'Taladro',
             description: 'Un taladro',
-            category: 'electricas',
+            category: 'Herramientas eléctricas',
             condition: 'bueno',
             is_paused: false,
             deleted_at: null,
@@ -132,10 +129,10 @@ describe('HomePage', () => {
     renderHome()
 
     const categorySelect = screen.getByLabelText(/filtrar por categoría/i)
-    fireEvent.change(categorySelect, { target: { value: 'electricas' } })
+    fireEvent.change(categorySelect, { target: { value: 'Herramientas eléctricas' } })
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('category=electricas'))
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('category=Herramientas+el%C3%A9ctricas'))
     })
   })
 
@@ -149,7 +146,7 @@ describe('HomePage', () => {
             owner_id: 'user-1',
             name: 'Taladro',
             description: 'Un taladro',
-            category: 'electricas',
+            category: 'Herramientas eléctricas',
             condition: 'bueno',
             is_paused: false,
             deleted_at: null,
@@ -182,7 +179,7 @@ describe('HomePage', () => {
             owner_id: 'user-1',
             name: 'Taladro',
             description: 'Un taladro',
-            category: 'electricas',
+            category: 'Herramientas eléctricas',
             condition: 'bueno',
             is_paused: false,
             deleted_at: null,
@@ -326,7 +323,7 @@ describe('HomePage', () => {
             owner_id: 'user-1',
             name: 'Taladro',
             description: 'Un taladro potente',
-            category: 'electricas',
+            category: 'Herramientas eléctricas',
             condition: 'bueno',
             is_paused: false,
             deleted_at: null,

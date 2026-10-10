@@ -2,15 +2,12 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const TOOL_CATEGORIES = [
-  'electricas',
-  'manuales',
-  'jardineria',
-  'plomeria',
-  'gas',
-  'pintura',
-  'medicion',
-  'construccion',
-  'otros',
+  'Herramientas eléctricas',
+  'Herramientas manuales',
+  'Jardín',
+  'Limpieza',
+  'Escaleras y altura',
+  'Otros',
 ] as const
 
 const TOOL_CONDITIONS = ['nuevo', 'bueno', 'usado'] as const

@@ -10,15 +10,13 @@ interface RegisterFormData {
 
 const NEIGHBORHOODS = [
   'Centro',
-  'Villa Lugano',
-  'Villa Martelli',
-  'San Justo',
-  'Vicente López',
-  'Florida',
-  'Liniers',
-  'Flores',
-  'Palermo',
-  'Recoleta',
+  'Barrio Norte',
+  'Barrio Sur',
+  'Ciudadela',
+  'Villa Luján',
+  'Barrio Jardín',
+  'Villa 9 de Julio',
+  'Yerba Buena',
 ] as const
 
 export function RegisterPage() {

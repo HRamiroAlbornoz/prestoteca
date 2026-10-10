@@ -86,7 +86,7 @@ describe('Security ACs', () => {
       const largePayload = {
         name: 'x'.repeat(100),
         description: 'x'.repeat(10200),
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
       }
 
@@ -107,7 +107,7 @@ describe('Security ACs', () => {
       const res = await request(app)
         .post('/api/tools')
         .set('Authorization', 'Bearer user-1')
-        .send({ name: 'Tool', description: 'Desc', category: 'electricas', condition: 'bueno' })
+        .send({ name: 'Tool', description: 'Desc', category: 'Herramientas eléctricas', condition: 'bueno' })
 
       expect(res.status).toBe(403)
     })
@@ -140,7 +140,7 @@ describe('Security ACs', () => {
         .post('/api/tools')
         .set('Authorization', 'Bearer user-1')
         .set('Origin', 'http://localhost:5173')
-        .send({ name: 'Tool', description: 'Desc', category: 'electricas', condition: 'bueno' })
+        .send({ name: 'Tool', description: 'Desc', category: 'Herramientas eléctricas', condition: 'bueno' })
 
       expect(res.status).toBe(201)
     })
