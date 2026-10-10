@@ -394,3 +394,13 @@ slug: prestoteca-mvp
 - files: (verificación de todos los test suites)
 - decision: smoke test manual queda como paso pendiente con backend + DB real; automated tests cubren 100% de los ACs
 - blocker: none — smoke test manual requiere entorno con PostgreSQL
+
+## T041 — 2026-10-10
+- status: complete
+- red: app no deployeada; sin dominio público no se puede hacer smoke test manual
+- green: Railway deploy exitoso; app live en https://prestoteca-production.up.railway.app; health endpoint con DB connected; login + cookies auth funcionando; frontend sirve estáticos
+- triangulation: railway up → build con Node 20 (Railpack); variables DATABASE_URL (reference ${{Postgres.DATABASE_URL}}), JWT_SECRET, NODE_ENV=production; curl prueba: login → cookie → /api/me/tools retorna datos
+- files: railway.json, package.json (root), .gitignore (.railway/)
+- decision: deploy automático por push a prestoteca-mvp; CI/CD en Railway; dominio *.up.railway.app
+- blocker: none
+- commit: (deploy en Railway)

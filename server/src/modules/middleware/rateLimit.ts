@@ -9,7 +9,7 @@ interface RateLimitEntry {
 const store = new Map<string, RateLimitEntry>()
 
 const WINDOW_MS = 60 * 1000 // 1 minute
-const MAX_REQUESTS = 5
+const MAX_REQUESTS = process.env.NODE_ENV === 'production' ? 30 : 5
 
 function getIp(req: Request): string {
   return req.ip || req.socket.remoteAddress || 'unknown'
