@@ -417,11 +417,11 @@ slug: prestoteca-mvp
 - decision: browser automation limitada para React forms; curl para API verification
 - blocker: none
 
-## T043 — 2026-10-10
+## T044 — 2026-10-10
 - status: complete
-- red: 7 brechas entre brief.md y lo construido (JWT 24h, sin validación server, sin TZ, barrio texto libre, sin return URL)
-- green: JWT 1h (`authService.ts`), validación server nombre/contraseña (authRoutes), validación tool name/description (toolsRoutes), TZ `America/Argentina/Tucuman` (index.ts + loanService.ts), barrio select (RegisterPage), return URL (LoginPage); 353/353 tests verdes; deploy Railway verificado
-- triangulation: curl verifica cookie `Max-Age=3600`; payload JWT `exp-iat=3600`; nombre 1 char → 400; password 5 chars → 400; tool name 1 char → 400; login exitoso con Set-Cookie
-- files: server/src/modules/auth/authService.ts, authRoutes.ts, index.ts, loanService.ts, server/tests/authRoutes.test.ts, server/tests/authValidation.test.ts, client/src/pages/RegisterPage.tsx, LoginPage.tsx
-- decision: cerrar brechas directas sin nuevo plan RSC (6 cambios aislados, baja complejidad)
+- red: 7 brechas restantes entre brief.md y lo construido (categorías/barrios diferentes, nota sin límite 300, sin trim, sin validación fechas, sin TEST_DATABASE_URL)
+- green: categorías exactas del brief (6), barrios exactos del brief (8), nota máx 300, trim whitespace en todos los inputs, validación start>=hoy y end>=start, TEST_DATABASE_URL en env.ts; 353/353 tests verdes; deploy Railway verificado
+- triangulation: curl verifica nota>300→400, start pasado→400, end<start→400, trim espacios→201, categoría brief→201; categorías con acentos funcionan (UTF-8)
+- files: server/src/modules/tools/toolService.ts, toolRepo.ts, authRoutes.ts, toolsRoutes.ts, loansRoutes.ts, env.ts, .env.example, client/src/pages/*, server/tests/*, client/src/components/ToolCard.tsx, HomePage.tsx, ToolDetailPage.tsx
+- decision: cerrar brechas directas sin plan RSC
 - blocker: none
