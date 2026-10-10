@@ -83,3 +83,12 @@ client/node_modules/
 
 # rsc local state (hooks, seals, logs) and managed skill links — machine-local
 .opencode/agents/finding-verifier.md
+
+# rsc local state (hooks, seals, logs) and managed skill links — machine-local
+.opencode/rsc/deployment
+
+# rsc local state (hooks, seals, logs) and managed skill links — machine-local
+.opencode/rsc/railway
+
+# Railway local link state
+.railway/

@@ -1,0 +1,11 @@
+{
+  "name": "prestoteca-mvp",
+  "private": true,
+  "scripts": {
+    "build": "cd client && npm run build && cd ../server && npm run build",
+    "start": "cd server && npm run start"
+  },
+  "engines": {
+    "node": ">= 18"
+  }
+}

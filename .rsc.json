@@ -11,6 +11,7 @@
     "constitution",
     "debug",
     "decision-challenge",
+    "deployment",
     "deprecation",
     "fable-operator",
     "ftd",
@@ -21,6 +22,7 @@
     "orient",
     "parallel",
     "plan",
+    "railway",
     "react",
     "review",
     "sdd",
@@ -777,8 +779,8 @@
       "AGENTS.md": "25570bfc29ed2735e6423ccbbc8d9e42dc877f05447bef412aaac7d3d01c871f"
     },
     "maintenanceDrift": {
-      "action": "add react,testing-web,accessibility",
-      "recordedAt": "2026-10-04T23:02:37.526Z",
+      "action": "add railway",
+      "recordedAt": "2026-10-10T02:07:43.662Z",
       "requiresReassessment": true
     }
   }
