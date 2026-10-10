@@ -1,3 +1,133 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* prefers-reduced-motion: disable transitions for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Dark mode overrides for when prefers-color-scheme: dark */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #0F0F14;
+    color: #E4E4E7;
+  }
+
+  .bg-white {
+    background-color: #18181B;
+  }
+
+  .bg-gray-50 {
+    background-color: #0F0F14;
+  }
+
+  .text-gray-900 {
+    color: #E4E4E7;
+  }
+
+  .text-gray-600 {
+    color: #A1A1AA;
+  }
+
+  .text-gray-500 {
+    color: #71717A;
+  }
+
+  .text-gray-400 {
+    color: #52525B;
+  }
+
+  .text-gray-700 {
+    color: #E4E4E7;
+  }
+
+  .border-gray-200 {
+    border-color: #27272A;
+  }
+
+  .border-gray-300 {
+    border-color: #3F3F46;
+  }
+
+  .hover\\:bg-gray-100:hover {
+    background-color: #27272A;
+  }
+
+  .hover\\:bg-gray-200:hover {
+    background-color: #3F3F46;
+  }
+
+  .hover\\:text-gray-700:hover {
+    color: #E4E4E7;
+  }
+
+  .focus\\:ring-blue-500:focus {
+    --tw-ring-color: #8B5CF6;
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), inset 0 0 0 2px var(--tw-ring-color);
+  }
+
+  .focus\\:ring-violet-500:focus {
+    --tw-ring-color: #A78BFA;
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), inset 0 0 0 2px var(--tw-ring-color);
+  }
+
+  .border-blue-600 {
+    border-color: #8B5CF6;
+  }
+
+  .text-blue-600 {
+    color: #A78BFA;
+  }
+
+  .bg-blue-600 {
+    background-color: #7C3AED;
+  }
+
+  .hover\\:bg-blue-700:hover {
+    background-color: #6D28D9;
+  }
+
+  .bg-red-50 {
+    background-color: #450a0a;
+  }
+
+  .text-red-700 {
+    color: #fca5a5;
+  }
+
+  .border-red-200 {
+    border-color: #7f1d1d;
+  }
+
+  .hover\\:bg-red-200:hover {
+    background-color: #7f1d1d;
+  }
+
+  .bg-green-50 {
+    background-color: #052e16;
+  }
+
+  .text-green-700 {
+    color: #86efac;
+  }
+
+  .border-green-200 {
+    border-color: #166534;
+  }
+
+  .bg-red-100 {
+    background-color: #450a0a;
+  }
+
+  .bg-gray-100 {
+    background-color: #27272A;
+  }
+}

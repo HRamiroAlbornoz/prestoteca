@@ -145,7 +145,7 @@ export function HomePage() {
                 params.set('page', '1')
                 setSearchParams(params)
               }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
               aria-label="Buscar herramienta por nombre"
             />
           </div>
@@ -159,7 +159,7 @@ export function HomePage() {
               id="category-select"
               value={category}
               onChange={handleCategoryChange}
-              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
               aria-label="Filtrar por categoría"
             >
               <option value="">Todas las categorías</option>
@@ -182,7 +182,7 @@ export function HomePage() {
               placeholder="Barrio..."
               value={neighborhood}
               onChange={handleNeighborhoodChange}
-              className="w-full sm:w-40 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full sm:w-40 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
               aria-label="Filtrar por barrio"
             />
           </div>
@@ -190,7 +190,7 @@ export function HomePage() {
           {/* Search button */}
           <button
             type="submit"
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-6 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             Buscar
           </button>
@@ -201,7 +201,7 @@ export function HomePage() {
           <button
             type="button"
             onClick={clearFilters}
-            className="text-sm text-blue-600 hover:underline"
+            className="text-sm text-violet-600 hover:underline"
           >
             Limpiar filtros
           </button>
@@ -281,7 +281,7 @@ export function HomePage() {
                     onClick={() => goToPage(p)}
                     className={`px-3 py-1 rounded border ${
                       p === pagination.page
-                        ? 'bg-blue-600 text-white border-blue-600'
+                        ? 'bg-violet-600 text-white border-violet-600'
                         : 'border-gray-300 hover:bg-gray-100'
                     }`}
                     aria-label={`Página ${p}`}

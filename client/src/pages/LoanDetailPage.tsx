@@ -102,7 +102,7 @@ export function LoanDetailPage() {
               {error}
             </div>
           )}
-          <Link to="/" className="text-blue-600 hover:underline">
+          <Link to="/" className="text-violet-600 hover:underline">
             Volver al inicio
           </Link>
         </div>
@@ -147,7 +147,7 @@ export function LoanDetailPage() {
             <>
               <button
                 onClick={() => handleStatusChange('entregado')}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 font-medium"
+                className="flex-1 bg-violet-600 text-white py-2 px-4 rounded-md hover:bg-violet-700 font-medium"
               >
                 Marcar entregado
               </button>
@@ -193,7 +193,7 @@ export function LoanDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="max-w-2xl mx-auto">
-        <Link to="/" className="text-blue-600 hover:underline mb-4 inline-block py-2 px-3">
+        <Link to="/" className="text-violet-600 hover:underline mb-4 inline-block py-2 px-3">
           ← Volver al inicio
         </Link>
 

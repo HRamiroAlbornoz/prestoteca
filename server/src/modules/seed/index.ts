@@ -5,22 +5,22 @@ const SALT_ROUNDS = 12
 
 const USERS = [
   { name: 'Ana García', email: 'ana@example.com', neighborhood: 'Centro', password: 'ana123' },
-  { name: 'Carlos López', email: 'carlos@example.com', neighborhood: 'Norte', password: 'carlos123' },
-  { name: 'María Fernández', email: 'maria@example.com', neighborhood: 'Sur', password: 'maria123' },
+  { name: 'Carlos López', email: 'carlos@example.com', neighborhood: 'Barrio Norte', password: 'carlos123' },
+  { name: 'María Fernández', email: 'maria@example.com', neighborhood: 'Barrio Sur', password: 'maria123' },
 ]
 
 const TOOLS = [
-  { name: 'Taladro percutor', description: 'Taladro percutor 800W, ideal para concreto.', category: 'Electricas', condition: 'bueno', ownerEmail: 'ana@example.com' },
-  { name: 'Sierra circular', description: 'Sierra circular 140mm, disco incluido.', category: 'Electricas', condition: 'regular', ownerEmail: 'ana@example.com' },
-  { name: 'Martillo de uña', description: 'Martillo de uña 16oz, mango de fibra.', category: 'Manuales', condition: 'bueno', ownerEmail: 'carlos@example.com' },
-  { name: 'Nivel láser', description: 'Nivel láser cruzado, alcance 15m.', category: 'Nivelación', condition: 'nuevo', ownerEmail: 'carlos@example.com' },
+  { name: 'Taladro percutor', description: 'Taladro percutor 800W, ideal para concreto.', category: 'Herramientas eléctricas', condition: 'bueno', ownerEmail: 'ana@example.com' },
+  { name: 'Sierra circular', description: 'Sierra circular 140mm, disco incluido.', category: 'Herramientas eléctricas', condition: 'nuevo', ownerEmail: 'ana@example.com' },
+  { name: 'Martillo de uña', description: 'Martillo de uña 16oz, mango de fibra.', category: 'Herramientas manuales', condition: 'bueno', ownerEmail: 'carlos@example.com' },
+  { name: 'Pala recta', description: 'Pala recta punta fina, mango largo.', category: 'Jardín', condition: 'usado', ownerEmail: 'carlos@example.com' },
   { name: 'Carretilla', description: 'Carretilla 6 pies, estructura metálica.', category: 'Jardín', condition: 'bueno', ownerEmail: 'maria@example.com' },
-  { name: 'Cortadora de césped', description: 'Cortadora a fuerza 5.5HP.', category: 'Jardín', condition: 'regular', ownerEmail: 'maria@example.com' },
+  { name: 'Escalera aluminio', description: 'Escalera aluminio 3 pasos, peldaños antideslizantes.', category: 'Escaleras y altura', condition: 'nuevo', ownerEmail: 'maria@example.com' },
 ]
 
 const LOANS = [
-  { toolName: 'Martillo de uña', borrowerEmail: 'ana@example.com', ownerEmail: 'carlos@example.com', startDate: '2026-10-01', endDate: '2026-10-15', status: 'activo', note: 'Para reparar puerta del garaje' },
-  { toolName: 'Taladro percutor', borrowerEmail: 'maria@example.com', ownerEmail: 'ana@example.com', startDate: '2026-10-02', endDate: '2026-10-10', status: 'activo', note: null },
+  { toolName: 'Martillo de uña', borrowerEmail: 'ana@example.com', ownerEmail: 'carlos@example.com', startDate: '2026-10-01', endDate: '2026-10-15', status: 'aceptado', note: 'Para reparar puerta del garaje' },
+  { toolName: 'Taladro percutor', borrowerEmail: 'maria@example.com', ownerEmail: 'ana@example.com', startDate: '2026-10-02', endDate: '2026-10-10', status: 'pendiente', note: null },
   { toolName: 'Carretilla', borrowerEmail: 'carlos@example.com', ownerEmail: 'maria@example.com', startDate: '2026-09-20', endDate: '2026-09-30', status: 'devuelto', note: 'Devuelto sin novedades' },
 ]
 

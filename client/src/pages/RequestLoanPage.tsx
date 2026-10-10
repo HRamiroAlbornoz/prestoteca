@@ -62,7 +62,7 @@ export function RequestLoanPage() {
       <div className="max-w-lg mx-auto">
         <button
           onClick={() => navigate(-1)}
-          className="text-blue-600 hover:underline mb-4 inline-block py-2 px-3"
+          className="text-violet-600 hover:underline mb-4 inline-block py-2 px-3"
         >
           ← Volver
         </button>
@@ -87,7 +87,7 @@ export function RequestLoanPage() {
                 value={startDate}
                 min={todayStr}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
                 required
               />
               {isStartDateInPast && (
@@ -105,7 +105,7 @@ export function RequestLoanPage() {
                 value={endDate}
                 min={startDate || todayStr}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
                 required
               />
               {isEndDateBeforeStart && (
@@ -123,7 +123,7 @@ export function RequestLoanPage() {
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={300}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
                 placeholder="¿Para qué la necesitás?"
               />
               <p className={`text-sm mt-1 ${noteTooLong ? 'text-red-600' : 'text-gray-500'}`}>
@@ -137,7 +137,7 @@ export function RequestLoanPage() {
             <button
               type="submit"
               disabled={!formValid || submitting}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-violet-600 text-white py-3 px-4 rounded-md hover:bg-violet-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? 'Solicitando...' : 'Solicitar préstamo'}
             </button>

@@ -34,7 +34,7 @@ export function ToolCard({ tool }: { tool: Tool }) {
 
   const conditionColors: Record<string, string> = {
     nuevo: 'bg-green-100 text-green-800',
-    bueno: 'bg-blue-100 text-blue-800',
+    bueno: 'bg-violet-100 text-violet-800',
     usado: 'bg-yellow-100 text-yellow-800',
   }
 

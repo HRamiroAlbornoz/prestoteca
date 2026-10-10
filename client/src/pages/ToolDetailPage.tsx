@@ -121,7 +121,7 @@ export function ToolDetailPage() {
               {error}
             </div>
           )}
-          <Link to="/" className="text-blue-600 hover:underline">
+          <Link to="/" className="text-violet-600 hover:underline">
             Volver al inicio
           </Link>
         </div>
@@ -135,14 +135,14 @@ export function ToolDetailPage() {
 
   const conditionColors: Record<string, string> = {
     nuevo: 'bg-green-100 text-green-800',
-    bueno: 'bg-blue-100 text-blue-800',
+    bueno: 'bg-violet-100 text-violet-800',
     usado: 'bg-yellow-100 text-yellow-800',
   }
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="max-w-2xl mx-auto">
-        <Link to="/" className="text-blue-600 hover:underline mb-4 inline-block py-2 px-3">
+        <Link to="/" className="text-violet-600 hover:underline mb-4 inline-block py-2 px-3">
           ← Volver al inicio
         </Link>
 
@@ -176,7 +176,7 @@ export function ToolDetailPage() {
           {!tool.is_paused && currentUser && (
             <button
               onClick={handleRequest}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 font-medium"
+              className="w-full bg-violet-600 text-white py-3 px-4 rounded-md hover:bg-violet-700 font-medium"
             >
               Pedir prestada
             </button>
@@ -185,7 +185,7 @@ export function ToolDetailPage() {
           {!currentUser && (
             <Link
               to={`/login?returnUrl=/tools/${tool.id}`}
-              className="block w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 font-medium text-center"
+              className="block w-full bg-violet-600 text-white py-3 px-4 rounded-md hover:bg-violet-700 font-medium text-center"
             >
               Iniciar sesión para pedir
             </Link>

@@ -5,7 +5,7 @@ import express from 'express'
 import helmet from 'helmet'
 import { loadEnv } from './modules/config/env.js'
 import { checkDbConnection } from './modules/db/pool.js'
-import { rateLimiter } from './modules/middleware/rateLimit.js'
+import { authRateLimiter } from './modules/middleware/rateLimit.js'
 import { wireRoutes } from './routes.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -35,16 +35,16 @@ export async function createApp(): Promise<ExpressApplication> {
   // Cookie parsing (for JWT token in cookies)
   app.use(cookieParser())
 
-  // Rate limiting (5 requests per minute per IP)
-  app.use(rateLimiter)
-
   // Health endpoint (no auth required)
   app.get('/api/health', async (_req: express.Request, res: express.Response) => {
     const db = await checkDbConnection()
     res.json({ status: 'ok', db })
   })
 
-  // Wire all API routes
+  // Auth routes — strict rate limiter (5 req/min per IP)
+  app.use('/api/auth', authRateLimiter)
+
+  // Wire all API routes (general rate limiter applied inside routes.ts)
   wireRoutes(app)
 
   // Serve frontend static files (built by Vite)

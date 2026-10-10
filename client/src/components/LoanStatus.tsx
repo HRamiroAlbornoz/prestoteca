@@ -1,6 +1,6 @@
 const statusConfig: Record<string, { label: string; color: string }> = {
   pendiente: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
-  aceptado: { label: 'Aceptado', color: 'bg-blue-100 text-blue-800' },
+  aceptado: { label: 'Aceptado', color: 'bg-violet-100 text-violet-800' },
   entregado: { label: 'Entregado', color: 'bg-purple-100 text-purple-800' },
   vencido: { label: 'Vencido', color: 'bg-red-100 text-red-800' },
   devuelto: { label: 'Devuelto', color: 'bg-green-100 text-green-800' },

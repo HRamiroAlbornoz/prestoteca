@@ -4,7 +4,7 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import { authRoutes } from '../src/modules/auth/authRoutes.js'
 import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
-import { rateLimiter } from '../src/modules/middleware/rateLimit.js'
+import { authRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
 
 function createMockApp() {
@@ -34,7 +34,7 @@ function createMockApp() {
   const app = express()
   app.use(express.json())
   app.use(cookieParser())
-  app.use(rateLimiter)
+  app.use(authRateLimiter)
   app.use('/api/auth', authRoutes(mockRepo as UserRepository, 'test-secret', 'http://localhost:5173'))
 
   return { app, usersByEmail }

@@ -198,7 +198,7 @@ export function ProfilePage() {
               onClick={() => setActiveTab(tab.key)}
               className={`flex-1 min-w-0 py-3 px-4 text-center font-medium text-sm border-b-2 transition-colors ${
                 activeTab === tab.key
-                  ? 'border-blue-600 text-blue-600'
+                  ? 'border-violet-600 text-violet-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -217,7 +217,7 @@ export function ProfilePage() {
                   <p>No tenés herramientas publicadas</p>
                   <button
                     onClick={() => navigate('/publish')}
-                    className="mt-3 text-blue-600 hover:underline"
+                    className="mt-3 text-violet-600 hover:underline"
                   >
                     Publicá tu primera herramienta
                   </button>
@@ -245,7 +245,7 @@ export function ProfilePage() {
                     <button
                       key={loan.id}
                       onClick={() => handleLoanClick(loan.id)}
-                      className="w-full bg-white rounded-lg shadow-sm p-4 text-left hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full bg-white rounded-lg shadow-sm p-4 text-left hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-violet-500"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium text-gray-900">
@@ -279,7 +279,7 @@ export function ProfilePage() {
                     <button
                       key={loan.id}
                       onClick={() => handleLoanClick(loan.id)}
-                      className="w-full bg-white rounded-lg shadow-sm p-4 text-left hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full bg-white rounded-lg shadow-sm p-4 text-left hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-violet-500"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium text-gray-900">
@@ -313,7 +313,7 @@ export function ProfilePage() {
                     <button
                       key={loan.id}
                       onClick={() => handleLoanClick(loan.id)}
-                      className="w-full bg-white rounded-lg shadow-sm p-4 text-left hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full bg-white rounded-lg shadow-sm p-4 text-left hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-violet-500"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium text-gray-900">
@@ -366,7 +366,7 @@ export function ProfilePage() {
                       required
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
                     />
                   </div>
 
@@ -380,7 +380,7 @@ export function ProfilePage() {
                       required
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
                       placeholder="8-72 caracteres"
                     />
                   </div>
@@ -395,14 +395,14 @@ export function ProfilePage() {
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
                       placeholder="Repetí la nueva contraseña"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-4 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   >
                     Cambiar contraseña
                   </button>
