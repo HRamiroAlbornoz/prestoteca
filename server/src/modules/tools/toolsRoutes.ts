@@ -25,7 +25,11 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
       page: pageNum,
     }).then((result) => {
       res.status(200).json(result)
-    }).catch(() => {
+    }).catch((err: unknown) => {
+      if (err instanceof Error) {
+        res.status(400).json({ error: { code: 'BAD_REQUEST', message: err.message } })
+        return
+      }
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to list tools' } })
     })
   })
