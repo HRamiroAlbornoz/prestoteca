@@ -360,6 +360,7 @@ slug: prestoteca-mvp
 - commit: f87fce4
 
 ## T037 — 2026-10-09
+- status: complete
 - red: meAccountRoutes no anonymizaba loans; old password test fallaba (bcrypt mock siempre true)
 - green: 11/11 tests — password change, old password fails, account deletion, tools soft-deleted, loans anonymized
 - triangulation: anonymizeByBorrower + anonymizeByOwner en loanRepo; bcrypt mock track known hashes; meAccountRoutes recibe LoanRepository
@@ -369,6 +370,7 @@ slug: prestoteca-mvp
 - commit: dc956bc
 
 ## T038 — 2026-10-09
+- status: complete
 - red: axe-core no instalado; tabs async en MyLoansPage/ProfilePage
 - green: 19/19 tests — 0 WCAG 2.2 AA violations en 9 páginas; labels en todos los inputs; tabs con ARIA roles
 - triangulation: axe-core run en Register, Login, Home, ToolDetail, PublishForm, RequestLoan, LoanDetail, MyLoans, Profile; waitFor para tabs async
@@ -378,6 +380,7 @@ slug: prestoteca-mvp
 - commit: c1eeac6
 
 ## T039 — 2026-10-09
+- status: complete
 - red: 3 links con solo text-blue-600 hover:underline sin padding → touch target < 24px
 - green: 20/20 tests — 0 overflow horizontal; touch targets ≥ 24px verificados por clases Tailwind
 - triangulation: checkTouchTargets verifica classes como min-h-[44px], py-2, px-3; fix en LoanDetail, RequestLoan, ToolDetail
