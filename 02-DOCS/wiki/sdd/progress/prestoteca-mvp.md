@@ -404,3 +404,12 @@ slug: prestoteca-mvp
 - decision: deploy automático por push a prestoteca-mvp; CI/CD en Railway; dominio *.up.railway.app
 - blocker: none
 - commit: (deploy en Railway)
+
+## T042 — 2026-10-10
+- status: complete
+- red: smoke test manual no se puede hacer con browser automation (fill_form no dispara React onChange)
+- green: 353/353 tests verdes; smoke test completo verificado vía curl: register→login→publish→request→accept→deliver→return; rate limiter ajustado a 30 req/min en prod; fix query overlapping (cast date, hardcodear statuses)
+- triangulation: curl flow completo con 2 usuarios (Lucía + Carlos); loan lifecycle completo (pendiente→aceptado→entregado→devuelto); cookies httpOnly funcionan en same-origin
+- files: server/src/modules/middleware/rateLimit.ts, server/src/modules/loans/loanRepo.ts
+- decision: browser automation limitada para React forms; curl para API verification
+- blocker: none
