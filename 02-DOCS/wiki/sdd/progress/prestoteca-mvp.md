@@ -416,3 +416,12 @@ slug: prestoteca-mvp
 - files: server/src/modules/middleware/rateLimit.ts, server/src/modules/loans/loanRepo.ts
 - decision: browser automation limitada para React forms; curl para API verification
 - blocker: none
+
+## T043 — 2026-10-10
+- status: complete
+- red: 7 brechas entre brief.md y lo construido (JWT 24h, sin validación server, sin TZ, barrio texto libre, sin return URL)
+- green: JWT 1h (`authService.ts`), validación server nombre/contraseña (authRoutes), validación tool name/description (toolsRoutes), TZ `America/Argentina/Tucuman` (index.ts + loanService.ts), barrio select (RegisterPage), return URL (LoginPage); 353/353 tests verdes; deploy Railway verificado
+- triangulation: curl verifica cookie `Max-Age=3600`; payload JWT `exp-iat=3600`; nombre 1 char → 400; password 5 chars → 400; tool name 1 char → 400; login exitoso con Set-Cookie
+- files: server/src/modules/auth/authService.ts, authRoutes.ts, index.ts, loanService.ts, server/tests/authRoutes.test.ts, server/tests/authValidation.test.ts, client/src/pages/RegisterPage.tsx, LoginPage.tsx
+- decision: cerrar brechas directas sin nuevo plan RSC (6 cambios aislados, baja complejidad)
+- blocker: none
