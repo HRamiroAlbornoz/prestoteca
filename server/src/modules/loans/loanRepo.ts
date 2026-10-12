@@ -98,8 +98,8 @@ export class LoanRepository {
     excludeLoanId?: string,
   ): Promise<boolean> {
     // Overlap condition: start_date <= new_end_date AND end_date >= new_start_date
-    let sql = `SELECT 1 FROM loans WHERE tool_id = $1 AND status IN (${ACTIVE_STATUSES.map((_, i) => `$${i + 3}`).join(', ')}) AND start_date <= $2 AND end_date >= $3`
-    const values: unknown[] = [toolId, endDate, startDate, ...ACTIVE_STATUSES]
+    let sql = `SELECT 1 FROM loans WHERE tool_id = $1 AND status IN ('pendiente','aceptado','entregado','vencido') AND start_date <= $2 AND end_date >= $3`
+    const values: unknown[] = [toolId, endDate, startDate]
 
     if (excludeLoanId) {
       sql += ` AND id != $4`

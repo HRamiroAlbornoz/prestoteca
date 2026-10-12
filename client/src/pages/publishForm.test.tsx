@@ -4,15 +4,12 @@ import { MemoryRouter } from 'react-router-dom'
 import { PublishForm } from './PublishForm'
 
 const TOOL_CATEGORIES = [
-  'electricas',
-  'manuales',
-  'jardineria',
-  'plomeria',
-  'gas',
-  'pintura',
-  'medicion',
-  'construccion',
-  'otros',
+  'Herramientas eléctricas',
+  'Herramientas manuales',
+  'Jardín',
+  'Limpieza',
+  'Escaleras y altura',
+  'Otros',
 ] as const
 
 const TOOL_CONDITIONS = ['nuevo', 'bueno', 'usado'] as const
@@ -82,7 +79,7 @@ describe('PublishForm', () => {
       target: { value: 'Taladro eléctrico en buen estado' },
     })
     fireEvent.change(screen.getByLabelText(/categoría/i), {
-      target: { value: 'electricas' },
+      target: { value: 'Herramientas eléctricas' },
     })
     fireEvent.change(screen.getByLabelText(/estado/i), {
       target: { value: 'bueno' },
@@ -96,7 +93,7 @@ describe('PublishForm', () => {
         body: JSON.stringify({
           name: 'Taladro Bosch',
           description: 'Taladro eléctrico en buen estado',
-          category: 'electricas',
+          category: 'Herramientas eléctricas',
           condition: 'bueno',
         }),
       })
@@ -117,7 +114,7 @@ describe('PublishForm', () => {
       target: { value: 'Descripción válida' },
     })
     fireEvent.change(screen.getByLabelText(/categoría/i), {
-      target: { value: 'electricas' },
+      target: { value: 'Herramientas eléctricas' },
     })
     fireEvent.change(screen.getByLabelText(/estado/i), {
       target: { value: 'bueno' },
@@ -141,7 +138,7 @@ describe('PublishForm', () => {
       target: { value: 'Descripción válida' },
     })
     fireEvent.change(screen.getByLabelText(/categoría/i), {
-      target: { value: 'electricas' },
+      target: { value: 'Herramientas eléctricas' },
     })
     fireEvent.change(screen.getByLabelText(/estado/i), {
       target: { value: 'bueno' },
@@ -165,7 +162,7 @@ describe('PublishForm', () => {
       target: { value: 'D'.repeat(501) },
     })
     fireEvent.change(screen.getByLabelText(/categoría/i), {
-      target: { value: 'electricas' },
+      target: { value: 'Herramientas eléctricas' },
     })
     fireEvent.change(screen.getByLabelText(/estado/i), {
       target: { value: 'bueno' },
@@ -215,7 +212,7 @@ describe('PublishForm', () => {
       target: { value: 'Descripción válida' },
     })
     fireEvent.change(screen.getByLabelText(/categoría/i), {
-      target: { value: 'electricas' },
+      target: { value: 'Herramientas eléctricas' },
     })
     fireEvent.change(screen.getByLabelText(/estado/i), {
       target: { value: 'bueno' },

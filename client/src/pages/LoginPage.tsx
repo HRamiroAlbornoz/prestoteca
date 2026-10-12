@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams } from 'react-router-dom'
 
 interface LoginFormData {
   email: string
@@ -14,6 +14,8 @@ export function LoginPage() {
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get('returnTo') || '/'
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -28,7 +30,7 @@ export function LoginPage() {
       })
 
       if (res.ok) {
-        navigate('/')
+        navigate(returnTo)
       } else {
         const data = await res.json()
         setError(data.error?.message || 'Login failed')
@@ -64,7 +66,7 @@ export function LoginPage() {
               required
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </div>
 
@@ -78,14 +80,14 @@ export function LoginPage() {
               required
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="w-full bg-violet-600 text-white py-2 px-4 rounded-md hover:bg-violet-700 disabled:opacity-50"
           >
             {loading ? 'Ingresando...' : 'Iniciar sesión'}
           </button>
@@ -93,7 +95,7 @@ export function LoginPage() {
 
         <p className="text-center text-sm text-gray-600 mt-4">
           ¿No tenés cuenta?{' '}
-          <Link to="/register" className="text-blue-600 hover:underline">
+          <Link to="/register" className="text-violet-600 hover:underline">
             Crear cuenta
           </Link>
         </p>

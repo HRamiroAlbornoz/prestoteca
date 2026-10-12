@@ -27,8 +27,31 @@ export function loansRoutes(
 
     const { startDate, endDate, note } = req.body
 
-    if (!startDate || !endDate) {
+    // Trim whitespace before validation
+    const trimmedStartDate = startDate?.trim()
+    const trimmedEndDate = endDate?.trim()
+    const trimmedNote = note?.trim()
+
+    if (!trimmedStartDate || !trimmedEndDate) {
       res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing start or end date' } })
+      return
+    }
+
+    // Note max 300 characters (RF-08)
+    if (trimmedNote && trimmedNote.length > 300) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The note must be at most 300 characters' } })
+      return
+    }
+
+    // Date validation: end >= start and start >= today (RF-08)
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    if (trimmedStartDate < todayStr) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The start date cannot be in the past' } })
+      return
+    }
+    if (trimmedEndDate < trimmedStartDate) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The end date cannot be before the start date' } })
       return
     }
 
@@ -48,9 +71,9 @@ export function loansRoutes(
         toolId,
         userId,
         ownerId: rows[0].owner_id,
-        startDate,
-        endDate,
-        note: note ?? null,
+        startDate: trimmedStartDate,
+        endDate: trimmedEndDate,
+        note: trimmedNote || null,
       })
       res.status(201).json(loan)
     } catch (err: unknown) {

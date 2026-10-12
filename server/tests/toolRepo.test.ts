@@ -37,7 +37,7 @@ function createMockPool() {
             owner_id: 'owner-1',
             name: 'Taladro',
             description: 'Un taladro',
-            category: 'electricas',
+            category: 'Herramientas eléctricas',
             condition: 'bueno',
             is_paused: false,
             deleted_at: null,
@@ -55,7 +55,7 @@ function createMockPool() {
             owner_id: values?.[0],
             name: 'Taladro',
             description: 'Un taladro',
-            category: 'electricas',
+            category: 'Herramientas eléctricas',
             condition: 'bueno',
             is_paused: false,
             deleted_at: null,
@@ -75,7 +75,7 @@ function createMockPool() {
             owner_id: 'owner-1',
             name: nameValue ?? 'Taladro actualizado',
             description: 'Un taladro',
-            category: 'electricas',
+            category: 'Herramientas eléctricas',
             condition: 'bueno',
             is_paused: false,
             deleted_at: null,
@@ -122,7 +122,7 @@ function createMockPool() {
             owner_id: 'owner-1',
             name: 'Taladro',
             description: 'Un taladro',
-            category: 'electricas',
+            category: 'Herramientas eléctricas',
             condition: 'bueno',
             is_paused: false,
             deleted_at: null,
@@ -153,7 +153,7 @@ describe('ToolRepository', () => {
       const tool = await repo.create({
         name: 'Taladro',
         description: 'Un taladro potente',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         ownerId: 'owner-1',
       })
@@ -170,7 +170,7 @@ describe('ToolRepository', () => {
         repo.create({
           name: 'Ab', // 2 chars
           description: 'Desc',
-          category: 'electricas',
+          category: 'Herramientas eléctricas',
           condition: 'bueno',
           ownerId: 'owner-1',
         }),
@@ -182,7 +182,7 @@ describe('ToolRepository', () => {
         repo.create({
           name: '', // 0 chars
           description: 'Desc',
-          category: 'electricas',
+          category: 'Herramientas eléctricas',
           condition: 'bueno',
           ownerId: 'owner-1',
         }),
@@ -194,7 +194,7 @@ describe('ToolRepository', () => {
         repo.create({
           name: 'Tool',
           description: 'x'.repeat(501),
-          category: 'electricas',
+          category: 'Herramientas eléctricas',
           condition: 'bueno',
           ownerId: 'owner-1',
         }),
@@ -218,7 +218,7 @@ describe('ToolRepository', () => {
         repo.create({
           name: 'Tool',
           description: 'Desc',
-          category: 'electricas',
+          category: 'Herramientas eléctricas',
           condition: 'excelente',
           ownerId: 'owner-1',
         }),
@@ -257,7 +257,7 @@ describe('ToolRepository', () => {
     })
 
     it('filters by category', async () => {
-      const tools = await repo.findAll({ category: 'electricas', page: 1, limit: 12 })
+      const tools = await repo.findAll({ category: 'Herramientas eléctricas', page: 1, limit: 12 })
       expect(Array.isArray(tools.items)).toBe(true)
     })
 

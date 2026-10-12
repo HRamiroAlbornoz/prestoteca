@@ -25,7 +25,11 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
       page: pageNum,
     }).then((result) => {
       res.status(200).json(result)
-    }).catch(() => {
+    }).catch((err: unknown) => {
+      if (err instanceof Error) {
+        res.status(400).json({ error: { code: 'BAD_REQUEST', message: err.message } })
+        return
+      }
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to list tools' } })
     })
   })
@@ -61,14 +65,30 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
 
     const { name, description, category, condition } = req.body
 
-    if (!name || !description || !category || !condition) {
+    // Trim whitespace before validation
+    const trimmedName = name?.trim()
+    const trimmedDescription = description?.trim()
+
+    if (!trimmedName || !trimmedDescription || !category || !condition) {
       res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing required fields' } })
       return
     }
 
+    // Name validation: 3-60 characters
+    if (trimmedName.length < 3 || trimmedName.length > 60) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The tool name must be between 3 and 60 characters' } })
+      return
+    }
+
+    // Description validation: max 500 characters
+    if (trimmedDescription.length > 500) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The tool description must be at most 500 characters' } })
+      return
+    }
+
     service.publish({
-      name,
-      description,
+      name: trimmedName,
+      description: trimmedDescription,
       category,
       condition,
       ownerId: userId,
@@ -98,9 +118,11 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
     }
 
     const { name, description, category, condition } = req.body
+
+    // Trim whitespace before validation
     const updates: Record<string, string> = {}
-    if (name !== undefined) updates.name = name
-    if (description !== undefined) updates.description = description
+    if (name !== undefined) updates.name = name.trim()
+    if (description !== undefined) updates.description = description.trim()
     if (category !== undefined) updates.category = category
     if (condition !== undefined) updates.condition = condition
 

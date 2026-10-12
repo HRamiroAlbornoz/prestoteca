@@ -2,7 +2,7 @@ import { describe, expect, it, afterEach } from 'vitest'
 import request from 'supertest'
 import express from 'express'
 import { authMiddleware } from '../src/modules/middleware/auth.js'
-import { rateLimiter } from '../src/modules/middleware/rateLimit.js'
+import { authRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import { originChecker } from '../src/modules/middleware/origin.js'
 
 describe('auth middleware', () => {
@@ -28,7 +28,7 @@ describe('auth middleware', () => {
 describe('rate limiter middleware', () => {
   it('returns 429 after 5 requests per minute from same IP', async () => {
     const app = express()
-    app.use(rateLimiter)
+    app.use(authRateLimiter)
     app.post('/api', (_req, res) => res.json({ ok: true }))
 
     // Send 5 requests — all should pass

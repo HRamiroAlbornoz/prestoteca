@@ -37,7 +37,7 @@ const toolData = {
   owner_id: 'user-1',
   name: 'Taladro',
   description: 'Un taladro potente de 500W',
-  category: 'electricas',
+  category: 'Herramientas eléctricas',
   condition: 'bueno',
   is_paused: false,
   deleted_at: null,
@@ -60,7 +60,7 @@ describe('ToolCard', () => {
         <ToolCard tool={toolData} />
       </MemoryRouter>,
     )
-    expect(screen.getByText('Eléctricas')).toBeInTheDocument()
+    expect(screen.getByText('Herramientas eléctricas')).toBeInTheDocument()
   })
 
   it('renders condition', () => {
@@ -128,7 +128,7 @@ describe('ToolDetailPage', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByText('Eléctricas')).toBeInTheDocument()
+      expect(screen.getByText('Herramientas eléctricas')).toBeInTheDocument()
       expect(screen.getByText('Bueno')).toBeInTheDocument()
       expect(screen.getByText('Disponible')).toBeInTheDocument()
     })

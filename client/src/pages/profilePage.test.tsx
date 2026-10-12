@@ -92,7 +92,7 @@ describe('ProfilePage', () => {
           owner_id: 'user-1',
           name: 'Taladro',
           description: 'Un taladro',
-          category: 'electricas',
+          category: 'Herramientas eléctricas',
           condition: 'bueno',
           is_paused: false,
           deleted_at: null,

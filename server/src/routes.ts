@@ -13,6 +13,8 @@ import { UserRepository } from './modules/auth/userRepo.js'
 import type { ExpressApplication } from './index.js'
 import { loadEnv } from './modules/config/env.js'
 import { authMiddleware } from './modules/middleware/auth.js'
+import { originChecker } from './modules/middleware/origin.js'
+import { generalRateLimiter } from './modules/middleware/rateLimit.js'
 
 export function wireRoutes(app: ExpressApplication): void {
   const env = loadEnv()
@@ -31,14 +33,18 @@ export function wireRoutes(app: ExpressApplication): void {
   // Auth routes (handles its own auth)
   app.use('/api/auth', authRoutes(userRepo, env.JWT_SECRET, env.CORS_ORIGIN))
 
-  // Tools routes — GET / is public, rest needs auth
+  // Tools routes — GET / is public, rest needs auth + origin check + general rate limit
+  app.use('/api/tools', generalRateLimiter)
+  app.use('/api/tools', originChecker)
   app.use('/api/tools', (req, res, next) => {
     if (req.method === 'GET' && req.path === '/') return next()
     return authMiddleware(req as any, res, next)
   })
   app.use('/api/tools', toolsRoutes(toolService, searchService))
 
-  // Loans, me, me/account — all need auth
+  // Loans, me, me/account — all need auth + origin check + general rate limit
+  app.use('/api', generalRateLimiter)
+  app.use('/api', originChecker)
   app.use('/api', authMiddleware)
   app.use('/api', loansRoutes(loanService, pool.query.bind(pool)))
   app.use('/api', meRoutes(toolRepo, loanRepo))

@@ -2,15 +2,12 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const TOOL_CATEGORIES = [
-  'electricas',
-  'manuales',
-  'jardineria',
-  'plomeria',
-  'gas',
-  'pintura',
-  'medicion',
-  'construccion',
-  'otros',
+  'Herramientas eléctricas',
+  'Herramientas manuales',
+  'Jardín',
+  'Limpieza',
+  'Escaleras y altura',
+  'Otros',
 ] as const
 
 const TOOL_CONDITIONS = ['nuevo', 'bueno', 'usado'] as const
@@ -114,7 +111,7 @@ export function PublishForm() {
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 ${
                 errors.name ? 'border-red-300' : 'border-gray-300'
               }`}
             />
@@ -132,7 +129,7 @@ export function PublishForm() {
               rows={3}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 ${
                 errors.description ? 'border-red-300' : 'border-gray-300'
               }`}
             />
@@ -150,7 +147,7 @@ export function PublishForm() {
               required
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 ${
                 errors.category ? 'border-red-300' : 'border-gray-300'
               }`}
             >
@@ -175,7 +172,7 @@ export function PublishForm() {
               required
               value={formData.condition}
               onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500 ${
                 errors.condition ? 'border-red-300' : 'border-gray-300'
               }`}
             >
@@ -194,7 +191,7 @@ export function PublishForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="w-full bg-violet-600 text-white py-2 px-4 rounded-md hover:bg-violet-700 disabled:opacity-50"
           >
             {loading ? 'Publicando...' : 'Publicar'}
           </button>

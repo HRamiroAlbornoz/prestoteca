@@ -4,7 +4,7 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import { authRoutes } from '../src/modules/auth/authRoutes.js'
 import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
-import { rateLimiter } from '../src/modules/middleware/rateLimit.js'
+import { authRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
 
 function createMockApp() {
@@ -34,7 +34,7 @@ function createMockApp() {
   const app = express()
   app.use(express.json())
   app.use(cookieParser())
-  app.use(rateLimiter)
+  app.use(authRateLimiter)
   app.use('/api/auth', authRoutes(mockRepo as UserRepository, 'test-secret', 'http://localhost:5173'))
 
   return { app, usersByEmail }
@@ -52,7 +52,7 @@ describe('auth routes', () => {
     it('returns 201 with Set-Cookie header', async () => {
       const res = await request(app)
         .post('/api/auth/register')
-        .send({ name: 'Ana', email: 'ana@example.com', password: 'ana123', neighborhood: 'Centro' })
+        .send({ name: 'Ana García', email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro' })
 
       expect(res.status).toBe(201)
       expect(res.headers['set-cookie']).toBeDefined()
@@ -71,11 +71,11 @@ describe('auth routes', () => {
     it('returns 409 on duplicate email', async () => {
       await request(app)
         .post('/api/auth/register')
-        .send({ name: 'Ana', email: 'ana@example.com', password: 'ana123', neighborhood: 'Centro' })
+        .send({ name: 'Ana García', email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro' })
 
       const res = await request(app)
         .post('/api/auth/register')
-        .send({ name: 'Ana 2', email: 'ana@example.com', password: 'ana456', neighborhood: 'Norte' })
+        .send({ name: 'Ana López', email: 'ana@example.com', password: 'ana45678', neighborhood: 'Norte' })
 
       expect(res.status).toBe(409)
     })

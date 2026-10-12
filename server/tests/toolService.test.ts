@@ -67,7 +67,7 @@ describe('ToolService', () => {
       const tool = await service.publish({
         name: 'Taladro',
         description: 'Un taladro potente',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         ownerId: 'owner-1',
       })
@@ -85,7 +85,7 @@ describe('ToolService', () => {
       const tool = await service.publish({
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         ownerId: 'owner-1',
       })
@@ -98,7 +98,7 @@ describe('ToolService', () => {
       const tool = await service.publish({
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         ownerId: 'owner-1',
       })
@@ -121,7 +121,7 @@ describe('ToolService', () => {
       const tool = await service.publish({
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         ownerId: 'owner-1',
       })
@@ -138,7 +138,7 @@ describe('ToolService', () => {
       const tool = await service.publish({
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         ownerId: 'owner-1',
       })
@@ -155,7 +155,7 @@ describe('ToolService', () => {
       const tool = await service.publish({
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         ownerId: 'owner-1',
       })
@@ -170,7 +170,7 @@ describe('ToolService', () => {
       const tool = await service.publish({
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         ownerId: 'owner-1',
       })
@@ -183,7 +183,7 @@ describe('ToolService', () => {
       const tool = await service.publish({
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         ownerId: 'owner-1',
       })
@@ -199,7 +199,7 @@ describe('ToolService', () => {
       const tool = await service.publish({
         name: 'Taladro',
         description: 'Desc',
-        category: 'electricas',
+        category: 'Herramientas eléctricas',
         condition: 'bueno',
         ownerId: 'owner-1',
       })

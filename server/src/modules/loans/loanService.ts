@@ -95,8 +95,12 @@ export class LoanService {
   }
 
   async autoVencido(): Promise<number> {
-    const today = new Date()
-    const todayStr = today.toISOString().split('T')[0]!
+    // Use local date in America/Argentina/Tucuman timezone
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const todayStr = `${year}-${month}-${day}`
 
     // Get all delivered loans
     const deliveredLoans = await this.findAllDeliveredLoans()

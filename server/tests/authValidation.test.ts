@@ -4,7 +4,7 @@ import express from 'express'
 import cookieParser from 'cookie-parser'
 import { authRoutes } from '../src/modules/auth/authRoutes.js'
 import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
-import { rateLimiter } from '../src/modules/middleware/rateLimit.js'
+import { authRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
 
 function createMockApp() {
@@ -34,7 +34,7 @@ function createMockApp() {
   const app = express()
   app.use(express.json())
   app.use(cookieParser())
-  app.use(rateLimiter)
+  app.use(authRateLimiter)
   app.use('/api/auth', authRoutes(mockRepo as UserRepository, 'test-secret', 'http://localhost:5173'))
 
   return { app, usersByEmail }
@@ -63,12 +63,12 @@ describe('auth validation ACs', () => {
       // Register with lowercase
       await request(app.app)
         .post('/api/auth/register')
-        .send({ name: 'Ana', email: 'ana@example.com', password: 'ana123', neighborhood: 'Centro' })
+        .send({ name: 'Ana García', email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro' })
 
       // Try to register with uppercase
       const res = await request(app.app)
         .post('/api/auth/register')
-        .send({ name: 'Ana 2', email: 'ANA@EXAMPLE.COM', password: 'ana456', neighborhood: 'Norte' })
+        .send({ name: 'Ana López', email: 'ANA@EXAMPLE.COM', password: 'ana45678', neighborhood: 'Norte' })
 
       expect(res.status).toBe(409)
     })

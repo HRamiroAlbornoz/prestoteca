@@ -360,6 +360,7 @@ slug: prestoteca-mvp
 - commit: f87fce4
 
 ## T037 — 2026-10-09
+- status: complete
 - red: meAccountRoutes no anonymizaba loans; old password test fallaba (bcrypt mock siempre true)
 - green: 11/11 tests — password change, old password fails, account deletion, tools soft-deleted, loans anonymized
 - triangulation: anonymizeByBorrower + anonymizeByOwner en loanRepo; bcrypt mock track known hashes; meAccountRoutes recibe LoanRepository
@@ -369,6 +370,7 @@ slug: prestoteca-mvp
 - commit: dc956bc
 
 ## T038 — 2026-10-09
+- status: complete
 - red: axe-core no instalado; tabs async en MyLoansPage/ProfilePage
 - green: 19/19 tests — 0 WCAG 2.2 AA violations en 9 páginas; labels en todos los inputs; tabs con ARIA roles
 - triangulation: axe-core run en Register, Login, Home, ToolDetail, PublishForm, RequestLoan, LoanDetail, MyLoans, Profile; waitFor para tabs async
@@ -378,6 +380,7 @@ slug: prestoteca-mvp
 - commit: c1eeac6
 
 ## T039 — 2026-10-09
+- status: complete
 - red: 3 links con solo text-blue-600 hover:underline sin padding → touch target < 24px
 - green: 20/20 tests — 0 overflow horizontal; touch targets ≥ 24px verificados por clases Tailwind
 - triangulation: checkTouchTargets verifica classes como min-h-[44px], py-2, px-3; fix en LoanDetail, RequestLoan, ToolDetail
@@ -394,3 +397,31 @@ slug: prestoteca-mvp
 - files: (verificación de todos los test suites)
 - decision: smoke test manual queda como paso pendiente con backend + DB real; automated tests cubren 100% de los ACs
 - blocker: none — smoke test manual requiere entorno con PostgreSQL
+
+## T041 — 2026-10-10
+- status: complete
+- red: app no deployeada; sin dominio público no se puede hacer smoke test manual
+- green: Railway deploy exitoso; app live en https://prestoteca-production.up.railway.app; health endpoint con DB connected; login + cookies auth funcionando; frontend sirve estáticos
+- triangulation: railway up → build con Node 20 (Railpack); variables DATABASE_URL (reference ${{Postgres.DATABASE_URL}}), JWT_SECRET, NODE_ENV=production; curl prueba: login → cookie → /api/me/tools retorna datos
+- files: railway.json, package.json (root), .gitignore (.railway/)
+- decision: deploy automático por push a prestoteca-mvp; CI/CD en Railway; dominio *.up.railway.app
+- blocker: none
+- commit: (deploy en Railway)
+
+## T042 — 2026-10-10
+- status: complete
+- red: smoke test manual no se puede hacer con browser automation (fill_form no dispara React onChange)
+- green: 353/353 tests verdes; smoke test completo verificado vía curl: register→login→publish→request→accept→deliver→return; rate limiter ajustado a 30 req/min en prod; fix query overlapping (cast date, hardcodear statuses)
+- triangulation: curl flow completo con 2 usuarios (Lucía + Carlos); loan lifecycle completo (pendiente→aceptado→entregado→devuelto); cookies httpOnly funcionan en same-origin
+- files: server/src/modules/middleware/rateLimit.ts, server/src/modules/loans/loanRepo.ts
+- decision: browser automation limitada para React forms; curl para API verification
+- blocker: none
+
+## T044 — 2026-10-10
+- status: complete
+- red: 7 brechas restantes entre brief.md y lo construido (categorías/barrios diferentes, nota sin límite 300, sin trim, sin validación fechas, sin TEST_DATABASE_URL)
+- green: categorías exactas del brief (6), barrios exactos del brief (8), nota máx 300, trim whitespace en todos los inputs, validación start>=hoy y end>=start, TEST_DATABASE_URL en env.ts; 353/353 tests verdes; deploy Railway verificado
+- triangulation: curl verifica nota>300→400, start pasado→400, end<start→400, trim espacios→201, categoría brief→201; categorías con acentos funcionan (UTF-8)
+- files: server/src/modules/tools/toolService.ts, toolRepo.ts, authRoutes.ts, toolsRoutes.ts, loansRoutes.ts, env.ts, .env.example, client/src/pages/*, server/tests/*, client/src/components/ToolCard.tsx, HomePage.tsx, ToolDetailPage.tsx
+- decision: cerrar brechas directas sin plan RSC
+- blocker: none

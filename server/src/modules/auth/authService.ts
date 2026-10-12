@@ -60,7 +60,7 @@ export class AuthService {
   generateToken(userId: string): string {
     return jwt.sign({ id: userId }, this.jwtSecret, {
       issuer: this.jwtIssuer,
-      expiresIn: '24h',
+      expiresIn: '1h',
     })
   }
 }

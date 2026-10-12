@@ -101,8 +101,8 @@ describe('loans routes', () => {
         .set('Authorization', 'Bearer user-2')
         .set('Origin', 'http://localhost:5173')
         .send({
-          startDate: '2026-10-10',
-          endDate: '2026-10-20',
+          startDate: '2026-10-15',
+          endDate: '2026-10-25',
           note: 'Necesito el taladro',
         })
 
@@ -121,8 +121,8 @@ describe('loans routes', () => {
         .set('Authorization', 'Bearer user-1')
         .set('Origin', 'http://localhost:5173')
         .send({
-          startDate: '2026-10-10',
-          endDate: '2026-10-20',
+          startDate: '2026-10-15',
+          endDate: '2026-10-25',
         })
 
       expect(res.status).toBe(400)
@@ -136,8 +136,8 @@ describe('loans routes', () => {
         .set('Authorization', 'Bearer user-2')
         .set('Origin', 'http://localhost:5173')
         .send({
-          startDate: '2026-10-10',
-          endDate: '2026-10-20',
+          startDate: '2026-10-15',
+          endDate: '2026-10-25',
         })
 
       expect(res.status).toBe(404)
@@ -154,8 +154,8 @@ describe('loans routes', () => {
         .set('Authorization', 'Bearer user-2')
         .set('Origin', 'http://localhost:5173')
         .send({
-          startDate: '2026-10-10',
-          endDate: '2026-10-20',
+          startDate: '2026-10-15',
+          endDate: '2026-10-25',
         })
 
       expect(res.status).toBe(409)
@@ -167,8 +167,8 @@ describe('loans routes', () => {
       const res = await request(app)
         .post('/api/tools/tool-1/loans')
         .send({
-          startDate: '2026-10-10',
-          endDate: '2026-10-20',
+          startDate: '2026-10-15',
+          endDate: '2026-10-25',
         })
 
       expect(res.status).toBe(401)

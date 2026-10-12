@@ -84,7 +84,7 @@ describe('LoanStatus', () => {
     expect(badge.closest('span')).toHaveClass('bg-yellow-100')
   })
 
-  it('renders aceptado with blue color', () => {
+  it('renders aceptado with violet color', () => {
     render(
       <MemoryRouter>
         <LoanStatus status="aceptado" />
@@ -92,7 +92,7 @@ describe('LoanStatus', () => {
     )
     expect(screen.getByText('Aceptado')).toBeInTheDocument()
     const badge = screen.getByText('Aceptado')
-    expect(badge.closest('span')).toHaveClass('bg-blue-100')
+    expect(badge.closest('span')).toHaveClass('bg-violet-100')
   })
 
   it('renders entregado with purple color', () => {

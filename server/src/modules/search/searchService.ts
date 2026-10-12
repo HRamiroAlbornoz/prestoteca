@@ -18,6 +18,11 @@ export class SearchService {
       throw new Error('Page must be >= 1')
     }
 
+    // RF-14: Search query max 60 characters
+    if (input.q && input.q.length > 60) {
+      throw new Error('Search query must be at most 60 characters')
+    }
+
     const limit = input.limit ?? 12
 
     return this.toolRepo.findAll({

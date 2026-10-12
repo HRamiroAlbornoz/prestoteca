@@ -85,8 +85,8 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-20' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-10' } })
+    fireEvent.change(startInput, { target: { value: '2026-10-25' } })
+    fireEvent.change(endInput, { target: { value: '2026-10-15' } })
 
     expect(screen.getByRole('button', { name: /solicitar/i })).toBeDisabled()
   })
@@ -96,8 +96,8 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-10' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-20' } })
+    fireEvent.change(startInput, { target: { value: '2026-10-15' } })
+    fireEvent.change(endInput, { target: { value: '2026-10-25' } })
 
     expect(screen.getByRole('button', { name: /solicitar/i })).not.toBeDisabled()
   })
@@ -109,7 +109,7 @@ describe('RequestLoanPage', () => {
 
     // Yesterday's date
     fireEvent.change(startInput, { target: { value: '2020-01-01' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-20' } })
+    fireEvent.change(endInput, { target: { value: '2026-10-25' } })
 
     expect(screen.getByText(/la fecha de inicio debe ser hoy o posterior/i)).toBeInTheDocument()
   })
@@ -119,8 +119,8 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-20' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-10' } })
+    fireEvent.change(startInput, { target: { value: '2026-10-25' } })
+    fireEvent.change(endInput, { target: { value: '2026-10-15' } })
 
     expect(screen.getByText(/la fecha de fin debe ser igual o posterior a la de inicio/i)).toBeInTheDocument()
   })
@@ -154,8 +154,8 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-10' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-20' } })
+    fireEvent.change(startInput, { target: { value: '2026-10-15' } })
+    fireEvent.change(endInput, { target: { value: '2026-10-25' } })
 
     fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
 
@@ -164,8 +164,8 @@ describe('RequestLoanPage', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          start_date: '2026-10-10',
-          end_date: '2026-10-20',
+          start_date: '2026-10-15',
+          end_date: '2026-10-25',
           note: undefined,
         }),
       })
@@ -183,8 +183,8 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-10' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-20' } })
+    fireEvent.change(startInput, { target: { value: '2026-10-15' } })
+    fireEvent.change(endInput, { target: { value: '2026-10-25' } })
 
     fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
 
@@ -204,8 +204,8 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-10' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-20' } })
+    fireEvent.change(startInput, { target: { value: '2026-10-15' } })
+    fireEvent.change(endInput, { target: { value: '2026-10-25' } })
 
     fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
 
