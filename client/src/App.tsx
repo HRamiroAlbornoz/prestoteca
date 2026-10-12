@@ -6,7 +6,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { ToolDetailPage } from './pages/ToolDetailPage'
 import { RequestLoanPage } from './pages/RequestLoanPage'
 import { PublishForm } from './pages/PublishForm'
-import { AuthProvider, ProtectedRoute } from './contexts/AuthContext'
+import { AuthProvider } from './contexts/AuthContext'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   // The AuthProvider tracks currentUser from the cookie.
