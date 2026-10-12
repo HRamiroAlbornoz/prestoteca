@@ -92,3 +92,6 @@ client/node_modules/
 
 # Railway local link state
 .railway/
+
+# rsc local state (hooks, seals, logs) and managed skill links — machine-local
+.opencode/rsc/connect-tool
