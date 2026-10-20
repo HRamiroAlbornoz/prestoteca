@@ -5,6 +5,7 @@
   ],
   "skills": [
     "accessibility",
+    "analytics",
     "analyze",
     "automation-strategy",
     "clarify",
@@ -20,6 +21,7 @@
     "idea-refinement",
     "implement",
     "init",
+    "monitoring",
     "orient",
     "parallel",
     "plan",
@@ -780,8 +782,8 @@
       "AGENTS.md": "25570bfc29ed2735e6423ccbbc8d9e42dc877f05447bef412aaac7d3d01c871f"
     },
     "maintenanceDrift": {
-      "action": "add railway",
-      "recordedAt": "2026-10-10T02:07:43.662Z",
+      "action": "add monitoring,analytics",
+      "recordedAt": "2026-10-20T18:20:45.778Z",
       "requiresReassessment": true
     }
   }
