@@ -37,7 +37,7 @@ export function wireRoutes(app: ExpressApplication): void {
   app.use('/api/tools', generalRateLimiter)
   app.use('/api/tools', originChecker)
   app.use('/api/tools', (req, res, next) => {
-    if (req.method === 'GET' && req.path === '/') return next()
+    if (req.method === 'GET') return next()
     return authMiddleware(req as any, res, next)
   })
   app.use('/api/tools', toolsRoutes(toolService, searchService))
