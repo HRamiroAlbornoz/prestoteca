@@ -425,3 +425,14 @@ slug: prestoteca-mvp
 - files: server/src/modules/tools/toolService.ts, toolRepo.ts, authRoutes.ts, toolsRoutes.ts, loansRoutes.ts, env.ts, .env.example, client/src/pages/*, server/tests/*, client/src/components/ToolCard.tsx, HomePage.tsx, ToolDetailPage.tsx
 - decision: cerrar brechas directas sin plan RSC
 - blocker: none
+
+## T045 — 2026-10-20 Verificación Chrome DevTools + Fixes
+
+- status: complete
+- red: GET /api/tools/:id devolvía 401 sin auth (ruta pública protegida); CORS_ORIGIN no configurado en Railway → 403 en todos los POST/PATCH/DELETE; seed DB tiene categorías como slugs lowercase (electricas, jardineria, manuales, medicion) en vez de nombres del brief
+- green: 17/17 RF verificados vía curl y Chrome; auth flow completo (register 201+cookie, login 200+cookie, logout 204+clear); perfil con auth funciona; health check ok; paginación ok; búsqueda y filtros ok; bug GET /:id corregido en routes.ts (eximir todos los GET de auth); TSC limpio, 202/205 server tests verdes (3 fallan desde antes), 144/148 client tests verdes (4 fallan desde antes)
+- triangulation: curl verifica 401→200 en tool detail con auth, 403 sin CORS_ORIGIN, 201 con Origin correcto; seed actual tiene categorías correctas pero DB tiene datos viejos; 7 tests preexistentes fallan sin relación con los fixes
+- files: server/src/routes.ts (fix GET /:id), server/scripts/fix-categories.sql (SQL para corregir DB)
+- decision: fix GET /:id pushhead a main; CORS_ORIGIN y seed requieren deploy manual + acción en Railway dashboard
+- blocker: deploys pausados en Railway — usuario debe despausar desde dashboard
+- commit: e2ef1b0 (fix routes.ts), 33c91af (trigger deploy)
