@@ -44,4 +44,12 @@ describe('migrations', () => {
     const files = readFileSync(join(migrationsDir, '003_create_loans.sql'), 'utf-8')
     expect(files).toContain('CREATE INDEX IF NOT EXISTS idx_loans_dates')
   })
+
+  it('adds a nullable users.deleted_at that is safe to run twice', () => {
+    const files = readFileSync(join(migrationsDir, '004_add_users_deleted_at.sql'), 'utf-8')
+    // Nullable: existing rows and old code keep working. IF NOT EXISTS: re-running is harmless.
+    expect(files).toContain('ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL')
+    // The migration must only add the column, never create or drop tables
+    expect(files).not.toMatch(/^\s*(CREATE|DROP) TABLE/im)
+  })
 })

@@ -1,18 +1,18 @@
+import { randomBytes } from 'node:crypto'
 import type { Router } from 'express'
 import express from 'express'
 import bcrypt from 'bcrypt'
+import type { Pool } from 'pg'
 import type { UserRepository } from '../auth/userRepo.js'
-import type { ToolRepository } from '../tools/toolRepo.js'
-import type { LoanRepository } from '../loans/loanRepo.js'
 import type { AuthRequest } from '../middleware/auth.js'
 import { sendError } from '../errors/AppError.js'
+import { deleteAccount } from './accountDeletion.js'
 
 const SALT_ROUNDS = 12
 
 export function meAccountRoutes(
   userRepo: UserRepository,
-  toolRepo: ToolRepository,
-  loanRepo: LoanRepository,
+  pool: Pick<Pool, 'connect'>,
 ): Router {
   const router = express.Router()
 
@@ -73,22 +73,16 @@ export function meAccountRoutes(
     }
 
     try {
-      // Soft delete all user's tools
-      const tools = await toolRepo.findByOwner(userId)
-      for (const tool of tools) {
-        await toolRepo.softDelete(tool.id)
-      }
+      // Hash a random value before opening the transaction: bcrypt takes ~200 ms,
+      // and the user row stays locked for as long as the transaction is open
+      const replacementHash = await bcrypt.hash(randomBytes(32).toString('hex'), SALT_ROUNDS)
+      await deleteAccount(pool, userId, replacementHash)
 
-      // Anonymize loans — keep history but remove user identity
-      await loanRepo.anonymizeByBorrower(userId)
-      await loanRepo.anonymizeByOwner(userId)
-
-      // Delete user account
-      await userRepo.delete(userId)
-
+      // The session cookie belongs to an account that no longer exists
+      res.clearCookie('token')
       res.status(204).send()
-    } catch {
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to delete account' } })
+    } catch (err: unknown) {
+      sendError(res, err, 'Failed to delete account')
     }
   })
 

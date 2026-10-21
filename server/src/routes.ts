@@ -50,5 +50,5 @@ export function wireRoutes(app: ExpressApplication): void {
   app.use('/api', authMiddleware)
   app.use('/api', loansRoutes(loanService, pool.query.bind(pool)))
   app.use('/api', meRoutes(toolRepo, loanRepo))
-  app.use('/api', meAccountRoutes(userRepo, toolRepo, loanRepo))
+  app.use('/api', meAccountRoutes(userRepo, pool))
 }

@@ -139,7 +139,7 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   mismo cuerpo; con email inexistente, `bcrypt.compare` se llama igual).
 - [x] T5 — (3) Errores. Prueba: tests en rojo → verde (un error inesperado del repo → 500 genérico sin
   el texto original; JSON mal formado → 400 genérico; los errores esperados conservan status y mensaje).
-- [ ] T6 — (4) Migración 004 + borrado de cuenta. Prueba: tests en rojo → verde (con préstamos
+- [x] T6 — (4) Migración 004 + borrado de cuenta. Prueba: tests en rojo → verde (con préstamos
   activos → 409 y nada cambia; sin préstamos activos → 204, `Set-Cookie` que borra `token`, fila
   anonimizada, herramientas borradas, préstamos intactos; si falla un paso → `ROLLBACK`; el email
   original se puede registrar otra vez).
@@ -259,7 +259,31 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   - Fuera de alcance (anotado): logger estructurado con `requestId` y el campo `retryable` que pide
     `checklist-errores`. Hoy no hay quien los consuma; van en una feature de observabilidad.
 
+- **T6** (2026-10-21):
+  - Archivos nuevos: `migrations/004_add_users_deleted_at.sql` (`ALTER TABLE users ADD COLUMN IF NOT
+    EXISTS deleted_at TIMESTAMPTZ NULL`, con el `down` documentado en un comentario);
+    `db/transaction.ts` (`withTransaction`: `BEGIN` / `COMMIT` / `ROLLBACK` y `release` en `finally`);
+    `me/accountDeletion.ts` (`deleteAccount`: bloquea la fila con `FOR UPDATE`, 409 si hay préstamos
+    activos, borrado lógico de herramientas, anonimiza `users`; todo en una transacción).
+  - `meAccountRoutes` recibe `(userRepo, pool)`: genera el hash de reemplazo **antes** de abrir la
+    transacción (bcrypt tarda ~200 ms y la fila queda bloqueada mientras la transacción esté abierta),
+    llama a `deleteAccount`, borra la cookie y responde 204. `ACTIVE_STATUSES` de `loanRepo` pasa a
+    exportarse; se eliminan `anonymizeByBorrower` y `anonymizeByOwner`.
+  - Tests nuevos en `tests/accountDeletion.test.ts` (11) con un PostgreSQL falso que solo aplica las
+    escrituras en `COMMIT`. **Rojo:** primero el módulo inexistente; con `deleteAccount` escrito,
+    `2 failed | 9 passed` — la ruta vieja respondía **500** en el borrado normal y con préstamos activos,
+    lo mismo que pasa hoy en producción.
+  - `meAccountRoutes.test.ts`: se quita el bloque `DELETE` (4 tests) **a propósito**, cubierto más a fondo
+    en `accountDeletion.test.ts`. Su test de anonimización usaba un préstamo `pendiente`, que con D-b
+    bloquea el borrado. Test nuevo en `migrations.test.ts` para la 004.
+  - **Error mío, corregido antes de correr nada:** el primer borrador de la migración 004 incluía un
+    `CREATE TABLE IF NOT EXISTS users (id UUID PRIMARY KEY)` que no correspondía (si la 004 corriera
+    antes que la 001, dejaría una tabla `users` incompleta). El test nuevo de `migrations.test.ts`
+    rechaza cualquier `CREATE TABLE` o `DROP TABLE` en la 004.
+  - **Verde:** suite del server `25 passed` archivos, `230 passed (230)`; `tsc --noEmit` exit 0.
+  - Límite (E3): estos tests usan un PostgreSQL falso. La prueba que vale es el borrado real en staging
+    (T9).
+
 ## Next
 
-T6: migración 004 + borrado de cuenta (anonimizar en una transacción, 409 con préstamos activos,
-borrar la cookie). Espera la indicación de Hernán.
+T6b: `server/scripts/smoke.mjs` en el repo con los casos nuevos. Espera la indicación de Hernán.
