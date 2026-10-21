@@ -96,6 +96,12 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   - Se arreglan los 3 tests rojos de `loansRoutes.test.ts`: usan fechas fijas (`2026-10-15`) que ya
     pasaron. Se cambian por fechas relativas a hoy. Es necesario porque esta feature toca
     `loansRoutes.ts`, y con esos 3 en rojo no hay red de seguridad para el `POST` de préstamos.
+- **Smoke test en el repo** (aprobado 2026-10-21): `server/scripts/smoke.mjs`, sin dependencias,
+  uso `node server/scripts/smoke.mjs <url-base>`. Parte del script del arreglo del deploy (19 chequeos)
+  y suma los casos nuevos: login con email inexistente = mismo 401 que con contraseña mala,
+  `POST /api/auth/login` sin `Origin` → 403, borrado de cuenta con préstamo activo → 409 y borrado de
+  cuenta sin préstamos activos → 204 con la cookie borrada. Al final borra sus propios usuarios de
+  prueba, así no deja basura en la base.
 - **Verificación real** (porque los mocks no alcanzan): en staging, borrar una cuenta con herramientas
   y un préstamo devuelto (→ 204, fila anonimizada, préstamo intacto) y una con un préstamo activo (→ 409).
 - **Backup de producción** antes de la migración: `pg_dump` en formato SQL plano dentro del contenedor
@@ -132,6 +138,8 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   activos → 409 y nada cambia; sin préstamos activos → 204, `Set-Cookie` que borra `token`, fila
   anonimizada, herramientas borradas, préstamos intactos; si falla un paso → `ROLLBACK`; el email
   original se puede registrar otra vez).
+- [ ] T6b — `server/scripts/smoke.mjs` en el repo con los casos nuevos. Prueba: corre contra staging
+  en T9 y termina en `SMOKE OK`.
 - [ ] T7 — Suite completa, lint y type-check. Prueba: server todo verde; client 144/148 (los mismos
   4 rojos de antes); `tsc -b` y `oxlint` sin errores.
 - [ ] T8 — Push de la rama y staging apuntando a `fix/security-hardening`. Prueba: deploy de staging
