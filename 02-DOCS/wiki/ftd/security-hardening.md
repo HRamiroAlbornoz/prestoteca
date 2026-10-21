@@ -145,7 +145,7 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   original se puede registrar otra vez).
 - [ ] T6b — `server/scripts/smoke.mjs` en el repo con los casos nuevos. Prueba: corre contra staging
   en T9 y termina en `SMOKE OK`.
-- [ ] T7 — Suite completa, lint y type-check. Prueba: server todo verde; client 144/148 (los mismos
+- [x] T7 — Suite completa, lint y type-check. Prueba: server todo verde; client 144/148 (los mismos
   4 rojos de antes); `tsc -b` y `oxlint` sin errores.
 - [ ] T8 — Push de la rama y staging apuntando a `fix/security-hardening`. Prueba: deploy de staging
   en `SUCCESS` con el commit de la rama.
@@ -299,6 +299,17 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   - El chequeo «after deletion the browser has no session left» prueba que la cookie se borró, no que el
     token quedó invalidado (riesgo residual D-d); el comentario del script lo aclara.
 
+- **T7** (2026-10-21, sobre `b3988ec`):
+  - Server: `Test Files 25 passed (25)`, `Tests 230 passed (230)`; `tsc --noEmit` exit 0.
+  - Client: `Tests 4 failed | 144 passed (148)`, los mismos 4 de `requestLoan.test.tsx` de la línea
+    base. `git diff main...HEAD -- client` vacío: esta rama no tocó el cliente. Misma causa que los del
+    server en T2: fechas fijas (`'2026-10-15'`, `'2026-10-25'`) que ya pasaron. Fuera de alcance.
+  - `oxlint` (client) exit 0: solo warnings que ya existían, 0 errores.
+  - Build de producción como en Railway (`NODE_ENV=production npm run build`): exit 0; Vite
+    `✓ built in 1.50s` y `tsc -b` del server sin errores; existen `server/dist/index.js`,
+    `server/dist/modules/errors/AppError.js`, `server/dist/modules/me/accountDeletion.js` y
+    `server/client-dist/index.html`.
+
 ## Next
 
-T7: suite completa del server y del cliente, lint y type-check. Espera la indicación de Hernán.
+T8: push de la rama y staging apuntando a `fix/security-hardening`. Espera la indicación de Hernán.
