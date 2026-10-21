@@ -23,8 +23,7 @@
         { "src": "client/public", "dest": "client/public" },
         { "src": "client/index.html", "dest": "client/index.html" },
         { "src": "client/vite.config.ts", "dest": "client/vite.config.ts" },
-        { "src": "client/postcss.config.mjs", "dest": "client/postcss.config.mjs" },
-        { "src": "client/tailwind.config.ts", "dest": "client/tailwind.config.ts" },
+        
         { "src": "server/tsconfig.json", "dest": "server/tsconfig.json" },
         
         { "src": "server/src", "dest": "server/src" },
