@@ -19,6 +19,7 @@
         { "path": "client/node_modules/.bin" },
         { "src": "client/tsconfig.json", "dest": "client/tsconfig.json" },
         { "src": "client/tsconfig.app.json", "dest": "client/tsconfig.app.json" },
+        { "src": "client/tsconfig.node.json", "dest": "client/tsconfig.node.json" },
         { "src": "client/src", "dest": "client/src" },
         { "src": "client/public", "dest": "client/public" },
         { "src": "client/index.html", "dest": "client/index.html" },
