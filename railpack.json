@@ -14,7 +14,15 @@
       ]
     },
     "build": {
-      "inputs": [{ "step": "install" }],
+      "inputs": [
+        { "step": "install" },
+        { "src": "client/tsconfig.json", "dest": "client/tsconfig.json" },
+        { "src": "client/tsconfig.app.json", "dest": "client/tsconfig.app.json" },
+        { "src": "client/src", "dest": "client/src" },
+        { "src": "client/public", "dest": "client/public" },
+        { "src": "server/tsconfig.json", "dest": "server/tsconfig.json" },
+        { "src": "server/src", "dest": "server/src" }
+      ],
       "commands": [
         { "path": "client/node_modules/.bin" },
         "cd client && npm run build",
