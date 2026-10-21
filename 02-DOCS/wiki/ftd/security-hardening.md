@@ -310,6 +310,19 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
     `server/dist/modules/errors/AppError.js`, `server/dist/modules/me/accountDeletion.js` y
     `server/client-dist/index.html`.
 
+- **T8 en curso** (2026-10-21):
+  - Push: `git ls-remote --heads origin fix/security-hardening` → `9fd029d… refs/heads/fix/security-hardening`.
+  - `railway service source connect --branch fix/security-hardening -e staging` → respondió
+    `Deploys have been paused temporarily` (exit 1), pero el cambio se aplicó: la config de staging
+    muestra `source.branch: "fix/security-hardening"`.
+  - **Bloqueo externo:** Railway pausó los deploys de los planes Free/Hobby por alta demanda («Deployments
+    paused - limited access», docs.railway.com/deployments/reference). Según su documentación, los
+    deploys nuevos quedan en cola y se procesan solos cuando termina la pausa; lo que ya está corriendo no
+    se ve afectado. No aparece todavía un deploy nuevo de staging: el último sigue siendo `a070eeb1`
+    (`main`, `e2e8113`). Producción sigue igual, sana.
+
 ## Next
 
-T8: push de la rama y staging apuntando a `fix/security-hardening`. Espera la indicación de Hernán.
+Esperar a que Railway levante la pausa y verificar el deploy de staging de `fix/security-hardening`.
+Mientras tanto se puede adelantar de T9 lo que no depende del deploy: el backup de prueba de staging y
+la migración 004 (es aditiva; el código viejo la ignora).
