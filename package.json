@@ -6,8 +6,8 @@
     "server"
   ],
   "scripts": {
-    "build": "cd client && npm run build && cd ../server && npm run build",
-    "start": "cd server && npm run start"
+    "build": "npm run build --workspace client && npm run build --workspace server",
+    "start": "npm run start --workspace server"
   },
   "engines": {
     "node": ">= 20"
