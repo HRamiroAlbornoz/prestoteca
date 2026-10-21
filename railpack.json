@@ -23,14 +23,21 @@
         { "src": "client/public", "dest": "client/public" },
         { "src": "client/index.html", "dest": "client/index.html" },
         { "src": "client/vite.config.ts", "dest": "client/vite.config.ts" },
-        
         { "src": "server/tsconfig.json", "dest": "server/tsconfig.json" },
-        
         { "src": "server/src", "dest": "server/src" },
         { "src": "server/package.json", "dest": "server/package.json" },
         "cd client && npm run build",
         { "path": "server/node_modules/.bin" },
         "cd server && npm run build"
+      ]
+    },
+    "deploy": {
+      "inputs": [
+        { "step": "build" },
+        { "src": "client/dist", "dest": "client/dist" },
+        { "src": "client/node_modules", "dest": "client/node_modules" },
+        { "src": "server/dist", "dest": "server/dist" },
+        { "src": "server/node_modules", "dest": "server/node_modules" }
       ]
     }
   },
