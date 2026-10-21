@@ -321,8 +321,20 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
     se ve afectado. No aparece todavía un deploy nuevo de staging: el último sigue siendo `a070eeb1`
     (`main`, `e2e8113`). Producción sigue igual, sana.
 
+- **Intento de adelantar T9** (2026-10-21, 15:37 UTC):
+  - `pg_dump` por `railway ssh -s Postgres -e staging` → `ssh: connect to host ssh.railway.com port 22:
+    Connection timed out` (exit 255). Reintento: igual. No es la red local: `github.com:22` y
+    `ssh.railway.com:443` responden; solo falla el SSH de Railway (probablemente parte del mismo incidente).
+    El archivo de salida quedó vacío (0 bytes).
+  - Plan B, backups nativos de Railway: `railway postgres pitr backup list` funciona (staging y producción:
+    `No backups found`; producción: `No backup schedule configured`). Pero
+    `backup create` → `Manual backups and backup schedules are only available for Pro workspaces`.
+  - `pg_dump` y `psql` no están instalados en la PC; ninguna base tiene TCP proxy público.
+  - **Hallazgo:** la base de producción **no tiene ningún backup**, ni manual ni programado. En el plan
+    actual (no Pro) Railway no los ofrece.
+  - Resultado: ni el backup ni la migración 004 se pudieron adelantar. No se cambió nada en staging.
+
 ## Next
 
-Esperar a que Railway levante la pausa y verificar el deploy de staging de `fix/security-hardening`.
-Mientras tanto se puede adelantar de T9 lo que no depende del deploy: el backup de prueba de staging y
-la migración 004 (es aditiva; el código viejo la ignora).
+Hernán elige cómo seguir: esperar a que vuelva el SSH de Railway (plan original), o usar un TCP proxy
+temporal + `pg_dump` local.
