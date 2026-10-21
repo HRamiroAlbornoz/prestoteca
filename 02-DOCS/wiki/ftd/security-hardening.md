@@ -99,7 +99,8 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
 - **Smoke test en el repo** (aprobado 2026-10-21): `server/scripts/smoke.mjs`, sin dependencias,
   uso `node server/scripts/smoke.mjs <url-base>`. Parte del script del arreglo del deploy (19 chequeos)
   y suma los casos nuevos: login con email inexistente = mismo 401 que con contraseña mala,
-  `POST /api/auth/login` sin `Origin` → 403, borrado de cuenta con préstamo activo → 409 y borrado de
+  `POST /api/auth/login` sin `Origin` → 403, registro con un email repetido → 409 (bug de T5),
+  préstamo ajeno → el mismo 404 que uno inexistente, borrado de cuenta con préstamo activo → 409 y borrado de
   cuenta sin préstamos activos → 204 con la cookie borrada. Al final borra sus propios usuarios de
   prueba, así no deja basura en la base.
 - **Verificación real** (porque los mocks no alcanzan): en staging, borrar una cuenta con herramientas
@@ -136,7 +137,7 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   (`POST /api/auth/login` sin `Origin` → 403; con `Origin` → llega al handler).
 - [x] T4 — (2) Login. Prueba: tests en rojo → verde (email inexistente y contraseña mala → mismo 401 y
   mismo cuerpo; con email inexistente, `bcrypt.compare` se llama igual).
-- [ ] T5 — (3) Errores. Prueba: tests en rojo → verde (un error inesperado del repo → 500 genérico sin
+- [x] T5 — (3) Errores. Prueba: tests en rojo → verde (un error inesperado del repo → 500 genérico sin
   el texto original; JSON mal formado → 400 genérico; los errores esperados conservan status y mensaje).
 - [ ] T6 — (4) Migración 004 + borrado de cuenta. Prueba: tests en rojo → verde (con préstamos
   activos → 409 y nada cambia; sin préstamos activos → 204, `Set-Cookie` que borra `token`, fila
@@ -225,6 +226,40 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   - Límite: la prueba de tiempo es una observación, no un test automático (medir tiempos en tests da
     resultados inestables). El test automático verifica la causa: que bcrypt corra con costo 12.
 
+- **T5** (2026-10-21):
+  - **Dos bugs más encontrados al hacerlo:**
+    1. **Registro con email repetido → 500 en vez de 409.** PostgreSQL rechaza el duplicado lanzando
+       un error `23505` (unique_violation), pero `userRepo.create` esperaba `rowCount === 0`, que nunca
+       pasa. Confirmado en staging: segundo registro de `dup-check-1792559607@example.com` →
+       `500 {"code":"INTERNAL_ERROR","message":"Registration failed"}`. Lo ocultaba el mock de
+       `userRepo.test.ts`, que devolvía `rowCount: 0` con el comentario «Simulate PG unique violation».
+       (El usuario de prueba queda en staging; se borra en T9 con el endpoint nuevo.)
+    2. **El 404 de préstamo ajeno revelaba que el préstamo existe**: el mensaje era
+       `No participás en este préstamo`, distinto del de un préstamo inexistente. El brief pide 404
+       «para no revelar que existe». Ahora los dos casos dicen `Préstamo no encontrado`.
+  - Nuevo `src/modules/errors/AppError.ts`: `ERROR_CODES` (`as const`), `AppError` y las subclases
+    `ValidationError` 400, `UnauthorizedError` 401, `ForbiddenError` 403, `NotFoundError` 404,
+    `ConflictError` 409; `sendError(res, err, fallback)` (esperado → su status y mensaje; otro → 500
+    genérico + `console.error`, nunca `req.body`); `errorHandler` global registrado al final de
+    `createApp` (JSON mal formado → 400, body > 10 kb → 413, resto → 500).
+  - `throw new Error` → subclase en `toolRepo`, `toolService`, `searchRepo`, `searchService`,
+    `loanService`, `authService`; `userRepo.create` traduce `23505` a `ConflictError`. Los 5 archivos de
+    rutas usan `sendError` en sus `catch`. En `POST /tools/:id/loans` la búsqueda de la herramienta
+    entra al `try` (antes, un fallo de la base ahí escapaba sin control).
+  - Tests nuevos en `tests/errors.test.ts` (11). **Rojo de comportamiento:** `5 failed | 6 passed`
+    — base caída → `400` en vez de 500; JSON mal formado y body > 10 kb → body vacío (respuesta HTML de
+    Express); editar herramienta inexistente → 400 en vez de 404; email duplicado → error crudo de pg.
+  - Tests que cambian **a propósito** (4): `userRepo.test.ts` (el mock ahora lanza `23505` como
+    PostgreSQL), los mocks de repo de `authRoutes.test.ts` y `authValidation.test.ts` (lanzan
+    `ConflictError`, como el repo real) y `loanService.test.ts > rejects transition for non-participant`
+    (espera `Préstamo no encontrado`).
+  - **Verde:** suite del server `24 passed` archivos, `222 passed (222)`; `tsc --noEmit` exit 0.
+    Barrido: ningún `err.message` en las rutas. Quedan 3 `throw new Error` a propósito: `env.ts` ×2
+    (el servidor no arranca sin sus variables) y `loanRepo.ts:39` (fallo inesperado → 500).
+  - Fuera de alcance (anotado): logger estructurado con `requestId` y el campo `retryable` que pide
+    `checklist-errores`. Hoy no hay quien los consuma; van en una feature de observabilidad.
+
 ## Next
 
-T5: errores (`AppError`, helper para los `catch` y middleware global). Espera la indicación de Hernán.
+T6: migración 004 + borrado de cuenta (anonimizar en una transacción, 409 con préstamos activos,
+borrar la cookie). Espera la indicación de Hernán.

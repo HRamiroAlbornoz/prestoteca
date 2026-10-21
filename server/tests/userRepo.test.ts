@@ -22,8 +22,8 @@ function createMockPool() {
         const passwordHash = String(p[2])
         const neighborhood = String(p[3])
         if (usersByEmail.has(email)) {
-          // Simulate PG unique violation: return rowCount 0 so impl throws "Email already exists"
-          return { rowCount: 0, rows: [] }
+          // Like PostgreSQL: a repeated email raises a unique_violation (code 23505)
+          throw Object.assign(new Error('duplicate key value violates unique constraint "users_email_key"'), { code: '23505' })
         }
         const user = { id, name, email, password_hash: passwordHash, neighborhood, created_at: new Date().toISOString() }
         usersByEmail.set(email, user)

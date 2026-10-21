@@ -5,6 +5,7 @@ import type { UserRepository } from '../auth/userRepo.js'
 import type { ToolRepository } from '../tools/toolRepo.js'
 import type { LoanRepository } from '../loans/loanRepo.js'
 import type { AuthRequest } from '../middleware/auth.js'
+import { sendError } from '../errors/AppError.js'
 
 const SALT_ROUNDS = 12
 
@@ -58,8 +59,8 @@ export function meAccountRoutes(
       await userRepo.updatePassword(userId, passwordHash)
 
       res.status(204).send()
-    } catch {
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to change password' } })
+    } catch (err: unknown) {
+      sendError(res, err, 'Failed to change password')
     }
   })
 

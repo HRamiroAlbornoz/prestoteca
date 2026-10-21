@@ -278,9 +278,10 @@ describe('LoanService', () => {
       updated_at: new Date().toISOString(),
     })
 
+    // Same message as a loan that does not exist, so the answer never confirms it exists
     await expect(
       service.transition('loan-1', 'aceptado', 'user-99'),
-    ).rejects.toThrow(/particip|participant/i)
+    ).rejects.toThrow('Préstamo no encontrado')
   })
 
   it('rejects transition for non-existent loan', async () => {

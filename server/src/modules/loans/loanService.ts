@@ -1,4 +1,9 @@
 import type { LoanRepository } from './loanRepo.js'
+import { ConflictError, NotFoundError, ValidationError } from '../errors/AppError.js'
+
+// Same answer for "does not exist" and "exists but you are not part of it":
+// a 404 that differs by message would still reveal that the loan exists.
+const LOAN_NOT_FOUND = 'Préstamo no encontrado'
 
 type QueryFn = (text: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>
 
@@ -26,7 +31,7 @@ export class LoanService {
   async create(input: CreateLoanInput): Promise<import('./loanRepo.js').Loan> {
     // Cannot borrow own tool
     if (input.userId === input.ownerId) {
-      throw new Error('No puedes pedir tu propia herramienta')
+      throw new ValidationError('No puedes pedir tu propia herramienta')
     }
 
     // Check for overlapping dates
@@ -36,7 +41,7 @@ export class LoanService {
       input.endDate,
     )
     if (hasOverlap) {
-      throw new Error(
+      throw new ConflictError(
         'La herramienta tiene un préstamo activo con fechas solapadas',
       )
     }
@@ -55,12 +60,12 @@ export class LoanService {
   async getDetail(loanId: string, userId: string): Promise<import('./loanRepo.js').Loan> {
     const loan = await this.repo.findById(loanId)
     if (!loan) {
-      throw new Error('Préstamo no encontrado')
+      throw new NotFoundError(LOAN_NOT_FOUND)
     }
 
     // User must be participant (owner or borrower)
     if (loan.owner_id !== userId && loan.borrower_id !== userId) {
-      throw new Error('No participás en este préstamo')
+      throw new NotFoundError(LOAN_NOT_FOUND)
     }
 
     return loan
@@ -73,24 +78,24 @@ export class LoanService {
   ): Promise<import('./loanRepo.js').Loan> {
     const loan = await this.repo.findById(loanId)
     if (!loan) {
-      throw new Error('Préstamo no encontrado')
+      throw new NotFoundError(LOAN_NOT_FOUND)
     }
 
     // User must be participant (owner or borrower)
     if (loan.owner_id !== userId && loan.borrower_id !== userId) {
-      throw new Error('No participás en este préstamo')
+      throw new NotFoundError(LOAN_NOT_FOUND)
     }
 
     // Validate transition
     const allowed = VALID_TRANSITIONS[loan.status]
     if (!allowed || !allowed.includes(newStatus)) {
-      throw new Error(
+      throw new ConflictError(
         `Transición inválida: de "${loan.status}" a "${newStatus}"`,
       )
     }
 
     const updated = await this.repo.updateStatus(loanId, newStatus)
-    if (!updated) throw new Error('Préstamo no encontrado')
+    if (!updated) throw new NotFoundError(LOAN_NOT_FOUND)
     return updated
   }
 

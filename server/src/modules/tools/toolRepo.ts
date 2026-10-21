@@ -1,4 +1,5 @@
 import type { Pool } from 'pg'
+import { ValidationError } from '../errors/AppError.js'
 
 export interface Tool {
   id: string
@@ -54,22 +55,22 @@ export class ToolRepository {
   async create(input: CreateToolInput): Promise<Tool> {
     // Validate name length
     if (input.name.length < 3 || input.name.length > 60) {
-      throw new Error('Name must be between 3 and 60 characters')
+      throw new ValidationError('Name must be between 3 and 60 characters')
     }
 
     // Validate description length
     if (input.description.length > 500) {
-      throw new Error('Description must be at most 500 characters')
+      throw new ValidationError('Description must be at most 500 characters')
     }
 
     // Validate category
     if (!(VALID_CATEGORIES as readonly string[]).includes(input.category)) {
-      throw new Error('Invalid category')
+      throw new ValidationError('Invalid category')
     }
 
     // Validate condition
     if (!(VALID_CONDITIONS as readonly string[]).includes(input.condition)) {
-      throw new Error('Invalid condition')
+      throw new ValidationError('Invalid condition')
     }
 
     const res = await this.pool.query(
@@ -157,7 +158,7 @@ export class ToolRepository {
 
     if (updates.name !== undefined) {
       if (updates.name.length < 3 || updates.name.length > 60) {
-        throw new Error('Name must be between 3 and 60 characters')
+        throw new ValidationError('Name must be between 3 and 60 characters')
       }
       fields.push(`name = $${paramIndex++}`)
       params.push(updates.name)
@@ -165,7 +166,7 @@ export class ToolRepository {
 
     if (updates.description !== undefined) {
       if (updates.description.length > 500) {
-        throw new Error('Description must be at most 500 characters')
+        throw new ValidationError('Description must be at most 500 characters')
       }
       fields.push(`description = $${paramIndex++}`)
       params.push(updates.description)
@@ -173,7 +174,7 @@ export class ToolRepository {
 
     if (updates.category !== undefined) {
       if (!(VALID_CATEGORIES as readonly string[]).includes(updates.category)) {
-        throw new Error('Invalid category')
+        throw new ValidationError('Invalid category')
       }
       fields.push(`category = $${paramIndex++}`)
       params.push(updates.category)
@@ -181,7 +182,7 @@ export class ToolRepository {
 
     if (updates.condition !== undefined) {
       if (!(VALID_CONDITIONS as readonly string[]).includes(updates.condition)) {
-        throw new Error('Invalid condition')
+        throw new ValidationError('Invalid condition')
       }
       fields.push(`condition = $${paramIndex++}`)
       params.push(updates.condition)
