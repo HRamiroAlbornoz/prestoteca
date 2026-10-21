@@ -58,6 +58,9 @@
 .opencode/rsc/testing-web
 .opencode/commands/test-coverage.md
 
+# Dependencies installed at the root by npm workspaces
+/node_modules/
+
 # Server build artifacts
 server/dist/
 server/client-dist/
