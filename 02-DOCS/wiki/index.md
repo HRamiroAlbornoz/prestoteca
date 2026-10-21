@@ -18,6 +18,12 @@ timestamp: 2026-10-04T00:00:00Z
 | Decisions | Prestoteca — Decision Records | [02-DOCS/wiki/sdd/decisions.md](./sdd/decisions.md) |
 | Analysis | Prestoteca — Consistency Gate | [02-DOCS/wiki/sdd/analysis/prestoteca-mvp.md](./sdd/analysis/prestoteca-mvp.md) |
 
+## FTD features
+
+| Feature | Status | Path |
+|---------|--------|------|
+| Arreglar el deploy en Railway | in-progress | [02-DOCS/wiki/ftd/railway-deploy.md](./ftd/railway-deploy.md) |
+
 ## Product docs
 
 | Artifact | Path |
