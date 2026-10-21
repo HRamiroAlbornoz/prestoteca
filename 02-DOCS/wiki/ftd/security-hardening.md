@@ -284,6 +284,21 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   - Límite (E3): estos tests usan un PostgreSQL falso. La prueba que vale es el borrado real en staging
     (T9).
 
+- **T6b escrito, sin verificar todavía** (2026-10-21): `server/scripts/smoke.mjs`, sin dependencias
+  (`fetch` de Node 20). Un cliente por usuario de prueba, con su cookie (como un navegador); 4 usuarios:
+  owner, borrower, stranger y un anónimo. Respeta el límite de 5 pedidos por minuto de `/api/auth`
+  esperando solo cuando hace falta (tarda 2-3 min). Casos nuevos: email repetido → 409; login sin
+  `Origin` → 403; email inexistente = misma respuesta que contraseña mala; préstamo ajeno = misma
+  respuesta que uno inexistente; borrado con préstamo activo → 409 (dueño y solicitante); borrado sin
+  préstamos activos → 204 con cookie borrada, la herramienta desaparece, el préstamo sigue en el
+  historial del solicitante, la cuenta no puede entrar y el email original se puede registrar de nuevo.
+  Al final (`finally`) borra todas las cuentas que creó, aunque falle un chequeo.
+  - Prueba hasta ahora: `node --check` → sintaxis OK; sin URL → mensaje de uso y exit 2.
+  - **No se corrió contra ningún servidor:** staging todavía tiene el código viejo, donde el borrado de
+    cuenta falla, así que dejaría usuarios de prueba imposibles de borrar. Se tilda en T9, con `SMOKE OK`.
+  - El chequeo «after deletion the browser has no session left» prueba que la cookie se borró, no que el
+    token quedó invalidado (riesgo residual D-d); el comentario del script lo aclara.
+
 ## Next
 
-T6b: `server/scripts/smoke.mjs` en el repo con los casos nuevos. Espera la indicación de Hernán.
+T7: suite completa del server y del cliente, lint y type-check. Espera la indicación de Hernán.
