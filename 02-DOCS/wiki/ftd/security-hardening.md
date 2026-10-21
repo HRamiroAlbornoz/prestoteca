@@ -134,7 +134,7 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   antes de tocar código de la app.
 - [x] T3 — (1) Origin en `/api/auth`. Prueba: test sobre el `wireRoutes` real en rojo → verde
   (`POST /api/auth/login` sin `Origin` → 403; con `Origin` → llega al handler).
-- [ ] T4 — (2) Login. Prueba: tests en rojo → verde (email inexistente y contraseña mala → mismo 401 y
+- [x] T4 — (2) Login. Prueba: tests en rojo → verde (email inexistente y contraseña mala → mismo 401 y
   mismo cuerpo; con email inexistente, `bcrypt.compare` se llama igual).
 - [ ] T5 — (3) Errores. Prueba: tests en rojo → verde (un error inesperado del repo → 500 genérico sin
   el texto original; JSON mal formado → 400 genérico; los errores esperados conservan status y mensaje).
@@ -208,6 +208,23 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   - **Verde:** `originWiring.test.ts` `5 passed (5)`; suite del server `23 passed` archivos,
     `210 passed (210)`; `tsc --noEmit` exit 0.
 
+- **T4** (2026-10-21):
+  - Tests: `authService.test.ts` (los dos casos lanzan `Invalid credentials`; con email inexistente
+    `bcrypt.compare` se llama 1 vez con un hash de costo 12) y `authRoutes.test.ts:112` reescrito
+    **a propósito** (esperaba 404; ahora el email inexistente da el mismo status y el mismo body que la
+    contraseña incorrecta: `401 {"error":{"code":"UNAUTHORIZED","message":"Invalid credentials"}}`).
+  - **Rojo:** `Tests 4 failed | 13 passed (17)`. El rojo mostró la fuga por tiempo: el test de email
+    inexistente tardó **1 ms**, contra **419 ms** del de contraseña incorrecta.
+  - **Arreglo:** `authService.ts` crea al arrancar un hash bcrypt real (costo 12) de 32 bytes
+    aleatorios y lo usa en el `compare` cuando el email no existe; un único error `INVALID_CREDENTIALS`
+    (constante exportada). `authRoutes.ts` responde un único 401.
+  - **Verde:** `Tests 17 passed (17)`; suite del server `211 passed (211)`; `tsc --noEmit` exit 0.
+    Tiempos con `--reporter=verbose`: email inexistente **205 ms** y **208 ms**; contraseña incorrecta
+    412 ms, que incluye el `register` previo (~205 ms) más el login (~205 ms). El login cuesta lo mismo
+    en los dos casos.
+  - Límite: la prueba de tiempo es una observación, no un test automático (medir tiempos en tests da
+    resultados inestables). El test automático verifica la causa: que bcrypt corra con costo 12.
+
 ## Next
 
-T4: login sin enumeración (mismo 401 y bcrypt contra un hash ficticio). Espera la indicación de Hernán.
+T5: errores (`AppError`, helper para los `catch` y middleware global). Espera la indicación de Hernán.

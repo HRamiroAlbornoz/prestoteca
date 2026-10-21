@@ -1,8 +1,18 @@
+import { randomBytes } from 'node:crypto'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import type { UserRepository, CreateUserInput } from './userRepo.js'
 
 const SALT_ROUNDS = 12
+
+// Same message for an unknown email and a wrong password: the login must not reveal
+// which emails are registered.
+export const INVALID_CREDENTIALS = 'Invalid credentials'
+
+// A real bcrypt hash of a random value, with the same cost as the stored hashes.
+// Comparing against it when the email does not exist makes that response take as long
+// as a wrong password, so timing does not leak the answer either. Created once at startup.
+const dummyHashPromise = bcrypt.hash(randomBytes(32).toString('hex'), SALT_ROUNDS)
 
 export interface RegisterInput {
   name: string
@@ -44,13 +54,12 @@ export class AuthService {
 
   async login(input: LoginInput): Promise<AuthResult> {
     const user = await this.userRepo.findByEmail(input.email)
-    if (!user) {
-      throw new Error('User not found')
-    }
 
-    const valid = await bcrypt.compare(input.password, user.password_hash)
-    if (!valid) {
-      throw new Error('Invalid password')
+    // bcrypt runs in both cases; only a real user with the right password gets through
+    const hashToCompare = user ? user.password_hash : await dummyHashPromise
+    const valid = await bcrypt.compare(input.password, hashToCompare)
+    if (!user || !valid) {
+      throw new Error(INVALID_CREDENTIALS)
     }
 
     const token = this.generateToken(user.id)

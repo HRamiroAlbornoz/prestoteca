@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import bcrypt from 'bcrypt'
 import { AuthService } from '../src/modules/auth/authService.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
 
@@ -74,17 +75,32 @@ describe('AuthService', () => {
       expect(payload.id).toBeDefined()
     })
 
-    it('throws 401 on wrong password', async () => {
+    it('throws "Invalid credentials" on wrong password', async () => {
       await service.register({ name: 'Maria', email: 'maria@example.com', password: 'maria123', neighborhood: 'Sur' })
       await expect(
         service.login({ email: 'maria@example.com', password: 'wrongpassword' }),
-      ).rejects.toThrow('Invalid password')
+      ).rejects.toThrow('Invalid credentials')
     })
 
-    it('throws on non-existent email', async () => {
+    it('throws the same "Invalid credentials" error on non-existent email', async () => {
+      // Same error as a wrong password, so the response never reveals whether the email is registered
       await expect(
         service.login({ email: 'ghost@example.com', password: 'any' }),
-      ).rejects.toThrow('User not found')
+      ).rejects.toThrow('Invalid credentials')
+    })
+
+    it('still runs bcrypt with a cost-12 hash when the email does not exist', async () => {
+      // Skipping bcrypt for unknown emails makes those responses faster, which leaks
+      // the same information through timing. The dummy hash must cost the same as a real one.
+      const compareSpy = vi.spyOn(bcrypt, 'compare')
+
+      await expect(
+        service.login({ email: 'ghost@example.com', password: 'any' }),
+      ).rejects.toThrow('Invalid credentials')
+
+      expect(compareSpy).toHaveBeenCalledTimes(1)
+      const hashUsed = compareSpy.mock.calls[0][1] as string
+      expect(bcrypt.getRounds(hashUsed)).toBe(12)
     })
   })
 

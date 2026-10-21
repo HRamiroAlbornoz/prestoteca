@@ -109,12 +109,24 @@ describe('auth routes', () => {
       expect(res.status).toBe(401)
     })
 
-    it('returns 404 on non-existent email', async () => {
-      const res = await request(app)
+    it('returns the same 401 response on non-existent email as on wrong password', async () => {
+      await request(app)
+        .post('/api/auth/register')
+        .send({ name: 'Lucia', email: 'lucia@example.com', password: 'lucia123', neighborhood: 'Centro' })
+
+      const wrongPassword = await request(app)
+        .post('/api/auth/login')
+        .send({ email: 'lucia@example.com', password: 'wrongpassword' })
+      const unknownEmail = await request(app)
         .post('/api/auth/login')
         .send({ email: 'ghost@example.com', password: 'any' })
 
-      expect(res.status).toBe(404)
+      // Identical status and body: the response must not reveal whether the email is registered
+      expect(unknownEmail.status).toBe(401)
+      expect(unknownEmail.body).toEqual(wrongPassword.body)
+      expect(unknownEmail.body).toEqual({
+        error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' },
+      })
     })
   })
 

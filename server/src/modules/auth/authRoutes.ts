@@ -1,7 +1,7 @@
 import type { Router } from 'express'
 import express from 'express'
 import type { UserRepository } from './userRepo.js'
-import { AuthService } from './authService.js'
+import { AuthService, INVALID_CREDENTIALS } from './authService.js'
 
 export function authRoutes(
   userRepo: UserRepository,
@@ -91,12 +91,8 @@ export function authRoutes(
       })
       res.status(200).json({ message: 'Logged in successfully' })
     } catch (err: unknown) {
-      if (err instanceof Error && err.message === 'Invalid password') {
-        res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid password' } })
-        return
-      }
-      if (err instanceof Error && err.message === 'User not found') {
-        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } })
+      if (err instanceof Error && err.message === INVALID_CREDENTIALS) {
+        res.status(401).json({ error: { code: 'UNAUTHORIZED', message: INVALID_CREDENTIALS } })
         return
       }
       res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Login failed' } })
