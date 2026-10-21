@@ -118,15 +118,19 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   categorías de la base.
 - **Hallazgo nuevo, para otra feature:** pedir una herramienta **pausada** no se rechaza.
   `loansRoutes.ts:60` filtra `deleted_at IS NULL` pero no `is_paused`, y la spec pide 409.
+- **Hallazgo nuevo, para otra feature:** el vencimiento automático calcula «hoy» con la hora local
+  del servidor (`loanService.ts:99-103`, `new Date()` + `getFullYear/getMonth/getDate`), no con
+  `America/Argentina/Tucuman` como pide el brief. Railway corre en UTC: entre las 21:00 y las 24:00 de
+  Tucumán, un préstamo puede marcarse vencido con un día de adelanto.
 - Mensajes en inglés que ve el usuario (`Invalid credentials`, `Login failed`): la app está en
   castellano, pero traducir los mensajes es otra feature.
 
 ## Checklist
 
-- [ ] T1 — Worktree `.worktrees/fix-security-hardening` con la rama `fix/security-hardening` desde
+- [x] T1 — Worktree `.worktrees/fix-security-hardening` con la rama `fix/security-hardening` desde
   `main` (OpenCode sigue abierto en la carpeta principal) y `npm install` en el worktree.
   Prueba: `git worktree list` y que `npm install` termine sin error.
-- [ ] T2 — Arreglar los 3 tests de fechas de `loansRoutes.test.ts`. Prueba: server 205/205 verdes
+- [ ] T2 — Arreglar los 4 tests de fechas (3 de `loansRoutes.test.ts` y 1 de `loanService.test.ts`). Prueba: server 205/205 verdes
   antes de tocar código de la app.
 - [ ] T3 — (1) Origin en `/api/auth`. Prueba: test sobre el `wireRoutes` real en rojo → verde
   (`POST /api/auth/login` sin `Origin` → 403; con `Origin` → llega al handler).
@@ -162,8 +166,21 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
 
 ## Evidence
 
-_(vacío: ninguna tarea completada todavía)_
+- **T1** (2026-10-21): `git worktree list` →
+  `E:/Trabajo/prestoteca/.worktrees/fix-security-hardening 30835af [fix/security-hardening]`.
+  `npm install` → `added 419 packages` sin errores. La rama sale de `30835af`: `main` local tiene
+  3 commits `📝 docs(auto)` de la sincronización de conocimiento de RSC (solo este documento y el
+  índice) que no están en `origin/main` (protegida). Viajan a `main` dentro del PR de esta rama.
+  Desde T1, este documento se edita en el worktree, no en la carpeta principal.
+
+- **Línea base en el worktree** (2026-10-21): server `Tests 4 failed | 201 passed (205)`. Hay un rojo
+  nuevo respecto de ayer: `loanService.test.ts > auto-vencido: entregado loan not past end_date → no
+  change` (`expected 1 to be +0`). Usa `end_date: '2026-10-20'` y simula `Date.now()` en
+  `2026-10-10`, pero el código crea la fecha con `new Date()` sin argumentos, y eso no pasa por
+  `Date.now()` en el mock: toma la fecha real (21/10) y el préstamo sale vencido. Es la misma
+  causa (fechas fijas que el calendario alcanzó). **T2 pasa a cubrir 4 tests**, no 3.
 
 ## Next
 
-Hernán crea el worktree y corre `npm install` (T1). No se escribe código hasta que Hernán lo indique.
+T2: arreglar los 4 tests de fechas (3 en `loansRoutes.test.ts`, 1 en `loanService.test.ts`).
+Espera la indicación de Hernán.
