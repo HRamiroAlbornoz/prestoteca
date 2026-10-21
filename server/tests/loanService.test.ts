@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { LoanRepository } from '../src/modules/loans/loanRepo.js'
 import { LoanService } from '../src/modules/loans/loanService.js'
 
@@ -85,6 +85,11 @@ describe('LoanService', () => {
   beforeEach(() => {
     mock = createMockLoanRepo()
     service = new LoanService(mock.repo, mock.query.bind(mock))
+  })
+
+  // Runs even when an assertion fails, so a faked clock never leaks into other tests
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('rejects creating a loan for own tool', async () => {
@@ -298,24 +303,16 @@ describe('LoanService', () => {
       updated_at: new Date().toISOString(),
     })
 
-    // Mock today as 2026-09-20 (past end_date)
-    const originalDate = global.Date
-    global.Date = class extends originalDate {
-      constructor() {
-        super()
-      }
-      static now() {
-        return new originalDate('2026-09-20').getTime()
-      }
-    } as any
+    // Today is 2026-09-20 (past end_date). Only Date is faked: promises and timers stay real.
+    // Midday avoids landing on another day in any time zone.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-09-20T12:00:00'))
 
     const result = await service.autoVencido()
     expect(result).toBe(1)
 
     const updated = await mock.repo.findById('loan-1')
     expect(updated!.status).toBe('vencido')
-
-    global.Date = originalDate
   })
 
   it('auto-vencido: entregado loan not past end_date → no change', async () => {
@@ -332,22 +329,14 @@ describe('LoanService', () => {
       updated_at: new Date().toISOString(),
     })
 
-    const originalDate = global.Date
-    global.Date = class extends originalDate {
-      constructor() {
-        super()
-      }
-      static now() {
-        return new originalDate('2026-10-10').getTime()
-      }
-    } as any
+    // Today is 2026-10-10 (before end_date)
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-10T12:00:00'))
 
     const result = await service.autoVencido()
     expect(result).toBe(0)
 
     const updated = await mock.repo.findById('loan-1')
     expect(updated!.status).toBe('entregado')
-
-    global.Date = originalDate
   })
 })

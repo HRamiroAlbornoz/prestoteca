@@ -130,7 +130,7 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
 - [x] T1 — Worktree `.worktrees/fix-security-hardening` con la rama `fix/security-hardening` desde
   `main` (OpenCode sigue abierto en la carpeta principal) y `npm install` en el worktree.
   Prueba: `git worktree list` y que `npm install` termine sin error.
-- [ ] T2 — Arreglar los 4 tests de fechas (3 de `loansRoutes.test.ts` y 1 de `loanService.test.ts`). Prueba: server 205/205 verdes
+- [x] T2 — Arreglar los 4 tests de fechas (3 de `loansRoutes.test.ts` y 1 de `loanService.test.ts`). Prueba: server 205/205 verdes
   antes de tocar código de la app.
 - [ ] T3 — (1) Origin en `/api/auth`. Prueba: test sobre el `wireRoutes` real en rojo → verde
   (`POST /api/auth/login` sin `Origin` → 403; con `Origin` → llega al handler).
@@ -180,7 +180,25 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   `Date.now()` en el mock: toma la fecha real (21/10) y el préstamo sale vencido. Es la misma
   causa (fechas fijas que el calendario alcanzó). **T2 pasa a cubrir 4 tests**, no 3.
 
+- **T2** (2026-10-21):
+  - `loansRoutes.test.ts`: las 5 fechas de los `POST` pasan a `daysFromToday(5)` y `daysFromToday(15)`.
+    Las fechas de los préstamos ya guardados en los mocks quedan fijas: ningún código las compara con hoy.
+  - **Test que pasaba por la razón equivocada:** `returns 400 when borrower is the tool owner` daba 400
+    por la fecha vencida, no por el chequeo de dueño. Ahora también verifica el mensaje
+    (`/propia herramienta/`).
+  - `loanService.test.ts`: los dos tests de `autoVencido` reemplazaban `global.Date` a mano y lo
+    restauraban después de los `expect` (si fallaba un `expect`, el `Date` falso quedaba para el resto
+    de los tests). Pasan a `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime(...)`, con
+    `vi.useRealTimers()` en un `afterEach`.
+  - Resultado: server `Test Files 22 passed (22)`, `Tests 205 passed (205)`. Los dos archivos tocados
+    dan `32 passed (32)` con `TZ` = `America/Argentina/Tucuman`, `Pacific/Kiritimati` (UTC+14) y
+    `Pacific/Pago_Pago` (UTC−11). `tsc --noEmit` → exit 0.
+  - Límite de la prueba: `tsconfig.json` excluye `tests/`, así que `tsc` no revisa los tipos de los
+    tests; Vitest los transpila sin chequear tipos.
+- **Hallazgo relacionado (para la feature de fechas):** `loansRoutes.ts:48` valida «inicio ≥ hoy» con
+  la hora local del servidor, el mismo problema de zona horaria que `loanService.ts:99-103`.
+
 ## Next
 
-T2: arreglar los 4 tests de fechas (3 en `loansRoutes.test.ts`, 1 en `loanService.test.ts`).
-Espera la indicación de Hernán.
+T3: Origin en `/api/auth` (test sobre el `wireRoutes` real en rojo → verde). Espera la indicación de
+Hernán.
