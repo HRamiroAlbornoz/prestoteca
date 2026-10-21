@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "install:client": {
+      "commands": [
+        { "src": "client/package-lock.json", "dest": "client/package-lock.json" },
+        { "src": "client/package.json", "dest": "client/package.json" },
+        "cd client && npm install"
+      ]
+    },
+    "install:server": {
+      "commands": [
+        { "src": "server/package-lock.json", "dest": "server/package-lock.json" },
+        { "src": "server/package.json", "dest": "server/package.json" },
+        "cd server && npm install"
+      ]
+    },
+    "build:client": {
+      "inputs": [{ "step": "install:client" }],
+      "commands": [
+        { "path": "client/node_modules/.bin" },
+        "cd client && npm run build"
+      ]
+    },
+    "build:server": {
+      "inputs": [{ "step": "install:server" }, { "step": "build:client" }],
+      "commands": [
+        { "path": "server/node_modules/.bin" },
+        "cd server && npm run build"
+      ]
+    }
+  },
+  "deploy": {
+    "startCommand": "cd server && npm start"
+  }
+}
