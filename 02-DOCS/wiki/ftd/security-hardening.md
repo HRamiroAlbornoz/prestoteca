@@ -118,10 +118,10 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   categorías de la base.
 - **Hallazgo nuevo, para otra feature:** pedir una herramienta **pausada** no se rechaza.
   `loansRoutes.ts:60` filtra `deleted_at IS NULL` pero no `is_paused`, y la spec pide 409.
-- **Hallazgo nuevo, para otra feature:** el vencimiento automático calcula «hoy» con la hora local
-  del servidor (`loanService.ts:99-103`, `new Date()` + `getFullYear/getMonth/getDate`), no con
-  `America/Argentina/Tucuman` como pide el brief. Railway corre en UTC: entre las 21:00 y las 24:00 de
-  Tucumán, un préstamo puede marcarse vencido con un día de adelanto.
+- ~~Hallazgo: el vencimiento automático calcula «hoy» en UTC.~~ **Retirado en T3 (2026-10-21):**
+  `index.ts:15` fija `process.env.TZ = 'America/Argentina/Tucuman'` al arrancar, así que la «hora local
+  del servidor» ya es la de Tucumán. No hay bug. (Queda frágil: depende de que `index.ts` cargue antes
+  que cualquier cálculo de fechas; los tests que importan los servicios directo no lo cargan.)
 - Mensajes en inglés que ve el usuario (`Invalid credentials`, `Login failed`): la app está en
   castellano, pero traducir los mensajes es otra feature.
 
@@ -132,7 +132,7 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   Prueba: `git worktree list` y que `npm install` termine sin error.
 - [x] T2 — Arreglar los 4 tests de fechas (3 de `loansRoutes.test.ts` y 1 de `loanService.test.ts`). Prueba: server 205/205 verdes
   antes de tocar código de la app.
-- [ ] T3 — (1) Origin en `/api/auth`. Prueba: test sobre el `wireRoutes` real en rojo → verde
+- [x] T3 — (1) Origin en `/api/auth`. Prueba: test sobre el `wireRoutes` real en rojo → verde
   (`POST /api/auth/login` sin `Origin` → 403; con `Origin` → llega al handler).
 - [ ] T4 — (2) Login. Prueba: tests en rojo → verde (email inexistente y contraseña mala → mismo 401 y
   mismo cuerpo; con email inexistente, `bcrypt.compare` se llama igual).
@@ -195,10 +195,19 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
     `Pacific/Pago_Pago` (UTC−11). `tsc --noEmit` → exit 0.
   - Límite de la prueba: `tsconfig.json` excluye `tests/`, así que `tsc` no revisa los tipos de los
     tests; Vitest los transpila sin chequear tipos.
-- **Hallazgo relacionado (para la feature de fechas):** `loansRoutes.ts:48` valida «inicio ≥ hoy» con
-  la hora local del servidor, el mismo problema de zona horaria que `loanService.ts:99-103`.
+- ~~Hallazgo: `loansRoutes.ts:48` valida «inicio ≥ hoy» en UTC.~~ **Retirado en T3:** misma razón,
+  `index.ts:15` fija la zona horaria de Tucumán.
+- **T3** (2026-10-21):
+  - Test nuevo `tests/originWiring.test.ts` sobre la app real (`createApp()` → `wireRoutes`).
+  - **Rojo:** `Tests 4 failed | 1 passed (5)`. `POST /api/auth/login` y `/register` sin `Origin` →
+    `expected 400 to be 403`; `/logout` sin `Origin` → `expected 204 to be 403`; login desde
+    `https://evil.example` → `expected 400 to be 403`. El caso permitido (con `Origin` válido → 400
+    `Missing required fields` del propio handler) ya pasaba, como debe.
+  - **Arreglo** en `routes.ts`: `app.use('/api', originChecker)` al principio de `wireRoutes`, antes de
+    `authRoutes`. Se quitan los dos montajes que quedan redundantes (`/api/tools` y el segundo `/api`).
+  - **Verde:** `originWiring.test.ts` `5 passed (5)`; suite del server `23 passed` archivos,
+    `210 passed (210)`; `tsc --noEmit` exit 0.
 
 ## Next
 
-T3: Origin en `/api/auth` (test sobre el `wireRoutes` real en rojo → verde). Espera la indicación de
-Hernán.
+T4: login sin enumeración (mismo 401 y bcrypt contra un hash ficticio). Espera la indicación de Hernán.
