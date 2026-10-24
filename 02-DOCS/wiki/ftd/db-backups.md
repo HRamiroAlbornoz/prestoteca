@@ -63,21 +63,22 @@ Datos verificados en la documentación de Railway (2026-10-24):
 
 ## Checklist
 
-- [ ] T1 — Rama `feat/db-backups` desde `main`, creada por Hernán. Prueba: `git branch --show-current`.
-- [ ] T2 — Lógica pura (nombre de la copia y retención) con tests en rojo y después en verde.
+- [x] T1 — Rama `feat/db-backups` desde `main`, creada por Hernán. Prueba: `git branch --show-current`.
+- [x] T2 — Lógica pura (nombre de la copia y retención) con tests en rojo y después en verde.
   Prueba: salida de `npx vitest run` en `backup/`.
-- [ ] T3 — Flujo completo con dependencias falsas. Casos: camino feliz; si el dump falla, no se sube
+- [x] T3 — Flujo completo con dependencias falsas. Casos: camino feliz; si el dump falla, no se sube
   ni se borra nada; si la subida falla, no se borra nada; solo se borran archivos con el formato
   propio. Prueba: salida de Vitest.
-- [ ] T4 — `Dockerfile`, `railway.json` y `README.md` con la restauración. Prueba: el build de
-  staging queda en `SUCCESS` y el log muestra `pg_dump (PostgreSQL) 18.x`.
-- [ ] T5 — Staging: bucket, servicio y variables por referencia. Una corrida manual sube la copia.
+- [x] T4 — `Dockerfile` y `README.md` con la restauración. Sin `railway.json`: el cron (`0 6 * * *`),
+  la política de reinicio `Never` y el root directory van en la configuración del servicio.
+  Prueba: el build de staging queda en `SUCCESS` y el log muestra `pg_dump (PostgreSQL) 18.x`.
+- [x] T5 — Staging: bucket, servicio y variables por referencia. Una corrida manual sube la copia.
   Prueba: el log de la corrida y el archivo listado en el bucket.
-- [ ] T6 — Retención en staging con `BACKUP_KEEP=2` y 3 corridas: quedan solo 2 copias. Después se
+- [x] T6 — Retención en staging con `BACKUP_KEEP=2` y 3 corridas: quedan solo 2 copias. Después se
   vuelve a 14. Prueba: listado del bucket.
-- [ ] T7 — Restauración en staging (`restore-check`): la cantidad de filas de `users`, `tools` y
+- [x] T7 — Restauración en staging (`restore-check`): la cantidad de filas de `users`, `tools` y
   `loans` coincide, y la base temporal se borra. Prueba: log de la corrida.
-- [ ] T8 — Tests, lint y build sin regresiones en `client` y `server`. Los mismos rojos que antes:
+- [x] T8 — Tests, lint y build sin regresiones en `client` y `server`. Los mismos rojos que antes:
   los 4 de `requestLoan.test.tsx`. Prueba: salida de cada comando.
 - [ ] T9 — PR mergeado a `main`. Prueba: el commit está en `origin/main`.
 - [ ] T10 — Production: bucket y servicio conectados a `main`. Una corrida manual sube la copia, que
@@ -86,8 +87,73 @@ Datos verificados en la documentación de Railway (2026-10-24):
 
 ## Evidence
 
-(vacío)
+- **T1** (2026-10-24): Hernán corrió `git switch -c feat/db-backups` →
+  `Switched to a new branch 'feat/db-backups'`.
+- **Dependencias** (2026-10-24, instaladas por Hernán en `backup/`): `@aws-sdk/client-s3 ^3.1156.0`,
+  `vitest ^3.2.7` (dev). El `package-lock.json` de la raíz no cambió: `git status --short` → solo `?? backup/`.
+  `npm audit --omit=dev` → `found 0 vulnerabilities`. `npm audit` completo → 3 (1 moderate, 2 critical),
+  todas en `vitest` 3 (`@vitest/mocker`, `tinypool`), solo de desarrollo. Son las mismas que tiene `server` y
+  se resuelven con el punto 4 del backlog (`npm audit`).
+- **T2 + T3 en rojo** (2026-10-24): `npx vitest run` → `Test Files 4 failed (4)`, `no tests`
+  (`Cannot find module '../src/backupKey.mjs'`, igual para los otros módulos).
+- **T2 + T3 en verde** (2026-10-24): `npx vitest run` → `Test Files 4 passed (4)`, `Tests 35 passed (35)`.
+  `oxlint backup/src backup/tests` → exit 0 (después de quitar dos variables sin usar en
+  `config.test.mjs`). `node --check` OK en los 8 archivos de `src/`.
+
+- **T4** (2026-10-24): `railway up ./backup --path-as-root -s db-backup -e staging` → deploy `cefd9f48`
+  `SUCCESS`. Build con el `Dockerfile` (`postgres:18-alpine`, `nodejs 24.22.1`, `npm ci --omit=dev` →
+  `found 0 vulnerabilities`). Log de la primera corrida: `"pgDump":"pg_dump (PostgreSQL) 18.6"`.
+- **T5** (2026-10-24, Claude con autorización de Hernán, solo en `staging`):
+  - Bucket `backups` (región `iad`, id `5d82b2c2-…`). Servicio `db-backup` (id `604a135f-…`), creado
+    solo en staging (`scope: specific`), sin repo conectado.
+  - Variables por referencia (`${{Postgres.DATABASE_URL}}` y `${{backups.*}}`): las 6 resuelven. Se
+    comprobó el largo de cada una sin imprimir su valor. `DATABASE_URL` apunta a
+    `postgres.railway.internal` (red privada) y el endpoint es `t3.storageapi.dev`.
+  - Cron `0 6 * * *`, restart policy `NEVER`, start command `node src/main.mjs`.
+  - `railway cron run` → log `backup finished` con `postgres/prestoteca-2026-10-24T21-17-15Z.dump`.
+    El bucket, listado desde afuera con `railway run` y un script del scratchpad, muestra
+    `objects=1`, `9768 bytes`.
+- **T6** (2026-10-24): con `BACKUP_KEEP=2`, después de 4 corridas: la de 21:32:20 borró `…21-17-15Z`,
+  la de 21:32:33 borró `…21-24-35Z`. Listado del bucket → `objects=2` (`…21-32-20Z` y `…21-32-33Z`).
+  Después se volvió a `BACKUP_KEEP=14`.
+- **T7** (2026-10-24): start command `node src/restoreCheck.mjs` y una corrida → `restoring backup`
+  `…21-32-33Z` en `restore_check`; `source {"users":10,"tools":3,"loans":3}` = `restored` igual,
+  `matches: true`; `restore check passed`; `scratch database dropped`.
+- **Vuelta al modo backup** (2026-10-24): start command `node src/main.mjs`, deploy nuevo `ed507184`
+  `SUCCESS` y una corrida → `starting backup` con `keep 14`, sube `…21-35-11Z`, `deleted []`.
+
+- **T8** (2026-10-24): server `Test Files 26 passed (26)`, `Tests 233 passed (233)`. Client
+  `Tests 4 failed | 144 passed (148)`: los 4 rojos son los de siempre (`requestLoan.test.tsx`, punto 3 del backlog).
+  `oxlint` del client → exit 0. `npm run build` en la raíz → `tsc -b` sin errores. `git grep` no encontró
+  credenciales en el repo: las variables están en Railway como referencias.
+- **Nota de git** (2026-10-24): el hook de RSC hizo un commit automático de esta ficha **en `main` local**
+  (`664ef2b 📝 docs(auto)`, 17:58) antes de que se creara la rama. `main` local quedó 1 commit por delante de
+  `origin/main`, sin push. La rama lo incluye. Después del merge, `main` local se alinea con `origin/main`.
+
+- **Verificación** (2026-10-24): la primera pasada dio FAIL porque la cobertura no se había medido
+  (`02-DOCS/wiki/sdd/verifications/db-backups-2026-10-24.md`). Medida: 44 %. Se agregaron tests para
+  `storage`, `postgres`, `runRestoreCheck` y `log`, y un umbral de 80 % en `backup/vitest.config.mjs`. Resultado:
+  `61 passed`, líneas **82,68 %**. El umbral falla a 90 % (exit 1) y pasa a 80 %. Staging se volvió a probar con
+  el código nuevo: backup OK, `restore check passed` y backup OK otra vez. La segunda pasada dio
+  **PASS para el alcance de la tarea** (`…/db-backups-2026-10-24-2.md`).
+
+### Aprendido en staging (está en el README)
+
+- **Un deploy no ejecuta el cron.** Hace falta `railway cron run` (o esperar al horario).
+- **`redeploy` reutiliza la configuración del deploy anterior**, incluido el start command. Para que un
+  cambio de configuración se aplique hace falta un deploy nuevo (`railway up` o cambiar una variable).
+- `railway cron list` muestra las corridas terminadas con el estado `EXITED`. El resultado real
+  (éxito o error) está en el log de cada corrida.
+
+### Hallazgo fuera de alcance (urgente)
+
+- **Railway deja de leer `railway.json` el 2026-12-01** (Config as Code quedó obsoleto, según
+  docs.railway.com/config-as-code, leído el 2026-10-24). El servicio de la app usa el `railway.json` de la raíz
+  para `startCommand`, `healthcheckPath` y la política de reinicio. Hay que migrar a Infrastructure as Code
+  (`.railway/railway.ts`, `railway config migrate`) **antes del 2026-12-01**. Ojo: `.gitignore` hoy ignora
+  `.railway/` como "Railway local link state", y eso choca con IaC. Por esto mismo, `db-backup` no tiene `railway.json`.
 
 ## Next
 
-Hernán crea la rama (T1). Después: escribir los tests de T2 en rojo.
+T9: Hernán hace el commit, el push y el PR. Después del merge, T10: crear el bucket y el servicio en producción,
+conectados a `main` con root directory `backup`, y alinear `main` local con `origin/main`.
