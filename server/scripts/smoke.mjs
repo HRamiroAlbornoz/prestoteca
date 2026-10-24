@@ -177,7 +177,13 @@ async function main() {
   const foreignLoan = await stranger('GET', `/api/loans/${loanId}`)
   const missingLoan = await stranger('GET', '/api/loans/00000000-0000-0000-0000-000000000000')
   check('foreign loan → 404', foreignLoan.status, 404)
-  check('foreign loan looks exactly like a missing one', JSON.stringify(foreignLoan.json), JSON.stringify(missingLoan.json))
+  check('missing loan → 404', missingLoan.status, 404)
+  // Only meaningful when both are real 404s: two identical 401s (no session) would also "match"
+  check(
+    'foreign loan looks exactly like a missing one',
+    foreignLoan.status === 404 && JSON.stringify(foreignLoan.json) === JSON.stringify(missingLoan.json),
+    true,
+  )
 
   // --- Account deletion is blocked while a loan is active ------------------------
   r = await owner('DELETE', '/api/me/account')

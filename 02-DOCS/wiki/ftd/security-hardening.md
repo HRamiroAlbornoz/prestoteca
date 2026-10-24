@@ -145,6 +145,8 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   original se puede registrar otra vez).
 - [ ] T6b — `server/scripts/smoke.mjs` en el repo con los casos nuevos. Prueba: corre contra staging
   en T9 y termina en `SMOKE OK`.
+- [x] T6c — (aprobado 2026-10-24) Cada limitador con su propio contador: navegar la app no consume el
+  cupo de login, y los logins no consumen el cupo general. Prueba: test en rojo → verde.
 - [x] T7 — Suite completa, lint y type-check. Prueba: server todo verde; client 144/148 (los mismos
   4 rojos de antes); `tsc -b` y `oxlint` sin errores.
 - [x] T8 — Push de la rama y staging apuntando a `fix/security-hardening`. Prueba: deploy de staging
@@ -372,7 +374,18 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
     (probado: `{"TRUST_PROXY":true}` con zod 3.25.76), así que cada usuario se cuenta por su IP real.
   - **El usuario `dup-check-1792559607@example.com` sigue en staging** (pendiente).
 
+- **T6c** (2026-10-24, aprobado por Hernán):
+  - Test nuevo `tests/rateLimitIsolation.test.ts` (3), con los limitadores montados como en la app real.
+    **Rojo:** `3 failed (3)`; tras 10 pedidos a `/api/tools`, los 5 logins dieron
+    `[429, 429, 429, 429, 429]`.
+  - Arreglo en `rateLimit.ts`: cada `createRateLimiter` crea su propio `Map`; `cleanup` y
+    `resetRateLimiter` recorren la lista de todos.
+  - **Verde:** `3 passed (3)`; suite del server `26 passed` archivos, `233 passed (233)`; `tsc --noEmit`
+    exit 0. Se sigue bloqueando el 6.º login y el pedido general 31 del minuto.
+  - `smoke.mjs`: el chequeo del préstamo ajeno ahora exige que los dos sean 404 reales, además de iguales;
+    se suma `missing loan → 404`. `node --check` → OK.
+
 ## Next
 
-Hernán decide si el arreglo del limitador compartido entra en esta feature (T6c, con test en rojo
-primero) o va aparte. Después: ajustar el chequeo del préstamo ajeno del smoke test y volver a correrlo.
+Hernán commitea y hace push (staging sigue la rama y redeploya solo). Después: volver a correr el smoke
+test en staging y borrar `dup-check-1792559607@example.com`.
