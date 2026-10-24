@@ -149,3 +149,7 @@ client/node_modules/
 .claude/commands/learn.md
 .claude/commands/resume-session.md
 .claude/commands/save-session.md
+
+# rsc local state (hooks, seals, logs) and managed skill links — machine-local
+.claude/skills/design
+.opencode/rsc/design
