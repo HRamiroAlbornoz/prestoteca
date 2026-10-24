@@ -143,7 +143,7 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   activos → 409 y nada cambia; sin préstamos activos → 204, `Set-Cookie` que borra `token`, fila
   anonimizada, herramientas borradas, préstamos intactos; si falla un paso → `ROLLBACK`; el email
   original se puede registrar otra vez).
-- [ ] T6b — `server/scripts/smoke.mjs` en el repo con los casos nuevos. Prueba: corre contra staging
+- [x] T6b — `server/scripts/smoke.mjs` en el repo con los casos nuevos. Prueba: corre contra staging
   en T9 y termina en `SMOKE OK`.
 - [x] T6c — (aprobado 2026-10-24) Cada limitador con su propio contador: navegar la app no consume el
   cupo de login, y los logins no consumen el cupo general. Prueba: test en rojo → verde.
@@ -151,7 +151,7 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   4 rojos de antes); `tsc -b` y `oxlint` sin errores.
 - [x] T8 — Push de la rama y staging apuntando a `fix/security-hardening`. Prueba: deploy de staging
   en `SUCCESS` con el commit de la rama.
-- [ ] T9 — Staging: backup de prueba validado, migración 004, smoke test ampliado y los dos borrados
+- [x] T9 — Staging: backup de prueba validado, migración 004, smoke test ampliado y los dos borrados
   reales (204 y 409). Prueba: validación del backup, `ok 004`, salida del smoke test.
 - [ ] T10 — Producción **antes del merge**: backup validado y migración 004. Prueba: archivo de
   backup con las 3 tablas y conteos que coinciden; `ok 004`; health sigue en 200.
@@ -385,7 +385,18 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   - `smoke.mjs`: el chequeo del préstamo ajeno ahora exige que los dos sean 404 reales, además de iguales;
     se suma `missing loan → 404`. `node --check` → OK.
 
+- **T9 cerrado** (2026-10-24):
+  - Commit `32a44b9` (T6c) → push → deploy de staging `cce73bae` → `SUCCESS` (staging sigue la rama).
+  - **Smoke test, segunda corrida** (run `mvm0vnaf`): **40/40 OK, `SMOKE OK`, exit 0**. Cierra T6b. El
+    chequeo del préstamo ajeno ahora comparó dos 404 reales (`foreign loan → 404`, `missing loan → 404`,
+    iguales → `true`). Limpieza: las 4 cuentas de la corrida, borradas (204).
+  - `dup-check-1792559607@example.com`: login 200 → `DELETE /api/me/account` 204.
+  - **Prueba en PostgreSQL real de la anonimización:** `users` de staging tiene 8 filas con
+    `name = "Usuario eliminado"`, `email = deleted-<id>@invalid` y `deleted_at` con fecha (3 de la primera
+    corrida, 4 de la segunda y `dup-check`). Quedan 2 cuentas activas del smoke test del 21/10
+    (`owner-mvhjsn38`, `borrower-mvhjsn38`), de antes de esta feature.
+
 ## Next
 
-Hernán commitea y hace push (staging sigue la rama y redeploya solo). Después: volver a correr el smoke
-test en staging y borrar `dup-check-1792559607@example.com`.
+T10: producción **antes del merge** — backup con `pg_dump` validado y migración 004. Espera la
+indicación de Hernán.
