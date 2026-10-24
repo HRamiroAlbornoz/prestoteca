@@ -23,7 +23,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Feature | Status | Path |
 |---------|--------|------|
 | Arreglar el deploy en Railway | done | [02-DOCS/wiki/ftd/railway-deploy.md](./ftd/railway-deploy.md) |
-| Arreglos de seguridad y errores del backend | in-progress | [02-DOCS/wiki/ftd/security-hardening.md](./ftd/security-hardening.md) |
+| Arreglos de seguridad y errores del backend | done | [02-DOCS/wiki/ftd/security-hardening.md](./ftd/security-hardening.md) |
 
 ## Product docs
 

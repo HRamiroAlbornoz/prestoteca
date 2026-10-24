@@ -1,7 +1,7 @@
 ---
 author: HRamiroAlbornoz
 branch: fix/security-hardening
-status: in-progress
+status: done
 ---
 # Arreglos de seguridad y errores del backend
 
@@ -155,9 +155,9 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   reales (204 y 409). Prueba: validación del backup, `ok 004`, salida del smoke test.
 - [x] T10 — Producción **antes del merge**: backup validado y migración 004. Prueba: archivo de
   backup con las 3 tablas y conteos que coinciden; `ok 004`; health sigue en 200.
-- [ ] T11 — PR mergeado a `main` (deploya solo). Prueba: commit en `origin/main` y deploy de
+- [x] T11 — PR mergeado a `main` (deploya solo). Prueba: commit en `origin/main` y deploy de
   producción en `SUCCESS`.
-- [ ] T12 — Producción: smoke test ampliado. Staging de vuelta a `main`. Prueba: salida del smoke
+- [x] T12 — Producción: smoke test ampliado. Staging de vuelta a `main`. Prueba: salida del smoke
   test y deploy de staging en `SUCCESS` con `main`.
 
 ## Plan de rollback
@@ -408,9 +408,62 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   - **Migración 004 en producción:** `ok 004_add_users_deleted_at.sql`; columna
     `{"column_name":"deleted_at","data_type":"timestamp with time zone","is_nullable":"YES"}`; users
     `{"total":11,"con_fecha":0}`. Después: health `200 {"status":"ok","db":"connected"}`, tools 200.
-    Producción sigue con el código de `main` (`e2e8113`), que ignora la columna.
+    ~~Producción sigue con el código de `main` (`e2e8113`), que ignora la columna.~~ **Falso** (ver el
+    incidente más abajo): producción ya corría la rama desde las 05:41.
+
+- **T11** (2026-10-24): PR #11 `🔒️ fix(security): harden auth, errors, account deletion and rate
+  limiting`, squash → `deeb974` en `origin/main`; rama remota borrada. El código de `7497606` (cabeza de
+  la rama) y de `deeb974` es idéntico (`git diff 7497606 origin/main -- server client package.json
+  package-lock.json` vacío).
+
+### ⚠️ Incidente: producción desplegó la rama antes del merge (error de Claude)
+
+- **Qué pasó:** `railway service source connect --branch fix/security-hardening -e staging` (T8, el 21/10 y
+  otra vez el 24/10 a las 05:41) **cambió la rama de producción también**, pese al `-e staging`: la fuente
+  del servicio no es por entorno. Producción desplegó la rama en cada push:
+  `54718f9d` (`9fd029d`, 05:41), `cb72d892` (`32a44b9`, 06:32) y `db197eef` (`7497606`, 06:39).
+- **Afirmación falsa corregida:** en T10 escribí «Producción sigue con el código de `main` (`e2e8113`)».
+  Era falso: ya corría la rama desde las 05:41. No lo verifiqué antes de escribirlo.
+- **Ventana de riesgo:** 05:41 → 06:37 (migración 004 en producción). En ese lapso, el código nuevo
+  usaba `users.deleted_at` sin que existiera: un borrado de cuenta habría dado 500.
+- **Impacto: ninguno, por suerte.** Logs HTTP de producción: `54718f9d` → 0 pedidos;
+  `cb72d892` → 2 pedidos (06:37:55, mis chequeos de health y tools, 200). Sin 5xx, sin
+  `[error] unexpected error` en los logs de deploy (los `npm error ... SIGTERM` son el apagado normal de
+  un deploy reemplazado), sin pedidos a `/api/me/account`.
+- **Estado ahora:** producción y staging siguen la rama `fix/security-hardening`, que ya no existe en
+  GitHub. Un merge futuro a `main` no desplegaría. Producción corre `7497606` = código de `main`.
+- **Lección:** después de cambiar la fuente de un servicio en Railway, listar los deploys de **todos**
+  los entornos, no solo del que se quería tocar.
+
+- **T12** (2026-10-24, aprobado por Hernán):
+  - `railway service source connect --branch main` (un solo comando: la fuente es del servicio) →
+    deploys de `main` `deeb974` en **los dos** entornos: producción `639b81c8` → `SUCCESS`, staging
+    `0f2a6252` → `SUCCESS`. Verificado listando los deploys de ambos entornos.
+  - Producción y staging: health `200 {"status":"ok","db":"connected"}`; login sin `Origin` → `403`.
+  - **Smoke test contra producción** (run `mvm1poc0`): **40/40 OK, `SMOKE OK`, exit 0**. Las 4 cuentas
+    de prueba de la corrida, borradas (204).
+  - Quedan en producción 2 cuentas de prueba del 21/10 (`owner-mvhk269a`, `borrower-mvhk269a`), de antes
+    de esta feature.
+
+- **Cierre** (2026-10-24):
+  - Cuentas de prueba viejas borradas por la API (login 200 → `DELETE /api/me/account` 204):
+    producción `owner-mvhk269a`, `borrower-mvhk269a`; staging `owner-mvhjsn38`, `borrower-mvhjsn38`.
+    Staging: 0 cuentas activas. Producción: 9 activas, ninguna creada en esta feature (3 del seed y 6 de
+    pruebas manuales anteriores); quedan para que Hernán decida.
+  - PR de cierre `chore/close-security-hardening`: este documento con la evidencia final, `status: done`
+    en esta feature y en `railway-deploy.md`, el índice de la wiki y la actualización de rsc a 3.3.0.
+    Marcadas `done` a mano: el hook post-merge de rsc no corre con `gh pr merge`.
 
 ## Next
 
-T11: PR de `fix/security-hardening` a `main` y merge (deploya solo a producción). Espera la indicación
-de Hernán.
+**Cerrada.** Mergeada en `main` con el PR #11 (`deeb974`, 2026-10-24); producción verificada con el
+smoke test (40/40).
+
+Pendientes para otras features:
+- **Producción no tiene backups** (Railway solo los ofrece en Pro). El más urgente.
+- Pedir una herramienta pausada no se rechaza (`loansRoutes.ts:60` no filtra `is_paused`).
+- 4 tests del cliente con fechas fijas (`requestLoan.test.tsx`).
+- 10 vulnerabilidades de dependencias (`npm audit`).
+- Mensajes en inglés que ve el usuario.
+- Logger estructurado con `requestId`.
+- 6 cuentas de pruebas manuales en producción.

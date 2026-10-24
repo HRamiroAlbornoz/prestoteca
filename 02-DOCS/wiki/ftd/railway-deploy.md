@@ -1,7 +1,7 @@
 ---
 author: HRamiroAlbornoz
 branch: fix/railway-deploy
-status: in-progress
+status: done
 ---
 # Arreglar el deploy de Prestoteca en Railway
 
@@ -154,11 +154,10 @@ Causas encontradas (diagnóstico del 2026-10-20):
 
 ## Next
 
-Limpieza local (Hernán): ordenar la carpeta principal antes de `git pull` (borrar el
-`package-lock.json` raíz roto, descartar los cambios locales de `client/` y `server/package-lock.json`,
-commitear la configuración de RSC para Claude Code) y quitar el worktree
-(`git worktree remove .worktrees/fix-railway-deploy && git branch -D fix/railway-deploy`).
+**Cerrada.** Mergeada en `main` con el PR #8 (`c070502`, 2026-10-21); la limpieza local se hizo con los
+PR #9 y #10. Los 4 hallazgos de seguridad y calidad de arriba se resolvieron en
+`security-hardening.md` (PR #11). Marcada como `done` a mano el 2026-10-24: el hook post-merge de rsc no
+corre cuando el merge se hace en GitHub con `gh pr merge`.
 
-Pendientes para otras features: borrar `JWT_SECRET` y `NODE_ENV` del Postgres de producción (reinicia
-la base unos segundos), corregir las categorías con backup previo (`fix-categories.sql`), y los
-4 hallazgos de seguridad y calidad anotados arriba.
+Siguen pendientes, para otras features: borrar `JWT_SECRET` y `NODE_ENV` del Postgres de producción
+(reinicia la base unos segundos) y corregir las categorías con backup previo (`fix-categories.sql`).
