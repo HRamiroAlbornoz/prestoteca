@@ -46,13 +46,14 @@ Datos verificados en la documentación de Railway (2026-10-24):
     menos, no se borra nada.
   - Un modo `restore-check`, solo para staging: restaura la copia más reciente en una base temporal,
     compara la cantidad de filas con la base original y borra la base temporal.
-  - `Dockerfile` basado en `postgres:18-alpine` más Node, `railway.json` con el cron y la política
-    de reinicio `NEVER`, y un `README.md` con el procedimiento de restauración.
+  - `Dockerfile` basado en `postgres:18-alpine` más Node, y un `README.md` con el procedimiento de
+    restauración. El cron y la política de reinicio `NEVER` se configuran en el servicio, porque Railway
+    dejó obsoleto `railway.json` (ver el hallazgo urgente).
 - Railway **staging**: bucket y servicio `db-backup` desplegados con `railway up`, sin conectar el
   repo, porque el source de un servicio es el mismo para todos los entornos. Las variables van por
   referencia (`${{Postgres.DATABASE_URL}}` y las credenciales del bucket).
-- Railway **production**: bucket y servicio `db-backup` conectados a `main`, con root directory
-  `backup` y watch paths `backup/**`.
+- Railway **production**: bucket `backups-production` y servicio `db-backup` conectado a `main`, con root
+  directory `/backup` y watch paths `/backup/**`.
 
 **No entra:**
 - Alertas cuando falla un backup. Queda para la feature de monitoreo, que tiene que avisar si un día no se generó la copia.
@@ -80,10 +81,13 @@ Datos verificados en la documentación de Railway (2026-10-24):
   `loans` coincide, y la base temporal se borra. Prueba: log de la corrida.
 - [x] T8 — Tests, lint y build sin regresiones en `client` y `server`. Los mismos rojos que antes:
   los 4 de `requestLoan.test.tsx`. Prueba: salida de cada comando.
-- [ ] T9 — PR mergeado a `main`. Prueba: el commit está en `origin/main`.
-- [ ] T10 — Production: bucket y servicio conectados a `main`. Una corrida manual sube la copia, que
+- [x] T9 — PR mergeado a `main`. Prueba: el commit está en `origin/main`.
+- [x] T10 — Production: bucket y servicio conectados a `main`. Una corrida manual sube la copia, que
   pasa `pg_restore --list`. El próximo cron queda programado a las 06:00 UTC. Prueba: log, listado
   del bucket y `railway status`.
+- [ ] T11 — La primera corrida **programada** en producción (2026-10-25 06:00 UTC) termina con
+  `backup finished`. Hasta hoy, todas las corridas se lanzaron a mano. Prueba: `railway cron list` y el
+  log de la corrida.
 
 ## Evidence
 
@@ -137,6 +141,27 @@ Datos verificados en la documentación de Railway (2026-10-24):
   el código nuevo: backup OK, `restore check passed` y backup OK otra vez. La segunda pasada dio
   **PASS para el alcance de la tarea** (`…/db-backups-2026-10-24-2.md`).
 
+- **T9** (2026-10-24): PR #13 → `gh pr merge 13 --squash --delete-branch` → `Squashed and merged`,
+  commit `8d2281d` en `origin/main`. El `main` local había divergido por el commit automático `664ef2b`.
+  Se comprobó que `git log origin/main..main` mostraba solo ese commit y que su contenido estaba dentro de
+  `8d2281d`. Después: `git reset --hard origin/main` → `## main...origin/main`.
+- **T10** (2026-10-24, Claude con autorización de Hernán):
+  - Todo se preparó como un único paquete *staged* en production y se revisó con `get-staged-changes`:
+    `destructive: false`, solo dos creaciones (servicio `db-backup` y bucket). La app y el Postgres no se tocaron.
+    Se aplicó con `accept-deploy`.
+  - Bucket: el nombre de un bucket vale para todo el proyecto y `backups` ya lo usaba staging, así que la
+    herramienta generó `versatile-suitcase-gfIm`. Se renombró a **`backups-production`** (id `4b7beb8d-…`, `iad`)
+    antes de aplicar, y las variables se apuntaron a `${{backups-production.*}}`.
+  - Source: repo `HRamiroAlbornoz/prestoteca`, rama `main`, root `/backup`, watch `/backup/**`. Se preparó
+    *staged* con `environmentId`, así que el `db-backup` de staging **quedó sin repo** (sigue con `railway up`).
+  - Deploy `1eb9e567` `SUCCESS`. Las 7 variables resuelven (`DATABASE_URL` → `postgres.railway.internal`).
+    Buckets distintos: staging `backups-hlpu…`, production `backups-production-mttc…`.
+  - Corrida manual → `starting backup` (`pg_dump 18.6`, `keep 14`) → `backup uploaded` → `backup finished`
+    con `postgres/prestoteca-2026-10-24T22-00-46Z.dump`. `verifyDump` (`pg_restore --list`) corre antes de
+    subir, así que la copia pasó esa validación. El bucket, listado desde afuera, muestra `objects=1`, `11303 bytes`.
+  - `railway status` → `db-backup: ● Online · 0 6 * * * · next run in 7 hours`. App:
+    `/api/health` → 200.
+
 ### Aprendido en staging (está en el README)
 
 - **Un deploy no ejecuta el cron.** Hace falta `railway cron run` (o esperar al horario).
@@ -155,5 +180,6 @@ Datos verificados en la documentación de Railway (2026-10-24):
 
 ## Next
 
-T9: Hernán hace el commit, el push y el PR. Después del merge, T10: crear el bucket y el servicio en producción,
-conectados a `main` con root directory `backup`, y alinear `main` local con `origin/main`.
+T11: después del 2026-10-25 06:00 UTC, revisar `railway cron list -s db-backup -e production` y el log de esa
+corrida. Si dice `backup finished`, la feature queda `done`. Siguiente en el backlog: migrar `railway.json` a
+IaC antes del 2026-12-01 (urgente) y después el punto 2 (herramientas pausadas).
