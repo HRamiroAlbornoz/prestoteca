@@ -354,7 +354,25 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
     otra vez → deploy `c809741b` del commit `9fd029d`: `BUILDING → DEPLOYING → SUCCESS`. Prueba de que
     corre el código nuevo: `POST /api/auth/login` sin `Origin` → `403 Invalid origin` (antes 400).
 
+- **Smoke test en staging, primera corrida** (2026-10-24, run `mvlz5a76`): `SMOKE FAILED: 3 check(s)`,
+  exit 1. **Todo lo de esta feature dio OK:** email repetido 409; login sin `Origin` 403; email
+  inexistente = misma respuesta que contraseña mala (`Invalid credentials`); cookie `Secure` y
+  `HttpOnly`; borrado con préstamo activo 409 (dueño y solicitante, con el mensaje en castellano);
+  borrado 204 con cookie borrada; la herramienta desaparece (404); el préstamo sigue en el historial del
+  solicitante; el email se puede registrar otra vez; limpieza: todas las cuentas creadas se borraron.
+  - Los 3 fallos son **429** (`register a third user`, `foreign loan → 404` en cadena, y
+    `the deleted account cannot log in`).
+  - Un chequeo pasó **por la razón equivocada**: `foreign loan looks exactly like a missing one` comparó
+    dos `401` (el tercer usuario no llegó a registrarse por el 429). El script tiene que exigir el 404.
+  - **Causa: bug real del servidor.** `rateLimit.ts:9` usa **un solo `Map`** para los dos limitadores
+    (`authRateLimiter`, 5/min, y `generalRateLimiter`, 30/min). Comparten el contador por IP: cada pedido a
+    `/api/tools` o `/api/loans` descuenta del cupo de login. Un usuario que navega unas páginas y después
+    quiere entrar dentro del mismo minuto recibe 429.
+  - Descartado: `TRUST_PROXY` no está definida en Railway, pero `env.ts:17` la deja en `true` por defecto
+    (probado: `{"TRUST_PROXY":true}` con zod 3.25.76), así que cada usuario se cuenta por su IP real.
+  - **El usuario `dup-check-1792559607@example.com` sigue en staging** (pendiente).
+
 ## Next
 
-T9: smoke test en staging (`node server/scripts/smoke.mjs https://prestoteca-staging.up.railway.app`),
-y borrar el usuario `dup-check-1792559607@example.com`. Espera la indicación de Hernán.
+Hernán decide si el arreglo del limitador compartido entra en esta feature (T6c, con test en rojo
+primero) o va aparte. Después: ajustar el chequeo del préstamo ajeno del smoke test y volver a correrlo.
