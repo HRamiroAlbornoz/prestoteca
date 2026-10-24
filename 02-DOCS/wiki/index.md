@@ -17,6 +17,8 @@ timestamp: 2026-10-04T00:00:00Z
 | Plan | Prestoteca MVP — Plan | [02-DOCS/wiki/sdd/plans/prestoteca-mvp.md](./sdd/plans/prestoteca-mvp.md) |
 | Decisions | Prestoteca — Decision Records | [02-DOCS/wiki/sdd/decisions.md](./sdd/decisions.md) |
 | Analysis | Prestoteca — Consistency Gate | [02-DOCS/wiki/sdd/analysis/prestoteca-mvp.md](./sdd/analysis/prestoteca-mvp.md) |
+| Verification | db-backups — 2026-10-24 (FAIL: coverage not measured) | [02-DOCS/wiki/sdd/verifications/db-backups-2026-10-24.md](./sdd/verifications/db-backups-2026-10-24.md) |
+| Verification | db-backups — 2026-10-24, second run (PASS for its scope; coverage 82.68 %) | [02-DOCS/wiki/sdd/verifications/db-backups-2026-10-24-2.md](./sdd/verifications/db-backups-2026-10-24-2.md) |
 
 ## FTD features
 
@@ -24,6 +26,7 @@ timestamp: 2026-10-04T00:00:00Z
 |---------|--------|------|
 | Arreglar el deploy en Railway | done | [02-DOCS/wiki/ftd/railway-deploy.md](./ftd/railway-deploy.md) |
 | Arreglos de seguridad y errores del backend | done | [02-DOCS/wiki/ftd/security-hardening.md](./ftd/security-hardening.md) |
+| Backups automáticos de la base de producción | in-progress | [02-DOCS/wiki/ftd/db-backups.md](./ftd/db-backups.md) |
 
 ## Product docs
 

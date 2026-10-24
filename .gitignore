@@ -81,6 +81,11 @@ client/.env.production
 client/dist/
 client/node_modules/
 
+# Backup job: dependencies and any local dump (it holds personal data)
+backup/node_modules/
+backup/coverage/
+backup/**/*.dump
+
 # rsc local state (hooks, seals, logs) and managed skill links — machine-local
 .worktrees/
 
