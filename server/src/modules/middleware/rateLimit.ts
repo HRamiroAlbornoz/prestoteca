@@ -5,8 +5,9 @@ interface RateLimitEntry {
   resetTime: number
 }
 
-// In-memory store: IP → { count, resetTime }
-const store = new Map<string, RateLimitEntry>()
+// One in-memory store per limiter: IP → { count, resetTime }.
+// Each limiter needs its own: with a shared store, browsing the app used up the login allowance.
+const stores: Array<Map<string, RateLimitEntry>> = []
 
 const WINDOW_MS = 60 * 1000 // 1 minute
 
@@ -20,9 +21,11 @@ function getIp(req: Request): string {
 
 function cleanup(): void {
   const now = Date.now()
-  for (const [ip, entry] of store.entries()) {
-    if (entry.resetTime < now) {
-      store.delete(ip)
+  for (const store of stores) {
+    for (const [ip, entry] of store.entries()) {
+      if (entry.resetTime < now) {
+        store.delete(ip)
+      }
     }
   }
 }
@@ -30,11 +33,17 @@ function cleanup(): void {
 // Clean up every 30 seconds
 setInterval(cleanup, 30 * 1000)
 
+// Empties every limiter (used by tests to start from zero)
 export function resetRateLimiter(): void {
-  store.clear()
+  for (const store of stores) {
+    store.clear()
+  }
 }
 
 function createRateLimiter(maxRequests: number) {
+  const store = new Map<string, RateLimitEntry>()
+  stores.push(store)
+
   return (req: Request, res: Response, next: NextFunction): void => {
     const ip = getIp(req)
     const now = Date.now()

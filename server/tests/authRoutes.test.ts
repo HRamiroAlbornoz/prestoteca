@@ -6,6 +6,7 @@ import { authRoutes } from '../src/modules/auth/authRoutes.js'
 import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import { authRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
+import { ConflictError } from '../src/modules/errors/AppError.js'
 
 function createMockApp() {
   const usersByEmail = new Map<string, { id: string; name: string; email: string; password_hash: string; neighborhood: string }>()
@@ -17,7 +18,8 @@ function createMockApp() {
     }),
     create: vi.fn(async (input: { name: string; email: string; password_hash: string; neighborhood: string }) => {
       if (usersByEmail.has(input.email)) {
-        throw new Error('Email already exists')
+        // Same error the real UserRepository raises for a repeated email
+        throw new ConflictError('Email already exists')
       }
       const user = {
         id: `uuid-${nextId++}`,
@@ -109,12 +111,24 @@ describe('auth routes', () => {
       expect(res.status).toBe(401)
     })
 
-    it('returns 404 on non-existent email', async () => {
-      const res = await request(app)
+    it('returns the same 401 response on non-existent email as on wrong password', async () => {
+      await request(app)
+        .post('/api/auth/register')
+        .send({ name: 'Lucia', email: 'lucia@example.com', password: 'lucia123', neighborhood: 'Centro' })
+
+      const wrongPassword = await request(app)
+        .post('/api/auth/login')
+        .send({ email: 'lucia@example.com', password: 'wrongpassword' })
+      const unknownEmail = await request(app)
         .post('/api/auth/login')
         .send({ email: 'ghost@example.com', password: 'any' })
 
-      expect(res.status).toBe(404)
+      // Identical status and body: the response must not reveal whether the email is registered
+      expect(unknownEmail.status).toBe(401)
+      expect(unknownEmail.body).toEqual(wrongPassword.body)
+      expect(unknownEmail.body).toEqual({
+        error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' },
+      })
     })
   })
 

@@ -1,4 +1,11 @@
 import type { Pool } from 'pg'
+import { ConflictError } from '../errors/AppError.js'
+
+const UNIQUE_VIOLATION = '23505'
+
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === UNIQUE_VIOLATION
+}
 
 export interface CreateUserInput {
   name: string
@@ -34,10 +41,13 @@ export class UserRepository {
          RETURNING id, name, email, password_hash, neighborhood, created_at`,
         [input.name, input.email, input.password_hash, input.neighborhood],
       )
-      if ((res.rowCount ?? 0) === 0) {
-        throw new Error('Email already exists')
-      }
       return res.rows[0]
+    } catch (err: unknown) {
+      // PostgreSQL rejects a repeated email with a unique_violation (23505)
+      if (isUniqueViolation(err)) {
+        throw new ConflictError('Email already exists')
+      }
+      throw err
     } finally {
       client.release()
     }

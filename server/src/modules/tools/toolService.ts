@@ -1,4 +1,5 @@
 import type { ToolRepository, CreateToolInput, Tool } from './toolRepo.js'
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/AppError.js'
 
 const VALID_CATEGORIES = [
   'Herramientas eléctricas',
@@ -16,10 +17,10 @@ export class ToolService {
 
   async publish(input: CreateToolInput): Promise<Tool> {
     if (!(VALID_CATEGORIES as readonly string[]).includes(input.category)) {
-      throw new Error('Invalid category')
+      throw new ValidationError('Invalid category')
     }
     if (!(VALID_CONDITIONS as readonly string[]).includes(input.condition)) {
-      throw new Error('Invalid condition')
+      throw new ValidationError('Invalid condition')
     }
     return this.repo.create(input)
   }
@@ -32,20 +33,20 @@ export class ToolService {
     // Check ownership
     const tool = await this.repo.findById(id)
     if (!tool) {
-      throw new Error('Tool not found')
+      throw new NotFoundError('Tool not found')
     }
     if (tool.owner_id !== userId) {
-      throw new Error('You can only edit your own tools')
+      throw new ForbiddenError('You can only edit your own tools')
     }
 
     // Validate category if provided
     if (updates.category !== undefined && !(VALID_CATEGORIES as readonly string[]).includes(updates.category)) {
-      throw new Error('Invalid category')
+      throw new ValidationError('Invalid category')
     }
 
     // Validate condition if provided
     if (updates.condition !== undefined && !(VALID_CONDITIONS as readonly string[]).includes(updates.condition)) {
-      throw new Error('Invalid condition')
+      throw new ValidationError('Invalid condition')
     }
 
     return this.repo.update(id, updates)
@@ -55,16 +56,16 @@ export class ToolService {
     // Check ownership
     const tool = await this.repo.findById(id)
     if (!tool) {
-      throw new Error('Tool not found')
+      throw new NotFoundError('Tool not found')
     }
     if (tool.owner_id !== userId) {
-      throw new Error('You can only delete your own tools')
+      throw new ForbiddenError('You can only delete your own tools')
     }
 
     // Check for active loans
     const hasActive = await this.repo.hasActiveLoans(id)
     if (hasActive) {
-      throw new Error('Cannot delete tool with active loans')
+      throw new ConflictError('Cannot delete tool with active loans')
     }
 
     await this.repo.softDelete(id)
@@ -74,10 +75,10 @@ export class ToolService {
     // Check ownership
     const tool = await this.repo.findById(id)
     if (!tool) {
-      throw new Error('Tool not found')
+      throw new NotFoundError('Tool not found')
     }
     if (tool.owner_id !== userId) {
-      throw new Error('You can only pause your own tools')
+      throw new ForbiddenError('You can only pause your own tools')
     }
 
     // Pause even with active loans (spec line 129)

@@ -6,6 +6,7 @@ import { authRoutes } from '../src/modules/auth/authRoutes.js'
 import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import { authRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
+import { ConflictError } from '../src/modules/errors/AppError.js'
 
 function createMockApp() {
   const usersByEmail = new Map<string, { id: string; name: string; email: string; password_hash: string; neighborhood: string }>()
@@ -17,7 +18,8 @@ function createMockApp() {
     }),
     create: vi.fn(async (input: { name: string; email: string; password_hash: string; neighborhood: string }) => {
       if (usersByEmail.has(input.email)) {
-        throw new Error('Email already exists')
+        // Same error the real UserRepository raises for a repeated email
+        throw new ConflictError('Email already exists')
       }
       const user = {
         id: `uuid-${nextId++}`,

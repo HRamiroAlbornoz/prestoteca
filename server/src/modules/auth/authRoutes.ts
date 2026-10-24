@@ -2,6 +2,7 @@ import type { Router } from 'express'
 import express from 'express'
 import type { UserRepository } from './userRepo.js'
 import { AuthService } from './authService.js'
+import { sendError } from '../errors/AppError.js'
 
 export function authRoutes(
   userRepo: UserRepository,
@@ -57,11 +58,7 @@ export function authRoutes(
       })
       res.status(201).json({ message: 'Registered successfully' })
     } catch (err: unknown) {
-      if (err instanceof Error && err.message === 'Email already exists') {
-        res.status(409).json({ error: { code: 'CONFLICT', message: 'Email already exists' } })
-        return
-      }
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Registration failed' } })
+      sendError(res, err, 'Registration failed')
     }
   })
 
@@ -91,15 +88,7 @@ export function authRoutes(
       })
       res.status(200).json({ message: 'Logged in successfully' })
     } catch (err: unknown) {
-      if (err instanceof Error && err.message === 'Invalid password') {
-        res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid password' } })
-        return
-      }
-      if (err instanceof Error && err.message === 'User not found') {
-        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } })
-        return
-      }
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Login failed' } })
+      sendError(res, err, 'Login failed')
     }
   })
 

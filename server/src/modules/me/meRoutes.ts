@@ -3,6 +3,7 @@ import express from 'express'
 import type { ToolRepository } from '../tools/toolRepo.js'
 import type { LoanRepository } from '../loans/loanRepo.js'
 import type { AuthRequest } from '../middleware/auth.js'
+import { sendError } from '../errors/AppError.js'
 
 export function meRoutes(
   toolRepo: ToolRepository,
@@ -29,8 +30,8 @@ export function meRoutes(
         receivedLoans,
         madeLoans,
       })
-    } catch {
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to get user data' } })
+    } catch (err: unknown) {
+      sendError(res, err, 'Failed to get user data')
     }
   })
 
@@ -45,8 +46,8 @@ export function meRoutes(
     try {
       const history = await loanRepo.findTerminatedByUserId(userId)
       res.status(200).json(history)
-    } catch {
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to get history' } })
+    } catch (err: unknown) {
+      sendError(res, err, 'Failed to get history')
     }
   })
 

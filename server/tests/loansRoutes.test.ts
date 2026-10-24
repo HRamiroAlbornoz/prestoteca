@@ -7,6 +7,18 @@ import { LoanService, type CreateLoanInput } from '../src/modules/loans/loanServ
 
 const { loansRoutes } = await import('../src/modules/loans/loansRoutes.js')
 
+// Dates relative to today: the endpoint rejects start dates in the past,
+// so a fixed date turns invalid as soon as the calendar reaches it.
+// The 5-day margin keeps the test independent of the time zone.
+function daysFromToday(days: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+const START_DATE = daysFromToday(5)
+const END_DATE = daysFromToday(15)
+
 function createMockApp() {
   const loans = new Map<string, any>()
   const tools = new Map<string, { id: string; owner_id: string }>()
@@ -101,8 +113,8 @@ describe('loans routes', () => {
         .set('Authorization', 'Bearer user-2')
         .set('Origin', 'http://localhost:5173')
         .send({
-          startDate: '2026-10-15',
-          endDate: '2026-10-25',
+          startDate: START_DATE,
+          endDate: END_DATE,
           note: 'Necesito el taladro',
         })
 
@@ -121,11 +133,13 @@ describe('loans routes', () => {
         .set('Authorization', 'Bearer user-1')
         .set('Origin', 'http://localhost:5173')
         .send({
-          startDate: '2026-10-15',
-          endDate: '2026-10-25',
+          startDate: START_DATE,
+          endDate: END_DATE,
         })
 
       expect(res.status).toBe(400)
+      // The reason matters: a 400 for any other cause (e.g. a past date) must not pass this test
+      expect(res.body.error.message).toMatch(/propia herramienta/)
     })
 
     it('returns 404 when tool not found', async () => {
@@ -136,8 +150,8 @@ describe('loans routes', () => {
         .set('Authorization', 'Bearer user-2')
         .set('Origin', 'http://localhost:5173')
         .send({
-          startDate: '2026-10-15',
-          endDate: '2026-10-25',
+          startDate: START_DATE,
+          endDate: END_DATE,
         })
 
       expect(res.status).toBe(404)
@@ -154,8 +168,8 @@ describe('loans routes', () => {
         .set('Authorization', 'Bearer user-2')
         .set('Origin', 'http://localhost:5173')
         .send({
-          startDate: '2026-10-15',
-          endDate: '2026-10-25',
+          startDate: START_DATE,
+          endDate: END_DATE,
         })
 
       expect(res.status).toBe(409)
@@ -167,8 +181,8 @@ describe('loans routes', () => {
       const res = await request(app)
         .post('/api/tools/tool-1/loans')
         .send({
-          startDate: '2026-10-15',
-          endDate: '2026-10-25',
+          startDate: START_DATE,
+          endDate: END_DATE,
         })
 
       expect(res.status).toBe(401)

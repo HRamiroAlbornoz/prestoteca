@@ -3,6 +3,7 @@ import express from 'express'
 import type { ToolService } from './toolService.js'
 import type { SearchService } from '../search/searchService.js'
 import type { AuthRequest } from '../middleware/auth.js'
+import { sendError } from '../errors/AppError.js'
 
 export function toolsRoutes(service: ToolService, searchService: SearchService): Router {
   const router = express.Router()
@@ -26,11 +27,7 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
     }).then((result) => {
       res.status(200).json(result)
     }).catch((err: unknown) => {
-      if (err instanceof Error) {
-        res.status(400).json({ error: { code: 'BAD_REQUEST', message: err.message } })
-        return
-      }
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to list tools' } })
+      sendError(res, err, 'Failed to list tools')
     })
   })
 
@@ -50,8 +47,8 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
         }
         res.status(200).json(tool)
       })
-      .catch(() => {
-        res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to get tool' } })
+      .catch((err: unknown) => {
+        sendError(res, err, 'Failed to get tool')
       })
   })
 
@@ -95,11 +92,7 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
     }).then((tool) => {
       res.status(201).json(tool)
     }).catch((err: unknown) => {
-      if (err instanceof Error) {
-        res.status(400).json({ error: { code: 'BAD_REQUEST', message: err.message } })
-        return
-      }
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to create tool' } })
+      sendError(res, err, 'Failed to create tool')
     })
   })
 
@@ -135,15 +128,7 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
         res.status(200).json(tool)
       })
       .catch((err: unknown) => {
-        if (err instanceof Error) {
-          if (err.message.includes('only edit')) {
-            res.status(403).json({ error: { code: 'FORBIDDEN', message: err.message } })
-            return
-          }
-          res.status(400).json({ error: { code: 'BAD_REQUEST', message: err.message } })
-          return
-        }
-        res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to update tool' } })
+        sendError(res, err, 'Failed to update tool')
       })
   })
 
@@ -166,20 +151,7 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
         res.status(204).send()
       })
       .catch((err: unknown) => {
-        if (err instanceof Error) {
-          if (err.message.includes('only delete') || err.message.includes('not found')) {
-            const status = err.message.includes('only delete') ? 403 : 404
-            res.status(status).json({ error: { code: status === 403 ? 'FORBIDDEN' : 'NOT_FOUND', message: err.message } })
-            return
-          }
-          if (err.message.includes('active loans')) {
-            res.status(409).json({ error: { code: 'CONFLICT', message: err.message } })
-            return
-          }
-          res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to delete tool' } })
-          return
-        }
-        res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to delete tool' } })
+        sendError(res, err, 'Failed to delete tool')
       })
   })
 

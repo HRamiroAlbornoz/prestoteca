@@ -23,7 +23,8 @@ export interface Loan {
 
 type QueryFn = (text: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>
 
-const ACTIVE_STATUSES = ['pendiente', 'aceptado', 'entregado', 'vencido']
+// Loans that are still in progress: they block deleting the tool (RF-07) and the account
+export const ACTIVE_STATUSES = ['pendiente', 'aceptado', 'entregado', 'vencido']
 
 export class LoanRepository {
   constructor(private readonly query: QueryFn) {}
@@ -121,19 +122,5 @@ export class LoanRepository {
       [userId],
     )
     return result.rows as Loan[]
-  }
-
-  async anonymizeByBorrower(borrowerId: string): Promise<void> {
-    await this.query(
-      `UPDATE loans SET borrower_id = NULL WHERE borrower_id = $1`,
-      [borrowerId],
-    )
-  }
-
-  async anonymizeByOwner(ownerId: string): Promise<void> {
-    await this.query(
-      `UPDATE loans SET owner_id = NULL WHERE owner_id = $1`,
-      [ownerId],
-    )
   }
 }

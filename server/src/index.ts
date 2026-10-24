@@ -6,6 +6,7 @@ import helmet from 'helmet'
 import { loadEnv } from './modules/config/env.js'
 import { checkDbConnection } from './modules/db/pool.js'
 import { authRateLimiter } from './modules/middleware/rateLimit.js'
+import { errorHandler } from './modules/errors/AppError.js'
 import { wireRoutes } from './routes.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -58,6 +59,9 @@ export async function createApp(): Promise<ExpressApplication> {
     }
     next()
   })
+
+  // Error handler — must be registered last
+  app.use(errorHandler)
 
   return app
 }

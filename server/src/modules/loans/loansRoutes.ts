@@ -2,6 +2,7 @@ import type { Router } from 'express'
 import express from 'express'
 import type { LoanService } from './loanService.js'
 import type { AuthRequest } from '../middleware/auth.js'
+import { sendError } from '../errors/AppError.js'
 
 type QueryFn = (text: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>
 
@@ -55,18 +56,18 @@ export function loansRoutes(
       return
     }
 
-    // Look up tool owner
-    const toolResult = await query(
-      `SELECT owner_id FROM tools WHERE id = $1 AND deleted_at IS NULL`,
-      [toolId],
-    )
-    const rows = toolResult.rows as Array<{ owner_id: string }>
-    if (!rows[0]) {
-      res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Tool not found' } })
-      return
-    }
-
     try {
+      // Look up tool owner
+      const toolResult = await query(
+        `SELECT owner_id FROM tools WHERE id = $1 AND deleted_at IS NULL`,
+        [toolId],
+      )
+      const rows = toolResult.rows as Array<{ owner_id: string }>
+      if (!rows[0]) {
+        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Tool not found' } })
+        return
+      }
+
       const loan = await service.create({
         toolId,
         userId,
@@ -77,15 +78,7 @@ export function loansRoutes(
       })
       res.status(201).json(loan)
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        if (err.message.includes('solapada')) {
-          res.status(409).json({ error: { code: 'CONFLICT', message: err.message } })
-          return
-        }
-        res.status(400).json({ error: { code: 'BAD_REQUEST', message: err.message } })
-        return
-      }
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to create loan' } })
+      sendError(res, err, 'Failed to create loan')
     }
   })
 
@@ -107,15 +100,7 @@ export function loansRoutes(
       const loan = await service.getDetail(loanId, userId)
       res.status(200).json(loan)
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        if (err.message.includes('no encontrado') || err.message.includes('particip')) {
-          res.status(404).json({ error: { code: 'NOT_FOUND', message: err.message } })
-          return
-        }
-        res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to get loan' } })
-        return
-      }
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', 'message': 'Failed to get loan' } })
+      sendError(res, err, 'Failed to get loan')
     }
   })
 
@@ -144,19 +129,7 @@ export function loansRoutes(
       const loan = await service.transition(loanId, newStatus, userId)
       res.status(200).json(loan)
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        if (err.message.includes('Transición inválida')) {
-          res.status(409).json({ error: { code: 'CONFLICT', message: err.message } })
-          return
-        }
-        if (err.message.includes('no encontrado') || err.message.includes('particip')) {
-          res.status(404).json({ error: { code: 'NOT_FOUND', message: err.message } })
-          return
-        }
-        res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to transition loan' } })
-        return
-      }
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to transition loan' } })
+      sendError(res, err, 'Failed to transition loan')
     }
   })
 
@@ -180,8 +153,8 @@ export function loansRoutes(
         ? await service.findLoansByBorrower(userId)
         : await service.findLoansByOwner(userId)
       res.status(200).json(loans)
-    } catch {
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Failed to list loans' } })
+    } catch (err: unknown) {
+      sendError(res, err, 'Failed to list loans')
     }
   })
 

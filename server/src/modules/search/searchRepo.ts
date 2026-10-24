@@ -1,3 +1,5 @@
+import { ValidationError } from '../errors/AppError.js'
+
 export type QueryFn = (text: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>
 
 export interface SearchParams {
@@ -16,7 +18,7 @@ export class SearchRepository {
     const offset = (page - 1) * limit
 
     if (page < 1) {
-      throw new Error('Page must be >= 1')
+      throw new ValidationError('Page must be >= 1')
     }
 
     const conditions: string[] = ['deleted_at IS NULL', 'is_paused = false']

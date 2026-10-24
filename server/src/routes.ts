@@ -30,23 +30,25 @@ export function wireRoutes(app: ExpressApplication): void {
   const searchService = new SearchService(toolRepo)
   const loanService = new LoanService(loanRepo, pool.query.bind(pool))
 
+  // CSRF protection — every POST/PATCH/DELETE under /api must come from the frontend's origin.
+  // Mounted before any router so it also covers /api/auth (login, register, logout).
+  app.use('/api', originChecker)
+
   // Auth routes (handles its own auth)
   app.use('/api/auth', authRoutes(userRepo, env.JWT_SECRET, env.CORS_ORIGIN))
 
-  // Tools routes — GET / is public, rest needs auth + origin check + general rate limit
+  // Tools routes — GET / is public, rest needs auth + general rate limit
   app.use('/api/tools', generalRateLimiter)
-  app.use('/api/tools', originChecker)
   app.use('/api/tools', (req, res, next) => {
     if (req.method === 'GET') return next()
     return authMiddleware(req as any, res, next)
   })
   app.use('/api/tools', toolsRoutes(toolService, searchService))
 
-  // Loans, me, me/account — all need auth + origin check + general rate limit
+  // Loans, me, me/account — all need auth + general rate limit
   app.use('/api', generalRateLimiter)
-  app.use('/api', originChecker)
   app.use('/api', authMiddleware)
   app.use('/api', loansRoutes(loanService, pool.query.bind(pool)))
   app.use('/api', meRoutes(toolRepo, loanRepo))
-  app.use('/api', meAccountRoutes(userRepo, toolRepo, loanRepo))
+  app.use('/api', meAccountRoutes(userRepo, pool))
 }
