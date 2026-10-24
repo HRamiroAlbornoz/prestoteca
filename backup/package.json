@@ -1,0 +1,23 @@
+{
+  "name": "prestoteca-db-backup",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Daily pg_dump of the production database, uploaded to a Railway bucket",
+  "scripts": {
+    "start": "node src/main.mjs",
+    "restore-check": "node src/restoreCheck.mjs",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "engines": {
+    "node": ">= 20"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1156.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.7",
+    "vitest": "^3.2.7"
+  }
+}
