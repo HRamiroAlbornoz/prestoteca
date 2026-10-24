@@ -147,7 +147,7 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   en T9 y termina en `SMOKE OK`.
 - [x] T7 — Suite completa, lint y type-check. Prueba: server todo verde; client 144/148 (los mismos
   4 rojos de antes); `tsc -b` y `oxlint` sin errores.
-- [ ] T8 — Push de la rama y staging apuntando a `fix/security-hardening`. Prueba: deploy de staging
+- [x] T8 — Push de la rama y staging apuntando a `fix/security-hardening`. Prueba: deploy de staging
   en `SUCCESS` con el commit de la rama.
 - [ ] T9 — Staging: backup de prueba validado, migración 004, smoke test ampliado y los dos borrados
   reales (204 y 409). Prueba: validación del backup, `ok 004`, salida del smoke test.
@@ -334,7 +334,27 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
     actual (no Pro) Railway no los ofrece.
   - Resultado: ni el backup ni la migración 004 se pudieron adelantar. No se cambió nada en staging.
 
+- **Decisión (Hernán, 2026-10-21):** esperar a que Railway se normalice, sin TCP proxy.
+- **Retomado** (2026-10-24):
+  - La CLI de Railway había perdido la sesión (`Unauthorized`); Hernán volvió a loguearse.
+  - SSH de Railway intermitente: un intento dio timeout, los dos siguientes `ssh-ok`.
+  - El deploy de la rama **nunca se había creado** (ni en cola ni fallado): el cambio de rama del 21/10 se
+    guardó durante la pausa, pero el deploy no quedó en la cola.
+  - **Backup de staging (T9):** `pg_dump --format=plain` dentro del contenedor de Postgres por
+    `railway ssh`, guardado en el scratchpad de la sesión (fuera del repo): 6269 bytes, exit 0. Contiene
+    `COPY public.loans`, `public.tools` y `public.users`. Filas en el dump: loans 1, tools 1, users 3;
+    `count(*)` en vivo: loans 1, tools 1, users 3 → **coinciden**. Revisión de saltos de línea por bytes:
+    0 `\r`, 228 `\n` (el canal SSH no altera el archivo). Un primer conteo con `grep` en Git Bash dio
+    228 `\r`: era un falso positivo de `grep`, descartado al leer los bytes con Node.
+  - **Migración 004 en staging (T9):** aplicada desde el contenedor de la app con el SQL del worktree →
+    `ok 004_add_users_deleted_at.sql`; columna
+    `{"column_name":"deleted_at","data_type":"timestamp with time zone","is_nullable":"YES"}`;
+    users `{"total":3,"con_fecha":0}`. Staging siguió sano con el código viejo (health 200, tools 200).
+  - **Deploy de staging (cierra T8):** `railway service source connect --branch fix/security-hardening`
+    otra vez → deploy `c809741b` del commit `9fd029d`: `BUILDING → DEPLOYING → SUCCESS`. Prueba de que
+    corre el código nuevo: `POST /api/auth/login` sin `Origin` → `403 Invalid origin` (antes 400).
+
 ## Next
 
-Hernán elige cómo seguir: esperar a que vuelva el SSH de Railway (plan original), o usar un TCP proxy
-temporal + `pg_dump` local.
+T9: smoke test en staging (`node server/scripts/smoke.mjs https://prestoteca-staging.up.railway.app`),
+y borrar el usuario `dup-check-1792559607@example.com`. Espera la indicación de Hernán.
