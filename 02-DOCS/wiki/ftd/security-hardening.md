@@ -153,7 +153,7 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
   en `SUCCESS` con el commit de la rama.
 - [x] T9 — Staging: backup de prueba validado, migración 004, smoke test ampliado y los dos borrados
   reales (204 y 409). Prueba: validación del backup, `ok 004`, salida del smoke test.
-- [ ] T10 — Producción **antes del merge**: backup validado y migración 004. Prueba: archivo de
+- [x] T10 — Producción **antes del merge**: backup validado y migración 004. Prueba: archivo de
   backup con las 3 tablas y conteos que coinciden; `ok 004`; health sigue en 200.
 - [ ] T11 — PR mergeado a `main` (deploya solo). Prueba: commit en `origin/main` y deploy de
   producción en `SUCCESS`.
@@ -396,7 +396,21 @@ decisión D4 (`02-DOCS/wiki/sdd/decisions.md`).
     corrida, 4 de la segunda y `dup-check`). Quedan 2 cuentas activas del smoke test del 21/10
     (`owner-mvhjsn38`, `borrower-mvhjsn38`), de antes de esta feature.
 
+- **T10** (2026-10-24, aprobado por Hernán):
+  - **Backup de producción:** `pg_dump --format=plain` por `railway ssh -s Postgres -e production`, exit 0,
+    guardado **fuera del repo** en
+    `E:\Trabajo\prestoteca-backups\production-20261024T063719Z-pre-migration-004.sql` (10740 bytes,
+    0 `\r`, empieza con `-- PostgreSQL database dump` y termina con `dump complete`).
+  - **Validación:** filas en el dump (awk) loans 6, tools 12, users 11 = `count(*)` en vivo loans 6,
+    tools 12, users 11. **Coinciden.** Un primer conteo con un script de Node dio 13/19/140: era un error
+    de escape del script (no reconocía la línea `\.` que cierra cada bloque `COPY` y seguía contando hasta
+    el final del archivo); descartado con `awk` y con el tamaño del archivo.
+  - **Migración 004 en producción:** `ok 004_add_users_deleted_at.sql`; columna
+    `{"column_name":"deleted_at","data_type":"timestamp with time zone","is_nullable":"YES"}`; users
+    `{"total":11,"con_fecha":0}`. Después: health `200 {"status":"ok","db":"connected"}`, tools 200.
+    Producción sigue con el código de `main` (`e2e8113`), que ignora la columna.
+
 ## Next
 
-T10: producción **antes del merge** — backup con `pg_dump` validado y migración 004. Espera la
-indicación de Hernán.
+T11: PR de `fix/security-hardening` a `main` y merge (deploya solo a producción). Espera la indicación
+de Hernán.
