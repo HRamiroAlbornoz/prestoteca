@@ -79,17 +79,31 @@ comprobación automática que falla si existe un código sin mensaje.
 - **Main path.** Cuando una acción falla por una situación prevista, el usuario ve en la misma pantalla un mensaje en
   español propio de esa situación. Si puede hacer algo, el mensaje lo dice. Ejemplos de situaciones que se
   distinguen entre sí:
-  - Cuenta: el email ya está registrado; email o contraseña incorrectos; la contraseña actual no coincide; la
-    contraseña nueva no cumple el largo; la cuenta tiene préstamos activos y no se puede eliminar; la sesión venció.
-  - Herramientas: no existe; no es tuya (para editar, pausar o eliminar); nombre o descripción con largo inválido;
-    categoría o estado inválidos; tiene préstamos activos y no se puede eliminar; está pausada y no acepta pedidos.
+  - Registro: falta algún dato; el nombre no tiene entre 2 y 50 caracteres; la contraseña no tiene entre 8 y 72; el
+    email es demasiado largo; el email ya está registrado. (La pantalla de registro no valida antes de enviar, así
+    que estos casos llegan al usuario tal cual.)
+  - Sesión: email o contraseña incorrectos (al iniciar sesión); no hay sesión; la sesión venció o no es válida.
+  - Cuenta: falta la contraseña actual o la nueva; la contraseña actual no coincide; la contraseña nueva no tiene
+    entre 8 y 72 caracteres; la contraseña nueva es solo espacios; la cuenta ya no existe (se eliminó con la sesión
+    abierta); la cuenta tiene préstamos activos y no se puede eliminar.
+  - Herramientas: falta algún dato al publicar; nombre o descripción con largo inválido; no existe; no es tuya (para
+    editar, pausar o eliminar); tiene préstamos activos y no se puede eliminar; está pausada y no acepta pedidos.
   - Préstamos: falta alguna fecha; la fecha de inicio ya pasó; la de fin es anterior a la de inicio; la nota es
     demasiado larga; es tu propia herramienta; se superpone con otro préstamo; el cambio de estado no está
     permitido; el préstamo no existe.
   - Búsqueda: el texto buscado es demasiado largo.
-  - General: demasiados intentos seguidos (con la indicación de esperar).
-- **Situaciones que solo produce un bug o un cliente roto** (cuerpo mal formado, identificador inválido, origen no
-  permitido, parámetro de listado inválido) comparten un mensaje genérico en español. No revelan detalles internos.
+  - General: demasiados intentos seguidos. El mensaje dice que hay que esperar un minuto, que es la ventana real de
+    los límites.
+- **Situaciones que solo produce un bug o un cliente roto** (cuerpo mal formado o demasiado grande, identificador
+  inválido, origen no permitido, parámetro de listado o de página inválido, categoría o estado de herramienta que no
+  existen —se eligen de una lista cerrada—, valor de pausa distinto de "pausar", estado de préstamo faltante) comparten
+  un mensaje genérico en español. No revelan detalles internos.
+- **Dónde se ve el error.** El error de una acción aparece en la pantalla donde se hizo, sin reemplazar su contenido:
+  el usuario sigue viendo lo que estaba mirando y puede volver a intentar u otra cosa. Hoy no pasa en el detalle de
+  una herramienta: si pausar o eliminar falla, la página entera se reemplaza por el error. Eso entra en este cambio.
+  Un error al **cargar** una pantalla (no hay nada que mostrar) sí puede ocupar la pantalla.
+- **Todas las pantallas usan el mismo criterio.** También las que hoy ignoran el error del server y muestran un texto
+  fijo ("Error al cargar los préstamos"): pasan a mostrar el mensaje del código.
 - **Edge cases.**
   - El cliente recibe un código que no conoce (por ejemplo, el server se actualizó antes): muestra un mensaje
     genérico en español, nunca el texto del server.
@@ -102,9 +116,9 @@ comprobación automática que falla si existe un código sin mensaje.
 
 ## Acceptance criteria
 
-- **AC-1** Given el server responde un error con un código conocido y un texto en inglés, When la pantalla muestra
-  el error, Then se ve el mensaje en español de ese código y el texto en inglés no aparece en ningún lugar de la
-  pantalla.
+- **AC-1** Given el server responde un error con un código conocido y un texto en inglés, When **cualquier**
+  pantalla muestra el error (incluidas las que hoy muestran un texto fijo), Then se ve el mensaje en español de ese
+  código y el texto en inglés no aparece en ningún lugar de la pantalla.
 - **AC-2** Given el server responde un error con un código que el cliente no conoce, When la pantalla muestra el
   error, Then se ve el mensaje genérico en español y no el texto del server.
 - **AC-3** Given una respuesta de error sin el formato esperado (sin código), When la pantalla la recibe, Then se
@@ -113,6 +127,9 @@ comprobación automática que falla si existe un código sin mensaje.
   mensaje de conexión en español (no "Network error. Please try again.").
 - **AC-5** Given el catálogo de códigos del server, When se corren los tests, Then existe una comprobación que
   falla si algún código del catálogo no tiene mensaje en español en el cliente.
+- **AC-5b** Given cualquier respuesta de error que el server puede emitir (incluidas las del limitador de intentos,
+  las de validación de cada ruta y las del manejador final de errores), When se revisa su código, Then ese código
+  pertenece al catálogo. Ninguna parte del server escribe un código fuera de él.
 - **AC-6** Given cada situación de la lista de *Behaviour → Main path*, When ocurre, Then el server responde con
   un código distinto al de las otras situaciones de la lista, y con el mismo status HTTP que antes de este cambio.
 - **AC-7** Given cualquier error de la lista, When el server lo responde, Then la respuesta mantiene la forma
@@ -121,6 +138,10 @@ comprobación automática que falla si existe un código sin mensaje.
   y la respuesta no incluye detalles internos (stack, SQL, nombres de archivos).
 - **AC-9** Given cualquier pantalla con un error visible, When un lector de pantalla está activo, Then el mensaje se
   anuncia (sigue siendo una región de alerta, como hoy).
+- **AC-9b** Given el detalle de una herramienta propia, When pausar o eliminar falla, Then el mensaje de error se ve
+  en esa misma pantalla y el detalle de la herramienta (nombre, estado, acciones) sigue visible.
+- **AC-9c** Given demasiados intentos seguidos, When el server lo rechaza, Then el mensaje dice que hay que esperar un
+  minuto.
 - **AC-10** Given todas las pantallas del cliente, When se busca en su código un texto de error en inglés visible al
   usuario, Then no queda ninguno (los 6 textos de respaldo en inglés que hay hoy pasan a español).
 
@@ -128,7 +149,9 @@ comprobación automática que falla si existe un código sin mensaje.
 
 - **pregunta abierta** — Cuando la sesión venció o no hay sesión, ¿alcanza con el mensaje ("Tu sesión venció.
   Volvé a iniciar sesión.") o la app tiene que, además, llevar al usuario a la pantalla de login? El checklist sugiere
-  la segunda (`código → acción`), y cambia el alcance en el cliente.
+  la segunda (`código → acción`), y cambia el alcance en el cliente. Restricción, sea cual sea la respuesta: un login
+  fallido también es un rechazo por credenciales, y **nunca** dispara esa acción; ahí solo se muestra "email o
+  contraseña incorrectos" en la misma pantalla de login.
 - **suposición tomada** — Los mensajes usan voseo rioplatense ("Intentá", "Volvé"). *Base:* toda la interfaz
   actual lo usa. *Riesgo:* bajo; si se quisiera neutro, cambian los textos, no el contrato.
 - **suposición tomada** — "No existe" y "no es tuyo" se mantienen indistinguibles en los préstamos, como hoy.
@@ -150,3 +173,13 @@ comprobación automática que falla si existe un código sin mensaje.
 - 2026-11-02 — Primera versión. Enfoque elegido por Hernán frente a "traducir en el server": códigos específicos y
   mapa en el cliente. Granularidad: uno por situación accionable (~30). Texto del server: solo para desarrollo.
   `retryable`: diferido. Modo de la cadena: parar en cada fase.
+- 2026-11-02 — Revisión contra el código pedida por Hernán. Cambios: (1) se agregan los errores del registro, que
+  llegan al usuario porque la pantalla no valida antes de enviar; (2) se agregan "contraseña solo espacios", "falta la
+  actual o la nueva", "la cuenta ya no existe", "falta un dato al publicar" y se separa "no hay sesión" de "la sesión
+  venció"; (3) AC-5b: todo código que emite el server pertenece al catálogo (hoy el limitador escribe
+  `TOO_MANY_REQUESTS` fuera de él y varias rutas escriben códigos sueltos); (4) "categoría o estado inválidos" pasa al
+  grupo que solo produce un bug (se eligen de una lista cerrada); (5) el error de una acción se ve sin reemplazar la
+  pantalla, y se incluye arreglar el detalle de una herramienta (AC-9b); (6) AC-1 cubre también las pantallas que hoy
+  muestran un texto fijo; (7) el mensaje de demasiados intentos dice "un minuto" (AC-9c); (8) la pregunta de la sesión
+  excluye explícitamente el login fallido. Fuera de esta spec se encontró que los cambios de estado de un préstamo no
+  comprueban quién los hace; va en un FTD aparte (`loan-transition-roles`).
