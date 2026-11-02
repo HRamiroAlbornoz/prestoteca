@@ -53,7 +53,7 @@ Alcance elegido por Hernán el 2026-11-02: la sesión más las rutas que faltan.
 - [x] T3 — Tests en rojo: `/api/me` (200 y 401), `AuthContext` (carga el usuario, login, logout), `PrivateRoute`
   con sesión y sin sesión, y las rutas `/loans` y `/loans/:id`.
 - [x] T4 — Arreglo: todo en verde. Type-check, lint y build sin errores.
-- [ ] T5 — Staging con el navegador: iniciar sesión → `/profile` abre; recargar → sigue logueado; pedir un préstamo →
+- [x] T5 — Staging con el navegador: iniciar sesión → `/profile` abre; recargar → sigue logueado; pedir un préstamo →
   abre su detalle; "Mis préstamos" abre; cerrar sesión → `/profile` vuelve al login.
 - [ ] T6 — PR mergeado y deploys en `SUCCESS`.
 
@@ -79,12 +79,38 @@ Alcance elegido por Hernán el 2026-11-02: la sesión más las rutas que faltan.
     `token=` que en un navegador real no existe); ahora comprueba que la sesión sale del server y que una cookie
     legible se ignora. `authPages.test.tsx` usa un contexto falso con `refreshUser`. Se borró `ProtectedRoute`, que no
     usaba nadie.
+  - `authContext.test.tsx` se reemplazó entero. Pasó sin querer: se escribió `AuthContext.test.tsx` y Windows no
+    distingue mayúsculas, así que pisó el archivo existente. Se revisó el original con `git show HEAD:…`: hacía
+    `vi.mock('./AuthContext')`, o sea que simulaba el mismo módulo que decía probar, y la mitad cubría `ProtectedRoute`.
+    El contenido nuevo prueba el contexto real (consulta a `/api/me`, 401, sin conexión y logout), así que no se pierde
+    cobertura. El archivo conserva su nombre en git.
   - Verde: server `Test Files 27 passed (27)`, `Tests 266 passed (266)`; client `Test Files 14 passed (14)`,
     `Tests 163 passed (163)`. `tsc -b` en server y client → exit 0. Lint → exit 0. `npm run build` → exit 0.
 - **Staging, API** (2026-11-02): `railway up -s prestoteca -e staging --ci` → `Deploy complete`. `me-e2e.mjs`: sin
   sesión → `401`; con sesión → `200 {"id":"…","name":"QA me"}`; mismo token después de eliminar la cuenta → `401`.
 
+- **T5, navegador real** (2026-11-02, Chrome con la extensión de Claude, autorizado por Hernán; cuentas descartables
+  creadas por `browser-check.mjs setup` en el scratchpad):
+  1. `/profile` sin sesión → `/login?returnTo=%2Fprofile`.
+  2. Iniciar sesión con la cuenta descartable → vuelve a `/profile` y muestra "Mi perfil".
+  3. Recargar `/profile` → sigue en "Mi perfil" (antes del arreglo, cualquier recarga deslogueaba).
+  4. Pedir la herramienta de prueba (5/11 al 7/11) → navega a `/loans/<id>` y muestra "Préstamo", la herramienta, las
+     fechas `5/11/2026 — 7/11/2026`, estado "Pendiente" y el botón "Cancelar" para quien pidió.
+  5. `/loans` → "Mis préstamos", "Pedí (1)", "Me pidieron (0)".
+  6. Desde la página: `/api/me` → `200`; `POST /api/auth/logout` → `204`; `/api/me` → `401`. Después, `/profile` →
+     vuelve a "Iniciar sesión". (No hay botón de cerrar sesión; ver hallazgos.)
+  Limpieza (`browser-check.mjs cleanup`): préstamo cancelado `200`, herramienta `204`, las dos cuentas `204`. La
+  pestaña se cerró.
+
 ### Hallazgos que no entran
+
+- **La app se ve sin estilos.** En el navegador, todas las pantallas aparecen sin el diseño (sin colores, botones
+  ni márgenes de Tailwind). El CSS publicado en staging (`/assets/index-U4qFh5px.css`, 6962 bytes) no contiene
+  ninguna clase de Tailwind (`bg-violet-600`, `rounded-md`: no están). Causa probable, sin verificar todavía: el
+  cliente usa Tailwind 4 (`@tailwindcss/postcss`), pero `client/src/index.css` usa las directivas de Tailwind 3
+  (`@tailwind base; @tailwind components; @tailwind utilities;`), que la versión 4 no procesa. Va al backlog.
+- **"Mis préstamos" no muestra el nombre de la herramienta**, solo el estado y las fechas. Probablemente la API no
+  devuelve `tool_name`. Va al backlog.
 
 - **La app no tiene navegación.** Ninguna pantalla enlaza a "Mi perfil", "Mis préstamos", "Publicar", "Iniciar
   sesión" ni "Cerrar sesión" desde el inicio. Con este arreglo las rutas funcionan, pero solo se llega escribiendo la
@@ -95,4 +121,4 @@ Alcance elegido por Hernán el 2026-11-02: la sesión más las rutas que faltan.
 
 ## Next
 
-T5: probar el flujo en un navegador real, en staging, con una cuenta descartable (necesita el OK de Hernán).
+T6: Hernán commitea, abre el PR y mergea. Ojo: rsc puede cerrar esta ficha solo, con un commit en el `main` local.
