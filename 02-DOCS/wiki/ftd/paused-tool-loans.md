@@ -1,7 +1,7 @@
 ---
 author: HRamiroAlbornoz
 branch: fix/paused-tool-loans
-status: in-progress
+status: done
 ---
 # Rechazar pedidos de herramientas pausadas
 
@@ -51,7 +51,7 @@ Es el punto 2 del backlog que se acordó el 2026-10-24.
   mensaje nuevo, y pedir una herramienta activa → 201. Prueba: las respuestas HTTP.
 - [x] T6 — Pausar: tests en rojo y después en verde para `PATCH { is_paused: true }` (dueño → 200; no dueño → 403;
   `false`, `"true"` o `1` → 400), y para el error visible en el cliente. Prueba: salida de Vitest.
-- [ ] T7 — PR mergeado. Después del deploy de `main`: production `/api/health` 200, y staging vuelve a tener el código
+- [x] T7 — PR mergeado. Después del deploy de `main`: production `/api/health` 200, y staging vuelve a tener el código
   de `main`. Prueba: deploys y respuesta HTTP.
 
 ## Evidence
@@ -119,6 +119,19 @@ Decisión (2026-11-02): Hernán eligió arreglar la pausa en esta misma rama.
   Limpieza: préstamo cancelado `200`, herramienta borrada `204`, las dos cuentas borradas `204`.
   Antes, `pause-check.mjs` había dejado lo suyo limpio también.
 
+- **T7** (2026-11-02): PR #19 → `gh pr merge 19 --squash --delete-branch` → commit `d94bd3c` en `origin/main`.
+  Staging y production deployaron `d94bd3c` → `SUCCESS` los dos. Production `GET /api/health` →
+  `200 {"status":"ok","db":"connected"}`. Staging, que volvió a seguir a `main` y ya no tiene el `railway up`,
+  pasó otra vez `paused-e2e.mjs` con los mismos 6 resultados: `201`, `201 pendiente`, `200 is_paused: true`,
+  `403`, **`409 CONFLICT "La herramienta está pausada y no acepta pedidos"`** y `400`. Limpieza: `200 / 204 / 204 / 204`.
+  En production no se corrió la prueba de punta a punta a propósito, para no dejar cuentas ni datos de prueba en la
+  base real (el punto 6 del backlog es justamente limpiar eso). Production corre el mismo commit que staging.
+
 ## Next
 
-T7: Hernán commitea, abre el PR y mergea. Después se verifican los deploys de staging y de production.
+Feature cerrada (2026-11-02). Queda anotado, sin arreglar:
+- La carrera entre pausar y pedir (ver Scope → No entra).
+- Reactivar una herramienta: la spec no lo pide. Si algún día se agrega, `is_paused: false` hoy da 400 y habría que
+  sumarle un botón.
+
+Siguiente en el backlog: el punto 3, los 4 tests del cliente con fechas fijas en `requestLoan.test.tsx`.
