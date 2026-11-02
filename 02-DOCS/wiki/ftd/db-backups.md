@@ -1,7 +1,7 @@
 ---
 author: HRamiroAlbornoz
 branch: feat/db-backups
-status: in-progress
+status: done
 ---
 # Backups automáticos de la base de producción
 
@@ -85,7 +85,7 @@ Datos verificados en la documentación de Railway (2026-10-24):
 - [x] T10 — Production: bucket y servicio conectados a `main`. Una corrida manual sube la copia, que
   pasa `pg_restore --list`. El próximo cron queda programado a las 06:00 UTC. Prueba: log, listado
   del bucket y `railway status`.
-- [ ] T11 — La primera corrida **programada** en producción (2026-10-25 06:00 UTC) termina con
+- [x] T11 — La primera corrida **programada** en producción (2026-10-25 06:00 UTC) termina con
   `backup finished`. Hasta hoy, todas las corridas se lanzaron a mano. Prueba: `railway cron list` y el
   log de la corrida.
 
@@ -161,6 +161,18 @@ Datos verificados en la documentación de Railway (2026-10-24):
     subir, así que la copia pasó esa validación. El bucket, listado desde afuera, muestra `objects=1`, `11303 bytes`.
   - `railway status` → `db-backup: ● Online · 0 6 * * * · next run in 7 hours`. App:
     `/api/health` → 200.
+- **T11** (2026-11-02, solo lectura en Railway):
+  - `railway cron list -s db-backup -e production` → 9 corridas programadas seguidas, una por día del
+    2026-10-25 al 2026-11-02, entre 06:00 y 06:05 UTC, todas `EXITED` en 2–5 s, con el deploy `1eb9e567`.
+    Antes está la corrida manual del 2026-10-24 22:00 UTC (T10).
+  - Los logs de las corridas del 2026-10-27 al 2026-11-02 (7 de 7) terminan en `backup finished`. Cada una
+    tiene su copia, desde `postgres/prestoteca-2026-10-27T06-00-17Z.dump` hasta
+    `postgres/prestoteca-2026-11-02T06-01-04Z.dump`. Ninguna línea dice `ERROR` ni `failed`.
+  - Los logs del 2026-10-25 y el 2026-10-26 vuelven vacíos, aunque se pidió una ventana más amplia. Lo más
+    probable es que Railway los haya borrado por retención. Así que no quedó el `backup finished` de la primera
+    corrida programada. Se toman como prueba las 7 corridas programadas siguientes, todas con éxito.
+  - `deleted=[]` en todas, como se esperaba: hay 10 copias y el límite es 14. La primera vez que la retención
+    borre algo en producción va a ser alrededor del 2026-11-07.
 
 ### Aprendido en staging (está en el README)
 
@@ -180,6 +192,7 @@ Datos verificados en la documentación de Railway (2026-10-24):
 
 ## Next
 
-T11: después del 2026-10-25 06:00 UTC, revisar `railway cron list -s db-backup -e production` y el log de esa
-corrida. Si dice `backup finished`, la feature queda `done`. Siguiente en el backlog: migrar `railway.json` a
-IaC antes del 2026-12-01 (urgente) y después el punto 2 (herramientas pausadas).
+Feature cerrada (2026-11-02). Siguiente en el backlog: migrar el `railway.json` de la app a IaC
+(`.railway/railway.ts`) antes del 2026-12-01, porque es urgente. Después, el punto 2: herramientas pausadas.
+Quedan fuera de esta feature las alertas cuando falla un backup (monitoreo) y comprobar que la retención borra en
+producción (≈2026-11-07).
