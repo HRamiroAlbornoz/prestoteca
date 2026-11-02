@@ -1,7 +1,9 @@
 ---
 author: HRamiroAlbornoz
 branch: fix/loan-transition-roles
-status: in-progress
+status: done
+merged: 2026-11-02
+pr: #24
 ---
 # Cambios de estado de un préstamo: cada uno solo por quien corresponde
 
@@ -50,7 +52,7 @@ Reglas de la spec del MVP (`02-DOCS/wiki/sdd/specs/prestoteca-mvp.md`):
 - [x] T3 — Arreglo: todo en verde, server y cliente. Type-check, lint y build sin errores.
 - [x] T4 — Staging con `railway up`: el solicitante intenta aceptar su pedido → 403; el dueño acepta → 200; el
   solicitante cancela un pedido pendiente → 200.
-- [ ] T5 — PR mergeado y deploys en `SUCCESS`.
+- [x] T5 — PR mergeado y deploys en `SUCCESS`.
 
 ## Evidence
 
@@ -88,12 +90,16 @@ Reglas de la spec del MVP (`02-DOCS/wiki/sdd/specs/prestoteca-mvp.md`):
   9. el solicitante marca devuelto → **`403 FORBIDDEN`**
   10. el dueño marca devuelto → `200 devuelto`
   Limpieza: herramienta `204`, cuentas `204` y `204`.
+- **T5** (2026-11-02): PR #24 → `gh pr merge --squash --delete-branch` → commit `c1e647a` en `origin/main`. Staging y
+  production deployaron `c1e647a` → `SUCCESS` los dos. Production `GET /api/health` →
+  `200 {"status":"ok","db":"connected"}`. Staging, ya con `main`, repitió `transition-roles-e2e.mjs` con los mismos 10
+  resultados (los 4 intentos del solicitante → `403 FORBIDDEN`). Limpieza: `204 / 204 / 204`.
+  Nota de git: rsc 3.7.5 cerró esta ficha solo, con el commit `d0bfcb9` en el `main` local. Ese commit pasó a la rama
+  `docs/close-loan-transition-roles` y el `main` local volvió a `origin/main` con `git branch -f main origin/main`.
 
 ## Next
 
-T5: Hernán commitea, abre el PR y mergea. El PR también lleva la spec `error-codes` que trajo el hook (solo
-documentos).
+Fusionado en main el 2026-11-02 (`c1e647a`). Feature cerrada.
 
-Queda anotado, sin hacer: no hay un registro de quién hizo cada cambio de estado, así que no se puede saber si
-alguien usó el agujero en production. Si hiciera falta, la tabla de préstamos necesitaría guardar quién hizo cada
-cambio.
+Queda anotado, sin hacer: la base no guarda quién hizo cada cambio de estado, así que no se puede saber si alguien usó
+el agujero en production. Si hiciera falta, la tabla de préstamos necesitaría guardar quién hizo cada cambio.
