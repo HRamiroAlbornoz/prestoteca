@@ -177,6 +177,67 @@ describe('LoanService', () => {
     ).rejects.toThrow(/transición inválida|invalid.*transition/i)
   })
 
+  describe('who may make each status change (MVP spec lines 64-66, 81, 137-142)', () => {
+    const OWNER = 'user-1'
+    const BORROWER = 'user-2'
+
+    function addLoan(status: string) {
+      mock.loans.set('loan-1', {
+        id: 'loan-1',
+        tool_id: 'tool-1',
+        borrower_id: BORROWER,
+        owner_id: OWNER,
+        start_date: '2030-01-10',
+        end_date: '2030-01-20',
+        status,
+        note: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+    }
+
+    // [from, to, who] — every valid change, done by the role the spec allows
+    it.each([
+      ['pendiente', 'aceptado', 'owner'],
+      ['pendiente', 'rechazado', 'owner'],
+      ['pendiente', 'cancelado', 'owner'],
+      ['pendiente', 'cancelado', 'borrower'],
+      ['aceptado', 'entregado', 'owner'],
+      ['aceptado', 'cancelado', 'owner'],
+      ['aceptado', 'cancelado', 'borrower'],
+      ['entregado', 'devuelto', 'owner'],
+    ])('allows %s → %s by the %s', async (from, to, who) => {
+      addLoan(from)
+
+      const result = await service.transition('loan-1', to, who === 'owner' ? OWNER : BORROWER)
+
+      expect(result.status).toBe(to)
+    })
+
+    // Valid changes made by the wrong role: the borrower must not decide for the owner
+    it.each([
+      ['pendiente', 'aceptado'],
+      ['pendiente', 'rechazado'],
+      ['aceptado', 'entregado'],
+      ['entregado', 'devuelto'],
+    ])('rejects %s → %s by the borrower with 403 and leaves the loan unchanged', async (from, to) => {
+      addLoan(from)
+
+      await expect(service.transition('loan-1', to, BORROWER)).rejects.toMatchObject({
+        status: 403,
+        code: 'FORBIDDEN',
+      })
+      expect(mock.loans.get('loan-1').status).toBe(from)
+      expect(mock.repo.updateStatus).not.toHaveBeenCalled()
+    })
+
+    it('still answers 409 for a change that nobody may make', async () => {
+      addLoan('rechazado')
+
+      await expect(service.transition('loan-1', 'aceptado', OWNER)).rejects.toMatchObject({ status: 409 })
+    })
+  })
+
   it('allows valid transition: pendiente → aceptado (owner)', async () => {
     mock.loans.set('loan-1', {
       id: 'loan-1',

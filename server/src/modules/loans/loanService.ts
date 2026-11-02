@@ -1,5 +1,5 @@
 import type { LoanRepository } from './loanRepo.js'
-import { ConflictError, NotFoundError, ValidationError } from '../errors/AppError.js'
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/AppError.js'
 import { todayInAppTimeZone } from './appDate.js'
 
 // Same answer for "does not exist" and "exists but you are not part of it":
@@ -17,10 +17,14 @@ export interface CreateLoanInput {
   note?: string | null
 }
 
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  pendiente: ['aceptado', 'rechazado', 'cancelado'],
-  aceptado: ['entregado', 'cancelado'],
-  entregado: ['devuelto'],
+type Role = 'owner' | 'borrower'
+
+// Every status change a person can make, and who may make it (MVP spec lines 64-66, 81, 137-142).
+// A change missing from this table is invalid for everyone. 'vencido' is set by the system only.
+const TRANSITIONS: Record<string, Record<string, Role[]>> = {
+  pendiente: { aceptado: ['owner'], rechazado: ['owner'], cancelado: ['owner', 'borrower'] },
+  aceptado: { entregado: ['owner'], cancelado: ['owner', 'borrower'] },
+  entregado: { devuelto: ['owner'] },
 }
 
 export class LoanService {
@@ -89,11 +93,19 @@ export class LoanService {
       throw new NotFoundError(LOAN_NOT_FOUND)
     }
 
-    // Validate transition
-    const allowed = VALID_TRANSITIONS[loan.status]
-    if (!allowed || !allowed.includes(newStatus)) {
+    // Validate transition: first whether the change exists at all, then whether this person may make it
+    const allowedRoles = TRANSITIONS[loan.status]?.[newStatus]
+    if (!allowedRoles) {
       throw new ConflictError(
         `Transición inválida: de "${loan.status}" a "${newStatus}"`,
+      )
+    }
+
+    // A participant already knows the loan exists, so a 403 reveals nothing new (unlike a stranger, who gets 404)
+    const role: Role = loan.owner_id === userId ? 'owner' : 'borrower'
+    if (!allowedRoles.includes(role)) {
+      throw new ForbiddenError(
+        `Solo ${allowedRoles.includes('owner') ? 'el dueño' : 'quien pidió'} puede pasar el préstamo a "${newStatus}"`,
       )
     }
 

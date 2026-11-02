@@ -361,6 +361,33 @@ describe('loans routes', () => {
       expect(res.status).toBe(409)
     })
 
+    it('returns 403 when the borrower tries to accept their own request', async () => {
+      const { app, loans } = createMockApp()
+
+      loans.set('loan-1', {
+        id: 'loan-1',
+        tool_id: 'tool-1',
+        borrower_id: 'user-2',
+        owner_id: 'user-1',
+        start_date: '2026-10-10',
+        end_date: '2026-10-20',
+        status: 'pendiente',
+        note: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      const res = await request(app)
+        .patch('/api/loans/loan-1/status')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({ status: 'aceptado' })
+
+      expect(res.status).toBe(403)
+      expect(res.body.error.code).toBe('FORBIDDEN')
+      expect(loans.get('loan-1').status).toBe('pendiente')
+    })
+
     it('returns 404 when non-participant tries to transition', async () => {
       const { app, loans } = createMockApp()
 
