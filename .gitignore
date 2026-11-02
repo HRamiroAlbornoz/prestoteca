@@ -158,3 +158,9 @@ backup/**/*.dump
 # rsc local state (hooks, seals, logs) and managed skill links — machine-local
 .claude/skills/design
 .opencode/rsc/design
+
+# rsc local state (hooks, seals, logs) and managed skill links — machine-local
+.claude/skills/ux
+.claude/skills/tidy
+.opencode/rsc/ux
+.opencode/rsc/tidy
