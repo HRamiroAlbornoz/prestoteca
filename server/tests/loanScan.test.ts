@@ -26,11 +26,14 @@ function createMockQuery() {
       }
       return { rows: [], rowCount: 0 } as { rows: unknown[]; rowCount: number | null }
     }
-    if (text.includes('SELECT id, end_date FROM loans WHERE status')) {
+    if (text.includes('FROM loans WHERE status')) {
       const status = values?.[0] as string
+      // Like the real database: node-postgres returns a DATE column as a JS Date at local midnight.
+      // Only to_char(...) gives back the 'YYYY-MM-DD' text.
+      const asText = text.includes("to_char(end_date, 'YYYY-MM-DD')")
       const rows = Array.from(loans.values())
         .filter((l) => l.status === status)
-        .map((l) => ({ id: l.id, end_date: l.end_date }))
+        .map((l) => ({ id: l.id, end_date: asText ? l.end_date : new Date(`${l.end_date}T00:00:00`) }))
       return { rows, rowCount: rows.length } as { rows: unknown[]; rowCount: number | null }
     }
     return { rows: [], rowCount: 0 } as { rows: unknown[]; rowCount: number | null }

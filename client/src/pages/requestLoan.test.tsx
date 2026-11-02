@@ -20,6 +20,20 @@ vi.mock('react-router-dom', async (importOriginal) => {
   }
 })
 
+// Fix "today" so the tests never depend on the real calendar (fixed dates used to expire).
+// Every date below is relative to TODAY.
+// vi.hoisted: vi.mock runs before the rest of the file, so the dates must exist that early too.
+const { TODAY, YESTERDAY, START, END } = vi.hoisted(() => ({
+  TODAY: '2030-01-10',
+  YESTERDAY: '2030-01-09',
+  START: '2030-01-15',
+  END: '2030-01-25',
+}))
+vi.mock('../utils/appDate', () => ({
+  APP_TIME_ZONE: 'America/Argentina/Tucuman',
+  todayInAppTimeZone: () => TODAY,
+}))
+
 // Mock AuthContext
 const mockUseAuthValue = { currentUser: null as User | null, isLoading: false, login: vi.fn(), logout: vi.fn() }
 vi.mock('../contexts/AuthContext', () => ({
@@ -85,8 +99,8 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-25' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-15' } })
+    fireEvent.change(startInput, { target: { value: END } })
+    fireEvent.change(endInput, { target: { value: START } })
 
     expect(screen.getByRole('button', { name: /solicitar/i })).toBeDisabled()
   })
@@ -96,10 +110,22 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-15' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-25' } })
+    fireEvent.change(startInput, { target: { value: START } })
+    fireEvent.change(endInput, { target: { value: END } })
 
     expect(screen.getByRole('button', { name: /solicitar/i })).not.toBeDisabled()
+  })
+
+  it('enables submit when the start date is today in the app time zone', () => {
+    renderPage({ id: 'user-2', name: 'Borrower' })
+    const startInput = getInputById('startDate') as HTMLInputElement
+    const endInput = getInputById('endDate') as HTMLInputElement
+
+    fireEvent.change(startInput, { target: { value: TODAY } })
+    fireEvent.change(endInput, { target: { value: END } })
+
+    expect(screen.getByRole('button', { name: /solicitar/i })).not.toBeDisabled()
+    expect(startInput.min).toBe(TODAY)
   })
 
   it('shows error when startDate is in the past', () => {
@@ -107,11 +133,11 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    // Yesterday's date
-    fireEvent.change(startInput, { target: { value: '2020-01-01' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-25' } })
+    fireEvent.change(startInput, { target: { value: YESTERDAY } })
+    fireEvent.change(endInput, { target: { value: END } })
 
     expect(screen.getByText(/la fecha de inicio debe ser hoy o posterior/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /solicitar/i })).toBeDisabled()
   })
 
   it('shows error when endDate < startDate', () => {
@@ -119,8 +145,8 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-25' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-15' } })
+    fireEvent.change(startInput, { target: { value: END } })
+    fireEvent.change(endInput, { target: { value: START } })
 
     expect(screen.getByText(/la fecha de fin debe ser igual o posterior a la de inicio/i)).toBeInTheDocument()
   })
@@ -143,7 +169,7 @@ describe('RequestLoanPage', () => {
     expect(screen.getByText(/la nota no puede superar los 300 caracteres/i)).toBeInTheDocument()
   })
 
-  it('calls POST /api/tools/tool-1/loans on submit', async () => {
+  it('calls POST /api/tools/tool-1/loans on submit with the keys the server reads', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ id: 'loan-1', status: 'pendiente' }),
@@ -154,18 +180,19 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-15' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-25' } })
+    fireEvent.change(startInput, { target: { value: START } })
+    fireEvent.change(endInput, { target: { value: END } })
 
     fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
 
+    // The server (loansRoutes.ts) reads startDate and endDate: snake_case keys get a 400
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/tools/tool-1/loans', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          start_date: '2026-10-15',
-          end_date: '2026-10-25',
+          startDate: START,
+          endDate: END,
           note: undefined,
         }),
       })
@@ -183,8 +210,8 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-15' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-25' } })
+    fireEvent.change(startInput, { target: { value: START } })
+    fireEvent.change(endInput, { target: { value: END } })
 
     fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
 
@@ -204,8 +231,8 @@ describe('RequestLoanPage', () => {
     const startInput = getInputById('startDate') as HTMLInputElement
     const endInput = getInputById('endDate') as HTMLInputElement
 
-    fireEvent.change(startInput, { target: { value: '2026-10-15' } })
-    fireEvent.change(endInput, { target: { value: '2026-10-25' } })
+    fireEvent.change(startInput, { target: { value: START } })
+    fireEvent.change(endInput, { target: { value: END } })
 
     fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
 
