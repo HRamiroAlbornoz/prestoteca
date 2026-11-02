@@ -70,3 +70,22 @@ timestamp: 2026-10-04T00:00:00Z
   - ✅ Conserva historial de préstamos para otros usuarios
   - ⚠️ Los datos del usuario existen en la BD (anonymizados), no eliminados físicamente
   - ⚠️ Transacción única necesaria para evitar inconsistencias
+
+## D5 — Errores de cara al usuario: códigos específicos + mapa en el cliente
+
+- **Fecha:** 2026-11-02
+- **Contexto:** Punto 5 del backlog. Los errores llegan a la pantalla en inglés porque el cliente muestra el texto del
+  server, y los códigos actuales (7 clases genéricas) no distinguen una situación de otra. Spec:
+  [error-codes](./specs/error-codes.md).
+- **Opciones:**
+  - Traducir al español los ~60 textos del server y seguir mostrándolos tal cual (FTD, una tarde).
+  - Un código por situación accionable en un catálogo único del server, y un mapa código → mensaje en español en el
+    cliente (lo que pide el checklist de errores).
+- **Decisión:** Códigos específicos + mapa en el cliente. Texto del server solo para desarrollo. Uno por situación
+  accionable (~30). `retryable` diferido.
+- **Por qué:** Separa el texto para personas del texto para depurar, deja que el cliente decida cómo hablarle al
+  usuario y sigue el checklist de errores del proyecto.
+- **Consecuencias:**
+  - ✅ Ningún texto del server llega a la pantalla; el usuario ve mensajes en español con qué hacer.
+  - ⚠️ Cada situación nueva toca server y cliente. Mitigación: un test que falla si un código no tiene mensaje (AC-5).
+  - ⚠️ Objeción registrada en specify y no tomada: con traducir en el server, el mensaje viajaba solo.
