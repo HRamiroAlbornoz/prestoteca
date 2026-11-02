@@ -1,7 +1,9 @@
 ---
 author: HRamiroAlbornoz
 branch: fix/session
-status: in-progress
+status: done
+merged: 2026-11-02
+pr: #26
 ---
 # Sesión que funciona: saber quién está logueado, rutas privadas y rutas que faltan
 
@@ -120,5 +122,4 @@ Alcance elegido por Hernán el 2026-11-02: la sesión más las rutas que faltan.
   inofensivo y se deja.
 
 ## Next
-
-T6: Hernán commitea, abre el PR y mergea. Ojo: rsc puede cerrar esta ficha solo, con un commit en el `main` local.
+Fusionado en main el 2026-11-02 (fdc2f91).
