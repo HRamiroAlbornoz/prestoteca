@@ -1,7 +1,7 @@
 ---
 author: HRamiroAlbornoz
 branch: fix/request-loan-dates
-status: in-progress
+status: done
 ---
 # Pedir préstamos: body, fechas de los tests y zona horaria
 
@@ -49,14 +49,16 @@ Alcance elegido por Hernán el 2026-11-02: arreglar los tres problemas en esta r
 ## Checklist
 
 - [x] T1 — Rama `fix/request-loan-dates` desde `main` (`2fb0313`), creada por Hernán. Prueba: salida de `git switch -c`.
-- [ ] T2 — Tests en rojo: `todayInAppTimeZone` (server y cliente) a las 01:30 UTC da el día anterior; la ruta y
+- [x] T2 — Tests en rojo: `todayInAppTimeZone` (server y cliente) a las 01:30 UTC da el día anterior; la ruta y
   `autoVencido` usan el "hoy" que reciben; el cliente manda `startDate` y `endDate` y usa el "hoy" de Tucumán.
   Prueba: salida de Vitest.
-- [ ] T3 — Arreglo: todo en verde, server y cliente, incluidos los 4 tests que fallaban. Prueba: salida de Vitest.
-- [ ] T4 — Lint, type-check y build sin regresiones. Prueba: salida de cada comando.
-- [ ] T5 — Staging con `railway up`: el body nuevo crea el préstamo (`201`) y la fecha de ayer da `400`. Prueba:
+- [x] T3 — Arreglo: todo en verde, server y cliente, incluidos los 4 tests que fallaban. Prueba: salida de Vitest.
+- [x] T4 — Lint, type-check y build sin regresiones. Prueba: salida de cada comando.
+- [x] T5 — Staging con `railway up`: el body nuevo crea el préstamo (`201`) y la fecha de ayer da `400`. Prueba:
   respuestas HTTP.
-- [ ] T6 — PR mergeado y deploys de staging y production en `SUCCESS`. Prueba: deploys y `/api/health`.
+- [x] T6 — PR mergeado y deploys de staging y production en `SUCCESS`. Prueba: deploys y `/api/health`.
+- [x] T7 — Agregado el 2026-11-02: `autoVencido` vence los préstamos de verdad (rojo con un mock que imita a
+  `node-postgres`, verde con `to_char`, y la prueba contra un Postgres real). Prueba: Vitest y la consulta en staging.
 
 ## Evidence
 
@@ -130,6 +132,23 @@ Decisión (2026-11-02): Hernán eligió arreglarlo en esta rama.
     al terminar): `{"delivered":0,"will_become_vencido":0}`. No hay préstamos `entregado`, así que el merge no cambia
     ningún préstamo existente.
 
+- **T6** (2026-11-02): PR #21 → `gh pr merge --squash --delete-branch` → commit `80d63c0` en `origin/main`. El
+  `git pull` interno de `gh` falló (`Cannot fast-forward to multiple branches`), pero no tuvo efecto: el `git pull`
+  siguiente dejó `main` en `80d63c0`, igual a `origin/main`. Staging y production deployaron `80d63c0` → `SUCCESS`
+  los dos. Production `GET /api/health` → `200 {"status":"ok","db":"connected"}`. El log muestra `Server running on
+  port 8080 (production)`, sin errores de `[loan-scan]`. Staging, ya con `main`, repitió `request-loan-e2e.mjs`:
+  ayer → `400`, hoy → `201 pendiente`, body snake_case → `400`. Limpieza: `200 / 204 / 204 / 204`.
+
 ## Next
 
-T6: Hernán commitea, abre el PR y mergea. Después se verifican los deploys de staging y de production.
+Feature cerrada (2026-11-02).
+
+Queda anotado, sin arreglar:
+- La API devuelve las columnas `DATE` como timestamps ISO (`"start_date": "2026-11-02T03:00:00.000Z"`), porque
+  `node-postgres` las convierte en `Date`. Falta revisar cómo las muestra el cliente: si alguna pantalla hace
+  `new Date(...)` en otra zona horaria, podría mostrar el día anterior. La solución de fondo sería
+  `types.setTypeParser(1082, (value) => value)` en el pool, para que `DATE` llegue siempre como texto.
+- `server/src/modules/loans/appDate.ts` y `client/src/utils/appDate.ts` son copias: si cambia la zona horaria, hay que
+  cambiar las dos.
+
+Siguiente en el backlog: el punto 4, `npm audit` (15 vulnerabilidades, todas en dependencias de `server`).
