@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useState,
   useEffect,
@@ -13,50 +14,63 @@ export interface AuthUser {
 
 interface AuthContextValue {
   currentUser: AuthUser | null
+  // true until the first answer from the server: nobody should decide "logged out" before that
   isLoading: boolean
-  login: (user: AuthUser) => void
-  logout: () => void
+  // Asks the server again who is logged in (after login or register). Resolves with the user, or null.
+  refreshUser: () => Promise<AuthUser | null>
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+
+// The session lives in an httpOnly cookie that JavaScript cannot read.
+// The only way to know who is logged in is to ask the server.
+async function fetchCurrentUser(): Promise<AuthUser | null> {
+  try {
+    const res = await fetch('/api/me')
+    if (!res.ok) return null
+    const data: AuthUser = await res.json()
+    return { id: data.id, name: data.name }
+  } catch {
+    // No connection: behave as logged out; a private page will send the user to the login
+    return null
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    // Check for token in cookie on mount
-    const token = document.cookie
-      .split('; ')
-      .find(row => row.startsWith('token='))
-      ?.split('=')[1]
-
-    if (token) {
-      // Decode JWT payload to get user id
-      try {
-        const payload = JSON.parse(
-          atob(token.split('.')[1]),
-        )
-        setCurrentUser({ id: payload.id, name: '' })
-      } catch {
-        // Invalid token, clear cookie
-        document.cookie = 'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      }
-    }
-    setIsLoading(false)
+  const refreshUser = useCallback(async () => {
+    const user = await fetchCurrentUser()
+    setCurrentUser(user)
+    return user
   }, [])
 
-  const login = (user: AuthUser) => {
-    setCurrentUser(user)
-  }
+  useEffect(() => {
+    let cancelled = false
+    fetchCurrentUser().then((user) => {
+      // The component may have unmounted while the request was in flight
+      if (cancelled) return
+      setCurrentUser(user)
+      setIsLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-  const logout = () => {
-    setCurrentUser(null)
-    document.cookie = 'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-  }
+  const logout = useCallback(async () => {
+    try {
+      // Only the server can clear an httpOnly cookie
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } finally {
+      setCurrentUser(null)
+    }
+  }, [])
 
   return (
-    <AuthContext.Provider value={{ currentUser, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ currentUser, isLoading, refreshUser, logout }}>
       {children}
     </AuthContext.Provider>
   )
@@ -68,18 +82,4 @@ export function useAuth(): AuthContextValue {
     throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
-}
-
-export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { currentUser, isLoading } = useAuth()
-
-  if (isLoading) {
-    return <div>Loading...</div>
-  }
-
-  if (!currentUser) {
-    return null
-  }
-
-  return <>{children}</>
 }

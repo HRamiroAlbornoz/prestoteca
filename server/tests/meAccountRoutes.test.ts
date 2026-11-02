@@ -29,6 +29,8 @@ function createMockApp() {
 
   const mockUserRepo: Partial<UserRepository> = {
     findById: vi.fn(async (id) => usersById.get(id) ?? null),
+    // Deleted accounts are simply absent from usersById, like the real query that skips them
+    findActiveById: vi.fn(async (id) => usersById.get(id) ?? null),
     updatePassword: vi.fn(async (id, hash) => {
       const user = usersById.get(id)
       if (user) {
@@ -60,7 +62,7 @@ function createMockApp() {
   app.use(cookieParser())
 
   // Auth middleware
-  app.use(['/api/me/password', '/api/me/account'], (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  app.use('/api/me', (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } })
@@ -81,6 +83,43 @@ describe('meAccountRoutes', () => {
     vi.restoreAllMocks()
     knownHashes.clear()
     knownHashes.add('hashed_old')
+  })
+
+  // The client has no other way to know who is logged in: the session cookie is httpOnly
+  describe('GET /api/me', () => {
+    it('returns 200 with only the id and name of the logged-in user', async () => {
+      const { app, usersById } = createMockApp()
+      usersById.set('user-7', {
+        id: 'user-7',
+        name: 'Ana',
+        email: 'ana@example.com',
+        password_hash: 'hashed_secret',
+        neighborhood: 'Centro',
+        created_at: new Date().toISOString(),
+      })
+
+      const res = await request(app).get('/api/me').set('Authorization', 'Bearer user-7')
+
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ id: 'user-7', name: 'Ana' })
+    })
+
+    it('returns 401 without a session', async () => {
+      const { app } = createMockApp()
+
+      const res = await request(app).get('/api/me')
+
+      expect(res.status).toBe(401)
+    })
+
+    it('returns 401 when the account no longer exists', async () => {
+      const { app } = createMockApp()
+
+      const res = await request(app).get('/api/me').set('Authorization', 'Bearer user-deleted')
+
+      expect(res.status).toBe(401)
+      expect(res.body.error.code).toBe('UNAUTHORIZED')
+    })
   })
 
   describe('PATCH /api/me/password', () => {

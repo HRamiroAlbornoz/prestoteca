@@ -4,6 +4,13 @@ import { MemoryRouter } from 'react-router-dom'
 import { RegisterPage } from './RegisterPage'
 import { LoginPage } from './LoginPage'
 
+// The pages ask the AuthContext to refresh the user after a successful login or register.
+// A fake context keeps these tests about the forms; App.test.tsx covers the real one.
+const refreshUser = vi.fn(async () => null)
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({ currentUser: null, isLoading: false, refreshUser, logout: vi.fn() }),
+}))
+
 describe('RegisterPage', () => {
   let mockFetch: ReturnType<typeof vi.fn>
 

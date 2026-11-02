@@ -1,9 +1,18 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 
 interface LoginFormData {
   email: string
   password: string
+}
+
+// returnTo comes from the URL, so anyone can craft it. Only same-site paths are followed:
+// "//evil.com" or "https://evil.com" would turn the login into an open redirect.
+function safeReturnTo(value: string | null): string {
+  // Browsers read "/\" like "//", so it is rejected too
+  if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return '/'
+  return value
 }
 
 export function LoginPage() {
@@ -14,8 +23,9 @@ export function LoginPage() {
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { refreshUser } = useAuth()
   const [searchParams] = useSearchParams()
-  const returnTo = searchParams.get('returnTo') || '/'
+  const returnTo = safeReturnTo(searchParams.get('returnTo'))
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -30,6 +40,8 @@ export function LoginPage() {
       })
 
       if (res.ok) {
+        // The server set the httpOnly cookie; ask it who we are before entering a private page
+        await refreshUser()
         navigate(returnTo)
       } else {
         const data = await res.json()

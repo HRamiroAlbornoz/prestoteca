@@ -67,6 +67,22 @@ export class UserRepository {
     }
   }
 
+  // Like findById, but a deleted (anonymized) account counts as missing.
+  // Used to answer "who is logged in": a token issued before the deletion must not bring the account back.
+  async findActiveById(id: string): Promise<User | null> {
+    const client = await this.pool.connect()
+    try {
+      const res = await client.query(
+        `SELECT id, name, email, password_hash, neighborhood, created_at
+         FROM users WHERE id = $1 AND deleted_at IS NULL`,
+        [id],
+      )
+      return (res.rowCount ?? 0) > 0 ? res.rows[0] : null
+    } finally {
+      client.release()
+    }
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     const client = await this.pool.connect()
     try {

@@ -1,120 +1,61 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
-import { AuthProvider, useAuth, ProtectedRoute } from './AuthContext'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { AuthProvider, useAuth } from './AuthContext'
 
-const TestProtectedPage = () => <div data-testid="protected-content">Protected Content</div>
-
-// Mock AuthProvider to avoid useEffect cookie reading in jsdom
-interface User {
-  id: string
-  name: string
+// A tiny consumer that shows what the context knows and exposes logout
+function Probe() {
+  const { currentUser, isLoading, logout } = useAuth()
+  if (isLoading) return <p>cargando</p>
+  return (
+    <div>
+      <p>{currentUser ? `usuario: ${currentUser.name}` : 'sin sesión'}</p>
+      <button onClick={() => void logout()}>salir</button>
+    </div>
+  )
 }
-const mockAuthState = { currentUser: null as User | null, isLoading: false, login: vi.fn(), logout: vi.fn() }
 
-vi.mock('./AuthContext', () => ({
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useAuth: () => mockAuthState,
-  ProtectedRoute: ({ children }: { children: React.ReactNode }) => mockAuthState.currentUser ? <>{children}</> : null,
-}))
+describe('AuthContext', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
 
-describe('useAuth', () => {
   beforeEach(() => {
-    mockAuthState.currentUser = null
-    mockAuthState.isLoading = false
-    vi.clearAllMocks()
+    fetchMock = vi.fn()
+    globalThis.fetch = fetchMock as unknown as typeof fetch
   })
 
-  it('provides currentUser, login, logout, isLoading', () => {
-    let authState: ReturnType<typeof useAuth> | undefined
+  it('asks the server who is logged in when it starts', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ id: 'user-1', name: 'Ana' }) })
 
-    const TestComponent = () => {
-      authState = useAuth()
-      return <div>test</div>
-    }
+    render(<AuthProvider><Probe /></AuthProvider>)
 
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      </MemoryRouter>,
-    )
-
-    expect(authState?.currentUser).toBeNull()
-    expect(typeof authState?.login).toBe('function')
-    expect(typeof authState?.logout).toBe('function')
-    expect(typeof authState?.isLoading).toBe('boolean')
-  })
-})
-
-describe('AuthProvider', () => {
-  beforeEach(() => {
-    mockAuthState.currentUser = null
-    mockAuthState.isLoading = false
-    vi.clearAllMocks()
+    expect(await screen.findByText('usuario: Ana')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/me')
   })
 
-  it('provides login and logout functions', () => {
-    const TestComponent = () => {
-      const { login, logout } = useAuth()
-      return (
-        <div>
-          <button onClick={() => login({ id: 'user-1', name: 'Test' })}>Login</button>
-          <button onClick={logout}>Logout</button>
-        </div>
-      )
-    }
+  it('ends with no user when the server answers 401', async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({}) })
 
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      </MemoryRouter>,
-    )
+    render(<AuthProvider><Probe /></AuthProvider>)
 
-    expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Logout' })).toBeInTheDocument()
-  })
-})
-
-describe('ProtectedRoute', () => {
-  beforeEach(() => {
-    mockAuthState.currentUser = null
-    mockAuthState.isLoading = false
-    vi.clearAllMocks()
+    expect(await screen.findByText('sin sesión')).toBeInTheDocument()
   })
 
-  it('renders child when authenticated', () => {
-    mockAuthState.currentUser = { id: 'user-1', name: 'Test' }
+  it('ends with no user when the server cannot be reached', async () => {
+    fetchMock.mockRejectedValueOnce(new Error('offline'))
 
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <ProtectedRoute>
-            <TestProtectedPage />
-          </ProtectedRoute>
-        </AuthProvider>
-      </MemoryRouter>,
-    )
+    render(<AuthProvider><Probe /></AuthProvider>)
 
-    expect(screen.getByTestId('protected-content')).toBeInTheDocument()
+    expect(await screen.findByText('sin sesión')).toBeInTheDocument()
   })
 
-  it('returns null (not rendered) when not authenticated', () => {
-    mockAuthState.currentUser = null
+  it('logout asks the server to clear the httpOnly cookie and forgets the user', async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ id: 'user-1', name: 'Ana' }) })
+      .mockResolvedValueOnce({ ok: true, status: 204, json: async () => ({}) })
 
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <ProtectedRoute>
-            <TestProtectedPage />
-          </ProtectedRoute>
-        </AuthProvider>
-      </MemoryRouter>,
-    )
+    render(<AuthProvider><Probe /></AuthProvider>)
+    fireEvent.click(await screen.findByRole('button', { name: 'salir' }))
 
-    expect(screen.queryByTestId('protected-content')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('sin sesión')).toBeInTheDocument())
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST' })
   })
 })
