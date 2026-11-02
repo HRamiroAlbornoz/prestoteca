@@ -98,8 +98,8 @@ backup/**/*.dump
 # rsc local state (hooks, seals, logs) and managed skill links — machine-local
 .opencode/rsc/railway
 
-# Railway local link state
-.railway/
+# Railway: .railway/ holds the Infrastructure as Code file (railway.ts) and is committed.
+# The CLI keeps its project link in the user's home folder, not here.
 
 # rsc local state (hooks, seals, logs) and managed skill links — machine-local
 .opencode/rsc/connect-tool

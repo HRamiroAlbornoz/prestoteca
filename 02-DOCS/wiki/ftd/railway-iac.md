@@ -62,20 +62,63 @@ Datos verificados (2026-11-02):
 ## Checklist
 
 - [x] T1 — Rama `chore/railway-iac` desde `main` (`a49c888`), creada por Hernán. Prueba: salida de `git switch -c`.
-- [ ] T2 — `npm install -D railway` en la raíz, corrido por Hernán. Prueba: `package.json` y `npm audit`.
-- [ ] T3 — `.railway/railway.ts` generado y `.gitignore` corregido. Prueba: el archivo, y `git status`
+- [x] T2 — `npm install -D railway` en la raíz, corrido por Hernán. Prueba: `package.json` y `npm audit`.
+- [x] T3 — `.railway/railway.ts` generado y `.gitignore` corregido. Prueba: el archivo, y `git status`
   muestra `.railway/` como archivo nuevo.
-- [ ] T4 — Staging: `railway config plan` muestra solo cambios en `start`, `healthcheck` y
+- [x] T4 — Staging: `railway config plan` muestra solo cambios en `start`, `healthcheck` y
   `healthcheckTimeout` de `prestoteca`, sin borrar nada. Después `apply`. Prueba: salida del plan y
   `get-service-config` con los tres valores.
-- [ ] T5 — Production: lo mismo que T4. Prueba: salida del plan y `get-service-config`.
-- [ ] T6 — `railway.json` borrado. Tests, lint y build sin regresiones. Prueba: salida de cada comando.
+- [x] T5 — Production: lo mismo que T4. Prueba: salida del plan y `get-service-config`.
+- [x] T6 — `railway.json` borrado. Tests, lint y build sin regresiones. Prueba: salida de cada comando.
 - [ ] T7 — PR mergeado. El deploy de staging y el de production arrancan con `cd server && npm start`, pasan el
   health check y `/api/health` responde 200. Prueba: log del build y respuesta HTTP.
 
 ## Evidence
 
 - **T1** (2026-11-02): Hernán corrió `git switch -c chore/railway-iac` → `Switched to a new branch 'chore/railway-iac'`.
+- **T2** (2026-11-02): Hernán corrió `npm install -D railway`.
+  - `package.json` → `devDependencies: { "railway": "^3.16.0" }`. El lockfile suma solo 40 líneas: `railway`,
+    `graphql` y `@graphql-typed-document-node/core`, todas `dev: true`. El paquete lo publica
+    `railwayapp/railway-ts-sdk`.
+  - `npm audit` → 15 vulnerabilidades. Ninguna viene de `railway`: `npm ls` muestra que `tar`, `minimist`,
+    `body-parser`, `zod` y `pg-migrate` cuelgan de `server` (`bcrypt`, `express`, `pg-migrate`, `zod`). Antes eran
+    10, así que desde el 2026-10-24 se publicaron advertencias nuevas sobre esas mismas dependencias. Va al punto 4
+    del backlog (`npm audit`).
+  - `railway` pide `node >= 22`. Los builds de Railway usan Node 20.20.2, porque `engines` dice `>= 20`. Si el
+    build instala las devDependencies, npm solo avisa (`EBADENGINE`): no falla. Ojo aparte: Node 20 ya no tiene soporte.
+- **T3** (2026-11-02): `railway config migrate --apply --service prestoteca --variables=unmanaged` →
+  `Wrote .railway\railway.ts`, `partial = "prestoteca"`, con `start`, `healthcheck` y `healthcheckTimeout: 300`.
+  Ahora el comando sí dice `Found 1 service managed by Config as Code: railway.json → prestoteca`. `.gitignore`: la
+  línea `.railway/` se reemplazó por un comentario. `git status` → `?? .railway/`.
+  - **Trampa en Windows:** la primera vez, `plan` falló con `requires Railway CLI 5.42.1 or newer`, aunque la CLI es
+    la 5.71.0. El SDK pregunta la versión ejecutando el programa que figura en la variable de entorno `_`, y en la
+    terminal de Claude Code esa variable apunta a `claude`. Solución: `$env:_ = 'railway'` antes del comando.
+- **T4/T5, solo el plan** (2026-11-02, solo lectura): `railway config plan --environment staging` y
+  `--environment production` dan lo mismo: `Plan: 0 to add, 1 to change, 0 to destroy`, y solo
+  `~ Update prestoteca`, con `healthcheckPath (null → "/api/health")`, `healthcheckTimeout (null → 300)` y
+  `startCommand (null → "cd server && npm start")`. `variables: unmanaged · 12 on Railway not managed`.
+- **T4** (2026-11-02, Claude con autorización de Hernán): `railway config apply --environment staging --yes` →
+  `Changes (1) ✓ service.5bc08094-…`. `describe-service` en staging → `startCommand: "cd server && npm start"`,
+  `healthcheckPath: "/api/health"`, `healthcheckTimeout: 300`, `stagedChanges: []`. El apply disparó el deploy
+  `86ed32eb` → `SUCCESS` en unos 2 minutos. Build: `Deploy $ cd server && npm start`. Runtime:
+  `Server running on port 8080 (production)`. `GET /api/health` → `200 {"status":"ok","db":"connected"}`.
+  Ese build todavía tenía `railway.json` en `main`, así que la prueba de que alcanza solo con el dashboard queda para T7.
+  Los avisos `EBADENGINE` del build ya estaban antes (`@asamuzakjp/css-color` pide Node 22+) y no vienen de esta feature.
+- **T5** (2026-11-02, Claude con autorización de Hernán): se repitió el plan justo antes (`0 to add, 1 to change,
+  0 to destroy`) y después se corrió `railway config apply --environment production --yes` → `Changes (1) ✓`.
+  `get-service-config` en production → `startCommand`, `healthcheckPath` y `healthcheckTimeout: 300` cargados,
+  `staged: null`. Deploy `129dcdcb` → `SUCCESS` en unos 70 s. Build: `Deploy $ cd server && npm start`. Runtime:
+  `node dist/index.js`. `GET https://prestoteca-production.up.railway.app/api/health` →
+  `200 {"status":"ok","db":"connected"}`. `railway status`: `Postgres ● Online` y `db-backup ● Completed · 0 6 * * *`,
+  sin tocar.
+- **T6** (2026-11-02): `railway.json` borrado (`git status` → `D railway.json`). Fuera de `02-DOCS`, la única
+  mención es `backup/README.md:15`, que dice que `db-backup` no lo usa, y sigue siendo cierto. Server:
+  `Test Files 26 passed (26)`, `Tests 233 passed (233)`. Client: `Tests 4 failed | 144 passed (148)`. Son los 4
+  rojos de siempre en `requestLoan.test.tsx` (punto 3 del backlog). `npm run lint --workspace client` → exit 0, solo
+  los warnings que ya estaban. `npm run build` en la raíz → exit 0.
+- **Ojo con `cutover`:** `railway config migrate cutover` "limpia el Config File path de cada servicio **y lo
+  redeploya**", y no tiene la opción `--environment`. No se corrió. Hay que decidir si hace falta: el plan no se
+  bloqueó por Config as Code, y borrar `railway.json` en T6 ya corta la lectura en los dos entornos.
 
 ## Rollback
 
@@ -84,4 +127,5 @@ Los valores que IaC escribe en el dashboard son los mismos, así que tenerlos de
 
 ## Next
 
-T2: Hernán instala `railway` como devDependency en la raíz.
+T7: Hernán commitea, abre el PR y mergea. Después se verifica que los deploys de staging y de production, ya sin
+`railway.json`, usan `cd server && npm start` y que `/api/health` responde 200.
