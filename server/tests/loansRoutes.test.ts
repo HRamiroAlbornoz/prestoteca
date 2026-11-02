@@ -19,7 +19,8 @@ function daysFromToday(days: number): string {
 const START_DATE = daysFromToday(5)
 const END_DATE = daysFromToday(15)
 
-function createMockApp() {
+// getToday lets a test fix "today"; without it the route uses the real date
+function createMockApp(getToday?: () => string) {
   const loans = new Map<string, any>()
   // is_paused is optional so the existing tests can keep omitting it (an omitted value means "not paused")
   const tools = new Map<string, { id: string; owner_id: string; is_paused?: boolean }>()
@@ -94,7 +95,7 @@ function createMockApp() {
   ;(app as any).tools = tools
   ;(app as any).loans = loans
 
-  app.use('/api', loansRoutes(service, query))
+  app.use('/api', loansRoutes(service, query, getToday))
 
   return { app, loans, tools, mockRepo }
 }
@@ -196,6 +197,39 @@ describe('loans routes', () => {
       expect(res.body.error.code).toBe('CONFLICT')
       expect(res.body.error.message).toMatch(/pausada/)
       expect(mockRepo.create).not.toHaveBeenCalled()
+    })
+
+    describe('start date against "today" in the app time zone', () => {
+      // A fixed "today" far from the real calendar: if the route ignored getToday, these would fail
+      const TODAY = '2030-01-10'
+
+      it('returns 400 when the start date is the day before today', async () => {
+        const { app, tools, mockRepo } = createMockApp(() => TODAY)
+        tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1' })
+
+        const res = await request(app)
+          .post('/api/tools/tool-1/loans')
+          .set('Authorization', 'Bearer user-2')
+          .set('Origin', 'http://localhost:5173')
+          .send({ startDate: '2030-01-09', endDate: '2030-01-12' })
+
+        expect(res.status).toBe(400)
+        expect(res.body.error.message).toMatch(/past/)
+        expect(mockRepo.create).not.toHaveBeenCalled()
+      })
+
+      it('returns 201 when the start date is today', async () => {
+        const { app, tools } = createMockApp(() => TODAY)
+        tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1' })
+
+        const res = await request(app)
+          .post('/api/tools/tool-1/loans')
+          .set('Authorization', 'Bearer user-2')
+          .set('Origin', 'http://localhost:5173')
+          .send({ startDate: TODAY, endDate: '2030-01-12' })
+
+        expect(res.status).toBe(201)
+      })
     })
 
     it('returns 401 without auth', async () => {

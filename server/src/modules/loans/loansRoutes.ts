@@ -3,12 +3,15 @@ import express from 'express'
 import type { LoanService } from './loanService.js'
 import type { AuthRequest } from '../middleware/auth.js'
 import { ConflictError, sendError } from '../errors/AppError.js'
+import { todayInAppTimeZone } from './appDate.js'
 
 type QueryFn = (text: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>
 
 export function loansRoutes(
   service: LoanService,
   query: QueryFn,
+  // Tests pass a fixed "today"; the app uses the real date in the app time zone
+  getToday: () => string = todayInAppTimeZone,
 ): Router {
   const router = express.Router()
 
@@ -44,9 +47,8 @@ export function loansRoutes(
       return
     }
 
-    // Date validation: end >= start and start >= today (RF-08)
-    const today = new Date()
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    // Date validation: end >= start and start >= today in the app time zone (RF-08)
+    const todayStr = getToday()
     if (trimmedStartDate < todayStr) {
       res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The start date cannot be in the past' } })
       return
