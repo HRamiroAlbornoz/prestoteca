@@ -21,9 +21,10 @@ status: draft
 La app es para vecinos de Tucumán y su interfaz está en español rioplatense, pero buena parte de los errores llegan
 a la pantalla en inglés: "Tool not found", "The start date cannot be in the past", "Network error. Please try
 again.", "Current password is incorrect". Pasa porque el cliente muestra tal cual el texto que manda el server, y
-ese texto está escrito en inglés, para desarrolladores. Además, el server solo distingue 7 clases de error
-(entrada inválida, sin sesión, prohibido, no existe, conflicto, demasiado grande, error interno), así que el
-cliente no puede saber *cuál* de las situaciones de una clase ocurrió para explicarla bien.
+ese texto está escrito en inglés, para desarrolladores. Además, el server solo distingue 8 clases de error
+(entrada inválida, sin sesión, prohibido, no existe, conflicto, demasiado grande, error interno, y demasiados
+intentos —esta última escrita fuera del catálogo—), así que el cliente no puede saber *cuál* de las situaciones de
+una clase ocurrió para explicarla bien.
 
 ## Cost of not building it
 
@@ -82,22 +83,26 @@ comprobación automática que falla si existe un código sin mensaje.
   - Registro: falta algún dato; el nombre no tiene entre 2 y 50 caracteres; la contraseña no tiene entre 8 y 72; el
     email es demasiado largo; el email ya está registrado. (La pantalla de registro no valida antes de enviar, así
     que estos casos llegan al usuario tal cual.)
-  - Sesión: email o contraseña incorrectos (al iniciar sesión); no hay sesión; la sesión venció o no es válida.
+  - Sesión: falta el email o la contraseña (al iniciar sesión); email o contraseña incorrectos (al iniciar sesión);
+    no hay sesión; la sesión venció o no es válida.
   - Cuenta: falta la contraseña actual o la nueva; la contraseña actual no coincide; la contraseña nueva no tiene
     entre 8 y 72 caracteres; la contraseña nueva es solo espacios; la cuenta ya no existe (se eliminó con la sesión
     abierta); la cuenta tiene préstamos activos y no se puede eliminar.
   - Herramientas: falta algún dato al publicar; nombre o descripción con largo inválido; no existe; no es tuya (para
     editar, pausar o eliminar); tiene préstamos activos y no se puede eliminar; está pausada y no acepta pedidos.
   - Préstamos: falta alguna fecha; la fecha de inicio ya pasó; la de fin es anterior a la de inicio; la nota es
-    demasiado larga; es tu propia herramienta; se superpone con otro préstamo; el cambio de estado no está
-    permitido; el préstamo no existe.
-  - Búsqueda: el texto buscado es demasiado largo.
+    demasiado larga; es tu propia herramienta; se superpone con otro préstamo; el cambio de estado no existe desde el
+    estado actual; el cambio existe pero no le corresponde a tu rol (por ejemplo, quien pidió intenta aceptar); el
+    préstamo no existe.
+  - Búsqueda: el texto buscado es demasiado largo; no se pudo cargar el listado. El inicio pasa a mostrar estos
+    errores (hoy muestra la lista vacía sin decir nada, y no se distingue "falló" de "no hay resultados").
   - General: demasiados intentos seguidos. El mensaje dice que hay que esperar un minuto, que es la ventana real de
     los límites.
 - **Situaciones que solo produce un bug o un cliente roto** (cuerpo mal formado o demasiado grande, identificador
   inválido, origen no permitido, parámetro de listado o de página inválido, categoría o estado de herramienta que no
-  existen —se eligen de una lista cerrada—, valor de pausa distinto de "pausar", estado de préstamo faltante) comparten
-  un mensaje genérico en español. No revelan detalles internos.
+  existen —se eligen de una lista cerrada—, valor de pausa distinto de "pausar", estado de préstamo faltante, edición
+  de una herramienta sin ningún campo —hoy responde "no existe" por error—, ruta de la API que no existe —hoy
+  responde una página HTML sin código—) comparten un mensaje genérico en español. No revelan detalles internos.
 - **Dónde se ve el error.** El error de una acción aparece en la pantalla donde se hizo, sin reemplazar su contenido:
   el usuario sigue viendo lo que estaba mirando y puede volver a intentar u otra cosa. Hoy no pasa en el detalle de
   una herramienta: si pausar o eliminar falla, la página entera se reemplaza por el error. Eso entra en este cambio.
@@ -128,8 +133,11 @@ comprobación automática que falla si existe un código sin mensaje.
 - **AC-5** Given el catálogo de códigos del server, When se corren los tests, Then existe una comprobación que
   falla si algún código del catálogo no tiene mensaje en español en el cliente.
 - **AC-5b** Given cualquier respuesta de error que el server puede emitir (incluidas las del limitador de intentos,
-  las de validación de cada ruta y las del manejador final de errores), When se revisa su código, Then ese código
-  pertenece al catálogo. Ninguna parte del server escribe un código fuera de él.
+  las de validación de cada ruta, las del manejador final de errores y la de una ruta de la API que no existe), When
+  se revisa su código, Then la respuesta es JSON con la forma de error de siempre y su código pertenece al catálogo.
+  Ninguna parte del server escribe un código fuera de él.
+- **AC-5c** Given una búsqueda que falla (texto demasiado largo, o el server no responde), When el inicio la recibe,
+  Then muestra el mensaje en español en la misma pantalla y no lo confunde con "no hay resultados".
 - **AC-6** Given cada situación de la lista de *Behaviour → Main path*, When ocurre, Then el server responde con
   un código distinto al de las otras situaciones de la lista, y con el mismo status HTTP que antes de este cambio.
 - **AC-7** Given cualquier error de la lista, When el server lo responde, Then la respuesta mantiene la forma
@@ -147,6 +155,8 @@ comprobación automática que falla si existe un código sin mensaje.
 
 ## Points to clarify
 
+- **suposición tomada** — El cliente sabe si hay sesión. *Base:* desde el PR #26 (2026-11-02) consulta `GET /api/me`
+  al arrancar; antes no lo sabía nunca. *Riesgo:* ninguno nuevo; la pregunta de abajo ya se puede contestar.
 - **pregunta abierta** — Cuando la sesión venció o no hay sesión, ¿alcanza con el mensaje ("Tu sesión venció.
   Volvé a iniciar sesión.") o la app tiene que, además, llevar al usuario a la pantalla de login? El checklist sugiere
   la segunda (`código → acción`), y cambia el alcance en el cliente. Restricción, sea cual sea la respuesta: un login
@@ -183,3 +193,10 @@ comprobación automática que falla si existe un código sin mensaje.
   muestran un texto fijo; (7) el mensaje de demasiados intentos dice "un minuto" (AC-9c); (8) la pregunta de la sesión
   excluye explícitamente el login fallido. Fuera de esta spec se encontró que los cambios de estado de un préstamo no
   comprueban quién los hace; va en un FTD aparte (`loan-transition-roles`).
+- 2026-11-02 — Segunda revisión contra el código pedida por Hernán. Cambios: (1) se agrega "el cambio existe pero no
+  le corresponde a tu rol" (el 403 que sumó el PR #24); (2) el inicio pasa a mostrar los errores de búsqueda y de
+  carga, que hoy se tragan (AC-5c); (3) AC-5b incluye la ruta de la API que no existe, que hoy responde HTML sin
+  código; (4) se agrega "falta el email o la contraseña" al iniciar sesión; (5) el problema dice 8 clases de error, no
+  7; (6) la edición sin campos, que hoy responde "no existe", pasa al grupo genérico. Fuera de esta spec se encontró
+  que el cliente nunca sabía si había sesión (arreglado en el PR #26, `session`) y se anotaron en el backlog la falta
+  de estilos, la falta de navegación, "Editar" sin ruta y el barrio sin validar.
