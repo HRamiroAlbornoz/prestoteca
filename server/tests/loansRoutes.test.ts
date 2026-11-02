@@ -21,16 +21,18 @@ const END_DATE = daysFromToday(15)
 
 function createMockApp() {
   const loans = new Map<string, any>()
-  const tools = new Map<string, { id: string; owner_id: string }>()
+  // is_paused is optional so the existing tests can keep omitting it (an omitted value means "not paused")
+  const tools = new Map<string, { id: string; owner_id: string; is_paused?: boolean }>()
   let nextLoanId = 1
 
   const query = vi.fn(async (text: string, values?: unknown[]) => {
     // Handle tool lookup for POST /tools/:id/loans
-    if (text.includes('SELECT owner_id FROM tools WHERE id')) {
+    if (text.includes('FROM tools WHERE id')) {
       const toolId = values?.[0] as string
       const tool = tools.get(toolId)
       if (tool) {
-        return { rows: [{ owner_id: tool.owner_id }], rowCount: 1 } as { rows: unknown[]; rowCount: number | null }
+        const row = { owner_id: tool.owner_id, is_paused: tool.is_paused ?? false }
+        return { rows: [row], rowCount: 1 } as { rows: unknown[]; rowCount: number | null }
       }
       return { rows: [], rowCount: 0 } as { rows: unknown[]; rowCount: number | null }
     }
@@ -173,6 +175,27 @@ describe('loans routes', () => {
         })
 
       expect(res.status).toBe(409)
+    })
+
+    it('returns 409 when the tool is paused and creates no loan', async () => {
+      const { app, tools, mockRepo } = createMockApp()
+
+      tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1', is_paused: true })
+
+      const res = await request(app)
+        .post('/api/tools/tool-1/loans')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({
+          startDate: START_DATE,
+          endDate: END_DATE,
+        })
+
+      expect(res.status).toBe(409)
+      // The reason matters: a 409 for overlapping dates must not pass this test
+      expect(res.body.error.code).toBe('CONFLICT')
+      expect(res.body.error.message).toMatch(/pausada/)
+      expect(mockRepo.create).not.toHaveBeenCalled()
     })
 
     it('returns 401 without auth', async () => {

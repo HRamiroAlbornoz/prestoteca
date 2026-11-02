@@ -44,7 +44,10 @@ function createMockApp(authUserId = 'user-1') {
       tool.deleted_at = new Date().toISOString()
       return true
     }),
-    pause: vi.fn(async () => {}),
+    pause: vi.fn(async (id) => {
+      const tool = toolsById.get(id)
+      if (tool) tool.is_paused = true
+    }),
     hasActiveLoans: vi.fn(async () => false),
   }
 
@@ -222,6 +225,70 @@ describe('tools CRUD routes', () => {
         .send({ category: 'invalida' })
 
       expect(res.status).toBe(400)
+    })
+
+    describe('pausing with { is_paused: true }', () => {
+      // An active tool owned by user-1, the same shape the other tests use
+      function addActiveTool(toolsById: Map<string, Tool>): string {
+        const toolId = 'uuid-1'
+        toolsById.set(toolId, {
+          id: toolId,
+          owner_id: 'user-1',
+          name: 'Taladro',
+          description: 'Desc',
+          category: 'Herramientas eléctricas',
+          condition: 'bueno',
+          is_paused: false,
+          deleted_at: null,
+          created_at: new Date().toISOString(),
+        })
+        return toolId
+      }
+
+      it('returns 200 with the paused tool when the owner pauses it', async () => {
+        const { app, toolsById } = createMockApp('user-1')
+        const toolId = addActiveTool(toolsById)
+
+        const res = await request(app)
+          .patch(`/api/tools/${toolId}`)
+          .set('Authorization', 'Bearer user-1')
+          .set('Origin', 'http://localhost:5173')
+          .send({ is_paused: true })
+
+        expect(res.status).toBe(200)
+        expect(res.body.is_paused).toBe(true)
+        expect(toolsById.get(toolId)?.is_paused).toBe(true)
+      })
+
+      it('returns 403 and leaves the tool active when a non-owner tries to pause it', async () => {
+        const { app, toolsById } = createMockApp('user-2')
+        const toolId = addActiveTool(toolsById)
+
+        const res = await request(app)
+          .patch(`/api/tools/${toolId}`)
+          .set('Authorization', 'Bearer user-2')
+          .set('Origin', 'http://localhost:5173')
+          .send({ is_paused: true })
+
+        expect(res.status).toBe(403)
+        expect(toolsById.get(toolId)?.is_paused).toBe(false)
+      })
+
+      // Reactivating is not in the spec, and anything other than `true` is a client mistake
+      it.each([false, 'true', 1])('returns 400 and changes nothing when is_paused is %j', async (value) => {
+        const { app, toolsById } = createMockApp('user-1')
+        const toolId = addActiveTool(toolsById)
+
+        const res = await request(app)
+          .patch(`/api/tools/${toolId}`)
+          .set('Authorization', 'Bearer user-1')
+          .set('Origin', 'http://localhost:5173')
+          .send({ is_paused: value })
+
+        expect(res.status).toBe(400)
+        expect(res.body.error.code).toBe('BAD_REQUEST')
+        expect(toolsById.get(toolId)?.is_paused).toBe(false)
+      })
     })
   })
 

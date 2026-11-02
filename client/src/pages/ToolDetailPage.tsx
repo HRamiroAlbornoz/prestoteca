@@ -77,6 +77,10 @@ export function ToolDetailPage() {
 
       if (res.ok) {
         setTool({ ...tool, is_paused: true })
+      } else {
+        // Same pattern as delete: show the server's reason instead of failing silently
+        const data = await res.json()
+        setError(data.error?.message || 'Error al pausar la herramienta')
       }
     } catch {
       setError('Error al pausar la herramienta')

@@ -110,7 +110,13 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
       return
     }
 
-    const { name, description, category, condition } = req.body
+    const { name, description, category, condition, is_paused } = req.body
+
+    // Pausing is one-way: the spec has no "reactivate", so `true` is the only accepted value
+    if (is_paused !== undefined && is_paused !== true) {
+      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'is_paused only accepts true' } })
+      return
+    }
 
     // Trim whitespace before validation
     const updates: Record<string, string> = {}
@@ -119,7 +125,24 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
     if (category !== undefined) updates.category = category
     if (condition !== undefined) updates.condition = condition
 
-    service.edit(id, userId, updates as never)
+    const wantsPause = is_paused === true
+    const hasEdits = Object.keys(updates).length > 0
+
+    const run = async () => {
+      if (!wantsPause) return service.edit(id, userId, updates as never)
+
+      // Edit first: it validates every field, so an invalid edit fails before the tool gets paused
+      if (hasEdits) {
+        const edited = await service.edit(id, userId, updates as never)
+        if (!edited) return null
+      }
+
+      // pause() checks that the user owns the tool before changing anything
+      await service.pause(id, userId)
+      return service.getDetail(id)
+    }
+
+    run()
       .then((tool) => {
         if (!tool) {
           res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Tool not found' } })
