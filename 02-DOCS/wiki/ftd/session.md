@@ -57,7 +57,7 @@ Alcance elegido por Hernán el 2026-11-02: la sesión más las rutas que faltan.
 - [x] T4 — Arreglo: todo en verde. Type-check, lint y build sin errores.
 - [x] T5 — Staging con el navegador: iniciar sesión → `/profile` abre; recargar → sigue logueado; pedir un préstamo →
   abre su detalle; "Mis préstamos" abre; cerrar sesión → `/profile` vuelve al login.
-- [ ] T6 — PR mergeado y deploys en `SUCCESS`.
+- [x] T6 — PR mergeado y deploys en `SUCCESS`.
 
 ## Evidence
 
@@ -121,5 +121,13 @@ Alcance elegido por Hernán el 2026-11-02: la sesión más las rutas que faltan.
 - `ProfilePage.tsx:145` hace `localStorage.removeItem('token')`, que no hace nada (el token nunca estuvo ahí). Es
   inofensivo y se deja.
 
+- **T6** (2026-11-02): PR #26 → `gh pr merge --squash --delete-branch` → commit `fdc2f91` en `origin/main`. Staging y
+  production deployaron `fdc2f91` → `SUCCESS` los dos. Production: `/api/health` → `200 {"status":"ok","db":"connected"}`
+  y `GET /api/me` sin sesión → `401`. Staging, ya con `main`, repitió `me-e2e.mjs`: sin sesión `401`, con sesión
+  `200 {id, name}`, mismo token con la cuenta eliminada `401`. Nota de git: rsc cerró esta ficha solo con el commit
+  `4bebd82` en el `main` local; ese commit pasó a la rama `docs/close-session`.
+
 ## Next
-Fusionado en main el 2026-11-02 (fdc2f91).
+
+Fusionado en main el 2026-11-02 (`fdc2f91`). Feature cerrada. Los hallazgos de arriba (estilos, navegación, nombre de
+la herramienta en "Mis préstamos") quedan en el backlog.
