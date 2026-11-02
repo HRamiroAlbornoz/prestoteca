@@ -228,6 +228,16 @@ describe('LoanDetailPage', () => {
     })
   })
 
+  // MVP spec line 66: the borrower can cancel while the tool has not been handed over, pending included
+  it('shows only the cancel button to the borrower when status is pendiente', async () => {
+    renderPage('/loans/loan-1', { id: 'user-2', name: 'Borrower' })
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /cancelar/i })).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /aceptar/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /rechazar/i })).not.toBeInTheDocument()
+  })
+
   it('shows cancel button for borrower when status is aceptado', async () => {
     currentLoanResp = { ...loanData, status: 'aceptado', owner_id: 'user-1', borrower_id: 'user-2' }
     renderPage('/loans/loan-1', { id: 'user-2', name: 'Borrower' })

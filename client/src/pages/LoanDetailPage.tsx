@@ -139,6 +139,17 @@ export function LoanDetailPage() {
             </>
           )
         }
+        // The borrower can withdraw the request until the tool is handed over (MVP spec line 66)
+        if (isBorrower) {
+          return (
+            <button
+              onClick={() => handleStatusChange('cancelado')}
+              className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 font-medium"
+            >
+              Cancelar
+            </button>
+          )
+        }
         return null
 
       case 'aceptado':
