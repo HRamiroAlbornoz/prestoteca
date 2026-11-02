@@ -16,6 +16,28 @@ export function meAccountRoutes(
 ): Router {
   const router = express.Router()
 
+  // GET /api/me — who is logged in. The session cookie is httpOnly, so the client cannot read it:
+  // this is the only way it learns whether there is a session. Answers just id and name.
+  router.get('/me', async (req: AuthRequest, res: express.Response) => {
+    const userId = req.userId
+    if (!userId) {
+      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      return
+    }
+
+    try {
+      const user = await userRepo.findActiveById(userId)
+      if (!user) {
+        // A valid token for an account deleted after it was issued
+        res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+        return
+      }
+      res.status(200).json({ id: user.id, name: user.name })
+    } catch (err: unknown) {
+      sendError(res, err, 'Failed to get current user')
+    }
+  })
+
   // PATCH /api/me/password — change password
   router.patch('/me/password', async (req: AuthRequest, res: express.Response) => {
     const userId = req.userId

@@ -138,6 +138,34 @@ describe('UserRepository', () => {
     })
   })
 
+  describe('findActiveById', () => {
+    // Its own tiny pool: this only checks the SQL and what the method does with the rows
+    function poolReturning(rows: unknown[]) {
+      const client = { query: vi.fn(async () => ({ rows, rowCount: rows.length })), release: vi.fn() }
+      return { pool: { connect: vi.fn(async () => client) }, client }
+    }
+
+    it('skips deleted accounts in the query and returns the user', async () => {
+      const { pool, client } = poolReturning([{ id: 'user-1', name: 'Ana' }])
+      const activeRepo = new UserRepository(pool as never)
+
+      const found = await activeRepo.findActiveById('user-1')
+
+      expect(found?.name).toBe('Ana')
+      const [sql, params] = client.query.mock.calls[0] as unknown as [string, unknown[]]
+      expect(sql).toMatch(/deleted_at IS NULL/)
+      expect(params).toEqual(['user-1'])
+      expect(client.release).toHaveBeenCalled()
+    })
+
+    it('returns null when there is no active account', async () => {
+      const { pool } = poolReturning([])
+      const activeRepo = new UserRepository(pool as never)
+
+      expect(await activeRepo.findActiveById('user-1')).toBeNull()
+    })
+  })
+
   describe('findByEmail', () => {
     it('returns user by email', async () => {
       await repo.create({ name: 'María', email: 'maria@example.com', password_hash: '$2b$12$xxx', neighborhood: 'Sur' })

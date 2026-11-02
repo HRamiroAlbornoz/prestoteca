@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 
 interface RegisterFormData {
   name: string
@@ -29,6 +30,7 @@ export function RegisterPage() {
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { refreshUser } = useAuth()
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -43,6 +45,8 @@ export function RegisterPage() {
       })
 
       if (res.ok) {
+        // Registering also logs in (the server set the httpOnly cookie): let the app know
+        await refreshUser()
         navigate('/')
       } else {
         const data = await res.json()
