@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-
-const today = new Date()
-const todayStr = today.toISOString().split('T')[0]
+import { todayInAppTimeZone } from '../utils/appDate'
 
 export function RequestLoanPage() {
+  // Computed on every render, so a tab left open past midnight still gets the right day
+  const todayStr = todayInAppTimeZone()
   const { id } = useParams<{ id: string }>()
   const { currentUser } = useAuth()
   const navigate = useNavigate()
@@ -32,9 +32,10 @@ export function RequestLoanPage() {
       const res = await fetch(`/api/tools/${id}/loans`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // The server (loansRoutes.ts) reads startDate and endDate
         body: JSON.stringify({
-          start_date: startDate,
-          end_date: endDate,
+          startDate,
+          endDate,
           note: note || undefined,
         }),
       })

@@ -65,11 +65,14 @@ function createMockLoanRepo() {
   } as unknown as LoanRepository
 
   const query = vi.fn(async (text: string, values?: unknown[]) => {
-    if (text.includes('SELECT id, end_date FROM loans WHERE status')) {
+    if (text.includes('FROM loans WHERE status')) {
       const status = values?.[0] as string
+      // Like the real database: node-postgres returns a DATE column as a JS Date at local midnight.
+      // Only to_char(...) gives back the 'YYYY-MM-DD' text.
+      const asText = text.includes("to_char(end_date, 'YYYY-MM-DD')")
       const rows = Array.from(loans.values())
         .filter((l) => l.status === status)
-        .map((l) => ({ id: l.id, end_date: l.end_date }))
+        .map((l) => ({ id: l.id, end_date: asText ? l.end_date : new Date(`${l.end_date}T00:00:00`) }))
       return { rows, rowCount: rows.length } as { rows: unknown[]; rowCount: number | null }
     }
     return { rows: [], rowCount: 0 } as { rows: unknown[]; rowCount: number | null }
@@ -339,5 +342,37 @@ describe('LoanService', () => {
 
     const updated = await mock.repo.findById('loan-1')
     expect(updated!.status).toBe('entregado')
+  })
+
+  describe('auto-vencido with "today" in the app time zone', () => {
+    // A fixed "today" far from the real calendar: if autoVencido ignored getToday, these would fail
+    const TODAY = '2030-01-10'
+
+    function addDeliveredLoan(id: string, endDate: string) {
+      mock.loans.set(id, {
+        id,
+        tool_id: 'tool-1',
+        borrower_id: 'user-2',
+        owner_id: 'user-1',
+        start_date: '2030-01-01',
+        end_date: endDate,
+        status: 'entregado',
+        note: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+    }
+
+    it('marks a loan that ended yesterday as vencido, and leaves one that ends today alone', async () => {
+      const serviceWithToday = new LoanService(mock.repo, mock.query.bind(mock), () => TODAY)
+      addDeliveredLoan('ended-yesterday', '2030-01-09')
+      addDeliveredLoan('ends-today', TODAY)
+
+      const result = await serviceWithToday.autoVencido()
+
+      expect(result).toBe(1)
+      expect((await mock.repo.findById('ended-yesterday'))!.status).toBe('vencido')
+      expect((await mock.repo.findById('ends-today'))!.status).toBe('entregado')
+    })
   })
 })

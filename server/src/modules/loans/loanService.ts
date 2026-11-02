@@ -1,5 +1,6 @@
 import type { LoanRepository } from './loanRepo.js'
 import { ConflictError, NotFoundError, ValidationError } from '../errors/AppError.js'
+import { todayInAppTimeZone } from './appDate.js'
 
 // Same answer for "does not exist" and "exists but you are not part of it":
 // a 404 that differs by message would still reveal that the loan exists.
@@ -26,6 +27,8 @@ export class LoanService {
   constructor(
     private readonly repo: LoanRepository,
     private readonly query: QueryFn,
+    // Tests pass a fixed "today"; the app uses the real date in the app time zone
+    private readonly getToday: () => string = todayInAppTimeZone,
   ) {}
 
   async create(input: CreateLoanInput): Promise<import('./loanRepo.js').Loan> {
@@ -100,12 +103,8 @@ export class LoanService {
   }
 
   async autoVencido(): Promise<number> {
-    // Use local date in America/Argentina/Tucuman timezone
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const day = String(now.getDate()).padStart(2, '0')
-    const todayStr = `${year}-${month}-${day}`
+    // "Today" in America/Argentina/Tucuman, not the server's UTC date
+    const todayStr = this.getToday()
 
     // Get all delivered loans
     const deliveredLoans = await this.findAllDeliveredLoans()
@@ -131,9 +130,11 @@ export class LoanService {
 
   private async findAllDeliveredLoans(): Promise<Array<{ id: string; end_date: string }>> {
     // Query all loans with status 'entregado'
-    // We use a direct query since the repo doesn't have findAllByStatus
+    // We use a direct query since the repo doesn't have findAllByStatus.
+    // to_char: node-postgres would turn a raw DATE into a JS Date, and comparing a Date with the
+    // 'YYYY-MM-DD' text of "today" is always false. As text, both sides compare day by day.
     const result = await this.query(
-      `SELECT id, end_date FROM loans WHERE status = $1`,
+      `SELECT id, to_char(end_date, 'YYYY-MM-DD') AS end_date FROM loans WHERE status = $1`,
       ['entregado'],
     )
     return result.rows as Array<{ id: string; end_date: string }>
