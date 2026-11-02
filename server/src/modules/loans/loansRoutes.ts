@@ -2,7 +2,7 @@ import type { Router } from 'express'
 import express from 'express'
 import type { LoanService } from './loanService.js'
 import type { AuthRequest } from '../middleware/auth.js'
-import { sendError } from '../errors/AppError.js'
+import { ConflictError, sendError } from '../errors/AppError.js'
 
 type QueryFn = (text: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>
 
@@ -57,15 +57,20 @@ export function loansRoutes(
     }
 
     try {
-      // Look up tool owner
+      // Look up the tool's owner and whether it is paused
       const toolResult = await query(
-        `SELECT owner_id FROM tools WHERE id = $1 AND deleted_at IS NULL`,
+        `SELECT owner_id, is_paused FROM tools WHERE id = $1 AND deleted_at IS NULL`,
         [toolId],
       )
-      const rows = toolResult.rows as Array<{ owner_id: string }>
+      const rows = toolResult.rows as Array<{ owner_id: string; is_paused: boolean }>
       if (!rows[0]) {
         res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Tool not found' } })
         return
+      }
+
+      // A paused tool accepts no new requests (spec: 409). It still exists, so this is not a 404.
+      if (rows[0].is_paused) {
+        throw new ConflictError('La herramienta está pausada y no acepta pedidos')
       }
 
       const loan = await service.create({

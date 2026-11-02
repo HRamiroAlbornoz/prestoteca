@@ -249,6 +249,30 @@ describe('ToolDetailPage', () => {
     })
   })
 
+  it('shows the server error when pausing fails', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => toolData,
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: { code: 'FORBIDDEN', message: 'You can only pause your own tools' } }),
+      })
+
+    renderPage('/tools/tool-1', { id: 'user-1', name: 'Owner User' })
+
+    await waitFor(() => {
+      expect(screen.getByText('Taladro')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /pausar/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('You can only pause your own tools')
+    })
+  })
+
   it('calls DELETE /api/tools/:id on delete', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
