@@ -1,7 +1,7 @@
 ---
 author: HRamiroAlbornoz
 branch: chore/railway-iac
-status: in-progress
+status: done
 ---
 # Migrar la configuración de la app de `railway.json` a IaC
 
@@ -70,7 +70,7 @@ Datos verificados (2026-11-02):
   `get-service-config` con los tres valores.
 - [x] T5 — Production: lo mismo que T4. Prueba: salida del plan y `get-service-config`.
 - [x] T6 — `railway.json` borrado. Tests, lint y build sin regresiones. Prueba: salida de cada comando.
-- [ ] T7 — PR mergeado. El deploy de staging y el de production arrancan con `cd server && npm start`, pasan el
+- [x] T7 — PR mergeado. El deploy de staging y el de production arrancan con `cd server && npm start`, pasan el
   health check y `/api/health` responde 200. Prueba: log del build y respuesta HTTP.
 
 ## Evidence
@@ -119,6 +119,17 @@ Datos verificados (2026-11-02):
 - **Ojo con `cutover`:** `railway config migrate cutover` "limpia el Config File path de cada servicio **y lo
   redeploya**", y no tiene la opción `--environment`. No se corrió. Hay que decidir si hace falta: el plan no se
   bloqueó por Config as Code, y borrar `railway.json` en T6 ya corta la lectura en los dos entornos.
+  **Resuelto en T7: no hizo falta.**
+- **T7** (2026-11-02): PR #17 → `gh pr merge 17 --squash --delete-branch` → commit `fafce7b` en `origin/main`, sin
+  `railway.json`. El merge disparó un deploy por entorno, los dos desde `fafce7b`:
+  - Staging `f31f4d2c` → `SUCCESS`. Production `aafef493` → `SUCCESS`.
+  - En los dos builds: `Custom start command detected` y `$ cd server && npm start`. Como el repo ya no tiene
+    `railway.json`, el comando sale del dashboard, que es lo que cargó IaC en T4 y T5.
+  - En los dos runtimes: `Server running on port 8080 (production)`.
+  - `GET /api/health` en los dos dominios → `200 {"status":"ok","db":"connected"}`. Además, `SUCCESS` quiere decir que
+    el health check de Railway (`/api/health`, timeout 300) pasó.
+  - `railway config plan --environment staging` y `--environment production` → `Your Railway configuration is
+    already up to date`. El aviso de "Config as Code is deprecated" ya no aparece en los comandos de la CLI.
 
 ## Rollback
 
@@ -127,5 +138,15 @@ Los valores que IaC escribe en el dashboard son los mismos, así que tenerlos de
 
 ## Next
 
-T7: Hernán commitea, abre el PR y mergea. Después se verifica que los deploys de staging y de production, ya sin
-`railway.json`, usan `cd server && npm start` y que `/api/health` responde 200.
+Feature cerrada (2026-11-02). El corte del 2026-12-01 ya no afecta a la app.
+
+Cómo cambiar la configuración de deploy de ahora en adelante: se edita `.railway/railway.ts`, se corre
+`railway config plan --environment <entorno>` para ver el cambio y `railway config apply --environment <entorno>`
+para aplicarlo, primero en staging. Railway no lee `.railway/` cuando deploya: si no se corre `apply`, el cambio en
+el archivo no llega a Railway. Desde la terminal de Claude Code hace falta `$env:_ = 'railway'` antes del comando.
+
+Pendientes que no entran en esta feature:
+- Un workflow de GitHub Actions (`railwayapp/config`) que muestre el plan en cada PR que toque `.railway/`.
+- Subir Node de 20 (sin soporte) a 22 o 24 en `engines`. `railway` y `@asamuzakjp/css-color` ya piden 22 o más.
+
+Siguiente en el backlog: el punto 2, que hoy deja pedir una herramienta pausada sin rechazar el pedido.
