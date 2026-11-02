@@ -14,7 +14,9 @@ export const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().min(1).default('1h'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   CORS_ORIGIN: z.string().min(1).default('http://localhost:5173'),
-  TRUST_PROXY: z.string().min(1).transform(val => val === 'true').default('true'),
+  // prefault (zod 4): the fallback 'true' still goes through the transform and becomes a boolean.
+  // .default() would skip the transform and hand back the raw value.
+  TRUST_PROXY: z.string().min(1).transform(val => val === 'true').prefault('true'),
 })
 
 export type Env = z.infer<typeof envSchema>
@@ -42,7 +44,7 @@ export function loadEnv(): Env {
     const validation: string[] = []
 
     if (err instanceof z.ZodError) {
-      for (const e of err.errors) {
+      for (const e of err.issues) {
         if (e.code === 'invalid_type' && e.expected === 'string') {
           missing.push(String(e.path[0]))
         } else {
