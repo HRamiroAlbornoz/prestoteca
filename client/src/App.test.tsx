@@ -110,6 +110,19 @@ describe('App routes and session', () => {
     expect(await screen.findByRole('heading', { name: /^préstamo$/i })).toBeInTheDocument()
   })
 
+  it('has a route to edit a tool', async () => {
+    sessionUser = { id: 'user-1', name: 'Ana' }
+    renderAt('/tools/tool-1/edit')
+
+    expect(await screen.findByRole('heading', { name: /editar herramienta/i })).toBeInTheDocument()
+  })
+
+  it('keeps the edit page private', async () => {
+    renderAt('/tools/tool-1/edit')
+
+    await waitFor(() => expect(window.location.pathname).toBe('/login'))
+  })
+
   it('keeps the loan pages private', async () => {
     renderAt('/loans/loan-1')
 

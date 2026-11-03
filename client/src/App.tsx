@@ -59,6 +59,7 @@ function App() {
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
             <Route path="/publish" element={<PrivateRoute><PublishForm /></PrivateRoute>} />
             <Route path="/tools/:id/request" element={<PrivateRoute><RequestLoanPage /></PrivateRoute>} />
+            <Route path="/tools/:id/edit" element={<PrivateRoute><PublishForm /></PrivateRoute>} />
             <Route path="/loans" element={<PrivateRoute><MyLoansPage /></PrivateRoute>} />
             <Route path="/loans/:id" element={<PrivateRoute><LoanDetailPage /></PrivateRoute>} />
           </Routes>

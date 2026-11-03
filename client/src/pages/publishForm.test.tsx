@@ -193,6 +193,45 @@ describe('PublishForm', () => {
     })
   })
 
+  it('asks for a description when it is left empty, and does not call the API', () => {
+    render(
+      <MemoryRouter>
+        <PublishForm />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/nombre/i), { target: { value: 'Taladro Bosch' } })
+    fireEvent.change(screen.getByLabelText(/descripción/i), { target: { value: '   ' } })
+    fireEvent.change(screen.getByLabelText(/categoría/i), { target: { value: 'Herramientas eléctricas' } })
+    fireEvent.change(screen.getByLabelText(/estado/i), { target: { value: 'bueno' } })
+    fireEvent.click(screen.getByRole('button', { name: /publicar/i }))
+
+    expect(screen.getByText(/escribí una descripción/i)).toBeInTheDocument()
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('checks a field when it loses focus, links the message to it, and clears it as soon as it is fixed', () => {
+    render(
+      <MemoryRouter>
+        <PublishForm />
+      </MemoryRouter>,
+    )
+
+    const name = screen.getByLabelText(/nombre/i)
+    fireEvent.change(name, { target: { value: 'AB' } })
+    // Typing alone does not show the error: it would interrupt the user mid-word
+    expect(screen.queryByText(/al menos 3 caracteres/i)).not.toBeInTheDocument()
+
+    fireEvent.blur(name)
+    expect(name).toHaveAttribute('aria-invalid', 'true')
+    expect(name).toHaveAccessibleDescription(/al menos 3 caracteres/i)
+
+    // Once the error is shown, it goes away while typing, as soon as the value is valid
+    fireEvent.change(name, { target: { value: 'ABC' } })
+    expect(screen.queryByText(/al menos 3 caracteres/i)).not.toBeInTheDocument()
+    expect(name).not.toHaveAttribute('aria-invalid')
+  })
+
   it('displays error on failed API call', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
