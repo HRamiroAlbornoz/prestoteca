@@ -45,7 +45,7 @@ Una barra arriba de todas las pantallas resuelve las dos cosas.
 - [x] T2 — `NavBar.tsx` y `App.tsx`. Prueba: los tests nuevos en verde.
 - [x] T3 — Suite completa, type-check, lint y build en verde. Prueba: salida de cada comando.
 - [x] T4 — Se ve y se usa bien a 375 px y 1280 px, claro y oscuro, y con teclado (skip link y foco). Prueba: capturas.
-- [ ] T5 — PR mergeado, staging/production en `SUCCESS`, y la barra se ve en production.
+- [x] T5 — PR mergeado, staging/production en `SUCCESS`, y la barra se ve en production.
 
 ## Evidence
 
@@ -67,6 +67,12 @@ Una barra arriba de todas las pantallas resuelve las dos cosas.
   - Cada enlace y botón de la barra mide 44 px de alto.
   - Visto también: en escritorio, las pantallas centradas (login) ahora tienen una barra de scroll por los ~52 px
     de la barra (anotado en "No entra").
+- **T5** (2026-11-03 UTC): PR #30 mergeado a las 02:38:32 UTC (`2442b8a`). Railway, servicio `prestoteca`:
+  staging `3df365ab` → `SUCCESS` (02:39:34 UTC), production `0a51dc70` → `SUCCESS` (02:39:44 UTC). Las dos URLs
+  sirven `/assets/index-BKBLoJ5b.js`, que contiene "Saltar al contenido". Production a 375 px: mientras carga,
+  la barra muestra solo "Prestoteca" (el estado `isLoading`, visto con el servidor real); después, "Prestoteca ·
+  Iniciar sesión · Crear cuenta" en una fila, sobre las 11 herramientas. La vista con sesión no se probó en
+  production por falta de una cuenta de prueba (punto 7 del backlog); la cubren los tests y la prueba local (T4).
 
 ## Next
 Fusionado en main el 2026-11-02 (2442b8a).
