@@ -8,6 +8,11 @@ function createMockPool() {
 
   // Store loans by id for lookup
   const loansById = new Map<string, any>()
+  // The tools table, reduced to what a JOIN would read from it
+  const toolNames = new Map<string, string>([
+    ['tool-1', 'Taladro Bosch'],
+    ['tool-2', 'Escalera de 3 m'],
+  ])
 
   const mockPool = {
     query: vi.fn(async (text: string, values?: unknown[]) => {
@@ -55,21 +60,26 @@ function createMockPool() {
         return { rows: filtered, rowCount: filtered.length } as QueryResult
       }
 
+      // Like Postgres: the tool's name only comes back when the query joins the tools table
+      const joinsTools = text.includes('JOIN tools ON tools.id = loans.tool_id')
+      const withToolName = (loan: any) => (joinsTools ? { ...loan, tool_name: toolNames.get(loan.tool_id) } : loan)
+      const listsLoans = text.includes('SELECT * FROM loans') || text.includes('SELECT loans.*')
+
       // Simulate SELECT with WHERE borrower_id
-      if (text.includes('SELECT * FROM loans') && text.includes('borrower_id')) {
+      if (listsLoans && text.includes('borrower_id')) {
         const borrowerId = values?.[0] as string
-        const filtered = Array.from(loansById.values()).filter(
-          (l) => l.borrower_id === borrowerId,
-        )
+        const filtered = Array.from(loansById.values())
+          .filter((l) => l.borrower_id === borrowerId)
+          .map(withToolName)
         return { rows: filtered, rowCount: filtered.length } as QueryResult
       }
 
       // Simulate SELECT with WHERE owner_id
-      if (text.includes('SELECT * FROM loans') && text.includes('owner_id')) {
+      if (listsLoans && text.includes('owner_id')) {
         const ownerId = values?.[0] as string
-        const filtered = Array.from(loansById.values()).filter(
-          (l) => l.owner_id === ownerId,
-        )
+        const filtered = Array.from(loansById.values())
+          .filter((l) => l.owner_id === ownerId)
+          .map(withToolName)
         return { rows: filtered, rowCount: filtered.length } as QueryResult
       }
 
@@ -260,6 +270,30 @@ describe('LoanRepository', () => {
     const borrowerLoans = await repo.findAllByBorrower('user-2')
     expect(borrowerLoans).toHaveLength(2)
     expect(borrowerLoans.every((l) => l.borrower_id === 'user-2')).toBe(true)
+  })
+
+  it('brings the name of the tool with each loan the user asked for', async () => {
+    await repo.create({ toolId: 'tool-1', borrowerId: 'user-2', ownerId: 'user-1', startDate: '2026-10-10', endDate: '2026-10-20', status: 'pendiente' })
+    await repo.create({ toolId: 'tool-2', borrowerId: 'user-2', ownerId: 'user-4', startDate: '2026-10-10', endDate: '2026-10-15', status: 'pendiente' })
+
+    const borrowerLoans = await repo.findAllByBorrower('user-2')
+
+    expect(borrowerLoans.map((l) => [l.tool_id, l.tool_name])).toEqual([
+      ['tool-1', 'Taladro Bosch'],
+      ['tool-2', 'Escalera de 3 m'],
+    ])
+  })
+
+  it('brings the name of the tool with each loan the owner received', async () => {
+    await repo.create({ toolId: 'tool-1', borrowerId: 'user-2', ownerId: 'user-1', startDate: '2026-10-10', endDate: '2026-10-20', status: 'pendiente' })
+    await repo.create({ toolId: 'tool-2', borrowerId: 'user-3', ownerId: 'user-1', startDate: '2026-10-10', endDate: '2026-10-15', status: 'pendiente' })
+
+    const ownerLoans = await repo.findAllByOwner('user-1')
+
+    expect(ownerLoans.map((l) => [l.tool_id, l.tool_name])).toEqual([
+      ['tool-1', 'Taladro Bosch'],
+      ['tool-2', 'Escalera de 3 m'],
+    ])
   })
 
   it('finds loans by owner id', async () => {

@@ -132,11 +132,11 @@ export class LoanService {
     return count
   }
 
-  async findLoansByBorrower(borrowerId: string): Promise<import('./loanRepo.js').Loan[]> {
+  async findLoansByBorrower(borrowerId: string): Promise<import('./loanRepo.js').LoanWithTool[]> {
     return this.repo.findAllByBorrower(borrowerId)
   }
 
-  async findLoansByOwner(ownerId: string): Promise<import('./loanRepo.js').Loan[]> {
+  async findLoansByOwner(ownerId: string): Promise<import('./loanRepo.js').LoanWithTool[]> {
     return this.repo.findAllByOwner(ownerId)
   }
 

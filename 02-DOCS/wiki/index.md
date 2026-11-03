@@ -37,6 +37,7 @@ timestamp: 2026-10-04T00:00:00Z
 | La app vuelve a tener estilos (Tailwind 4) | done | [02-DOCS/wiki/ftd/tailwind-v4-styles.md](./ftd/tailwind-v4-styles.md) |
 | Barra de navegación | done | [02-DOCS/wiki/ftd/navigation.md](./ftd/navigation.md) |
 | Editar una herramienta | done | [02-DOCS/wiki/ftd/edit-tool.md](./ftd/edit-tool.md) |
+| "Mis préstamos" muestra el nombre de la herramienta | in-progress | [02-DOCS/wiki/ftd/loan-tool-name.md](./ftd/loan-tool-name.md) |
 
 ## Product docs
 
