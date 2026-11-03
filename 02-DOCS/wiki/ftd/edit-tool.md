@@ -1,7 +1,9 @@
 ---
 author: HRamiroAlbornoz
 branch: feat/edit-tool
-status: in-progress
+status: done
+merged: 2026-11-02
+pr: #32
 ---
 # Editar una herramienta
 
@@ -52,8 +54,8 @@ es, `404` si no existe). Lo que falta es todo del lado del cliente.
 - [x] T2 — Código. Prueba: los tests en verde.
 - [x] T3 — Suite completa, type-check, lint y build en verde. Prueba: salida de cada comando.
 - [x] T4 — Se ve y se usa bien a 375 px (claro y oscuro). Prueba: capturas.
-- [ ] T5 — Hernán instala `zod` en el cliente (`npm install zod -w client`) y el build sigue en verde.
-- [ ] T6 — PR mergeado, staging/production en `SUCCESS`; editar una herramienta en staging.
+- [x] T5 — Hernán instala `zod` en el cliente (`npm install zod -w client`) y el build sigue en verde.
+- [x] T6 — PR mergeado, staging/production en `SUCCESS`; editar una herramienta en staging.
 
 ## Evidence
 
@@ -75,7 +77,24 @@ es, `404` si no existe). Lo que falta es todo del lado del cliente.
   la descripción, "Herramientas eléctricas", "bueno"), "Guardar cambios" y "Cancelar". En oscuro, con el nombre "AB"
   y el foco fuera del campo: borde rojo y "El nombre debe tener al menos 3 caracteres"; `aria-invalid="true"`,
   `aria-describedby="tool-name-error"`; contraste del mensaje 9,33:1 (`rgb(252,165,165)` sobre `rgb(24,24,27)`).
+- **T5** (2026-11-03, Hernán): `npm install zod@^4.6.7 -w client` → `up to date`, `found 0 vulnerabilities` (ya
+  estaba en la raíz por `server`); `client/package.json` del commit `f9a0e80` tiene `"zod": "^4.6.7"`.
+  `npm run build -w client` → `index-cWHzkWMg.js 323.25 kB │ gzip: 97.30 kB`, el mismo archivo que el build de T3.
+- **T6** (2026-11-03 UTC): PR #32 mergeado con `gh pr merge 32 --squash --delete-branch` a las 02:59:39 UTC
+  (`fc0a4a1`; la rama se borró en GitHub y en local). Railway, servicio `prestoteca`: staging `48d8fc74` → `SUCCESS`
+  (03:00:41), production `58c6f373` → `SUCCESS` (03:00:24). Las dos URLs sirven `index-cWHzkWMg.js` (contiene
+  "Guardar cambios") y `/api/health` → `200`.
+  Prueba en **staging** con Chrome DevTools, en contextos aislados:
+  - Cuenta de prueba (`register 201`, `login 200`) y herramienta "QA Taladro" (`POST 201`).
+  - En el detalle, "Editar" → `/tools/<id>/edit` con los 4 campos completos. Nombre → "QA Taladro editado", estado
+    → "usado", "Guardar cambios" → vuelve al detalle, que muestra "QA Taladro editado" y "Usado".
+  - Segunda cuenta ("intruso") abre la misma URL de edición, cambia el nombre a "Hackeado" y guarda → alerta
+    "Solo podés editar tus propias herramientas." y el campo conserva "Hackeado". `GET` después: el nombre sigue
+    "QA Taladro editado" y el estado "usado".
+  - Limpieza: cuenta intrusa `DELETE /api/me/account` → `204`; herramienta `DELETE` → `204` (después `GET` → `404`);
+    cuenta dueña → `204` (después `/api/me` → `401`).
+  - De paso: en staging, con sesión real, la barra muestra "Publicar · Mis préstamos · Perfil · Salir" (eso faltaba
+    probar en la feature de navegación).
 
 ## Next
-
-T5: Hernán instala `zod` en el cliente (`npm install zod -w client`) y corre el build. Después el PR.
+Fusionado en main el 2026-11-02 (fc0a4a1).
