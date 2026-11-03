@@ -183,7 +183,7 @@ export function ProfilePage() {
         </h1>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
             {error}
           </div>
         )}
@@ -245,7 +245,7 @@ export function ProfilePage() {
                     <button
                       key={loan.id}
                       onClick={() => handleLoanClick(loan.id)}
-                      className="w-full bg-white rounded-lg shadow-sm p-4 text-left hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full bg-white rounded-lg shadow-xs p-4 text-left hover:shadow-md transition-shadow focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium text-gray-900">
@@ -279,7 +279,7 @@ export function ProfilePage() {
                     <button
                       key={loan.id}
                       onClick={() => handleLoanClick(loan.id)}
-                      className="w-full bg-white rounded-lg shadow-sm p-4 text-left hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full bg-white rounded-lg shadow-xs p-4 text-left hover:shadow-md transition-shadow focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium text-gray-900">
@@ -313,7 +313,7 @@ export function ProfilePage() {
                     <button
                       key={loan.id}
                       onClick={() => handleLoanClick(loan.id)}
-                      className="w-full bg-white rounded-lg shadow-sm p-4 text-left hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full bg-white rounded-lg shadow-xs p-4 text-left hover:shadow-md transition-shadow focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-medium text-gray-900">
@@ -338,19 +338,19 @@ export function ProfilePage() {
           {activeTab === 'settings' && (
             <div className="space-y-8">
               {/* Change password */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
+              <div className="bg-white rounded-lg shadow-xs p-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                   Cambiar contraseña
                 </h2>
 
                 {settingsError && activeTab === 'settings' && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
                     {settingsError}
                   </div>
                 )}
 
                 {settingsSuccess && (
-                  <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4" role="status">
+                  <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-sm mb-4" role="status">
                     {settingsSuccess}
                   </div>
                 )}
@@ -366,7 +366,7 @@ export function ProfilePage() {
                       required
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                     />
                   </div>
 
@@ -380,7 +380,7 @@ export function ProfilePage() {
                       required
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                       placeholder="8-72 caracteres"
                     />
                   </div>
@@ -395,14 +395,14 @@ export function ProfilePage() {
                       required
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                       placeholder="Repetí la nueva contraseña"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    className="px-4 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                   >
                     Cambiar contraseña
                   </button>
@@ -410,7 +410,7 @@ export function ProfilePage() {
               </div>
 
               {/* Delete account */}
-              <div className="bg-white rounded-lg shadow-sm p-6 border border-red-200">
+              <div className="bg-white rounded-lg shadow-xs p-6 border border-red-200">
                 <h2 className="text-lg font-semibold text-red-700 mb-2">
                   Eliminar cuenta
                 </h2>
@@ -421,7 +421,7 @@ export function ProfilePage() {
                 <button
                   onClick={handleDeleteAccount}
                   disabled={deleting}
-                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 focus:outline-hidden focus:ring-2 focus:ring-red-500"
                 >
                   {deleting ? 'Eliminando...' : 'Eliminar mi cuenta'}
                 </button>

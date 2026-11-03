@@ -145,7 +145,7 @@ export function HomePage() {
                 params.set('page', '1')
                 setSearchParams(params)
               }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-violet-500"
               aria-label="Buscar herramienta por nombre"
             />
           </div>
@@ -159,7 +159,7 @@ export function HomePage() {
               id="category-select"
               value={category}
               onChange={handleCategoryChange}
-              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-violet-500"
               aria-label="Filtrar por categoría"
             >
               <option value="">Todas las categorías</option>
@@ -182,7 +182,7 @@ export function HomePage() {
               placeholder="Barrio..."
               value={neighborhood}
               onChange={handleNeighborhoodChange}
-              className="w-full sm:w-40 px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+              className="w-full sm:w-40 px-4 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-violet-500"
               aria-label="Filtrar por barrio"
             />
           </div>
@@ -190,7 +190,7 @@ export function HomePage() {
           {/* Search button */}
           <button
             type="submit"
-            className="px-6 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="px-6 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 focus:outline-hidden focus:ring-2 focus:ring-violet-500"
           >
             Buscar
           </button>
@@ -221,9 +221,9 @@ export function HomePage() {
               key={i}
               className="bg-white rounded-lg shadow-md p-4 animate-pulse"
             >
-              <div className="h-5 bg-gray-200 rounded w-3/4 mb-3" />
-              <div className="h-3 bg-gray-200 rounded w-1/2 mb-2" />
-              <div className="h-3 bg-gray-200 rounded w-2/3" />
+              <div className="h-5 bg-gray-200 rounded-sm w-3/4 mb-3" />
+              <div className="h-3 bg-gray-200 rounded-sm w-1/2 mb-2" />
+              <div className="h-3 bg-gray-200 rounded-sm w-2/3" />
             </div>
           ))}
         </div>
@@ -256,7 +256,7 @@ export function HomePage() {
           <button
             onClick={() => goToPage(pagination.page - 1)}
             disabled={pagination.page === 1}
-            className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+            className="px-3 py-1 rounded-sm border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
             aria-label="Página anterior"
           >
             ← Anterior
@@ -279,7 +279,7 @@ export function HomePage() {
                   )}
                   <button
                     onClick={() => goToPage(p)}
-                    className={`px-3 py-1 rounded border ${
+                    className={`px-3 py-1 rounded-sm border ${
                       p === pagination.page
                         ? 'bg-violet-600 text-white border-violet-600'
                         : 'border-gray-300 hover:bg-gray-100'
@@ -296,7 +296,7 @@ export function HomePage() {
           <button
             onClick={() => goToPage(pagination.page + 1)}
             disabled={pagination.page === pagination.pages}
-            className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+            className="px-3 py-1 rounded-sm border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
             aria-label="Página siguiente"
           >
             Siguiente →
