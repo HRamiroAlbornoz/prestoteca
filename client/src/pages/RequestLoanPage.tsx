@@ -72,7 +72,7 @@ export function RequestLoanPage() {
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Solicitar préstamo</h1>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
               {error}
             </div>
           )}
@@ -88,7 +88,7 @@ export function RequestLoanPage() {
                 value={startDate}
                 min={todayStr}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                 required
               />
               {isStartDateInPast && (
@@ -106,7 +106,7 @@ export function RequestLoanPage() {
                 value={endDate}
                 min={startDate || todayStr}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                 required
               />
               {isEndDateBeforeStart && (
@@ -124,7 +124,7 @@ export function RequestLoanPage() {
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={300}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-violet-500"
                 placeholder="¿Para qué la necesitás?"
               />
               <p className={`text-sm mt-1 ${noteTooLong ? 'text-red-600' : 'text-gray-500'}`}>
