@@ -5,12 +5,12 @@ description: The non-negotiable principles every rsc-sdd phase obeys.
 tags: [sdd, constitution]
 timestamp: 2026-10-04T00:00:00Z
 topic: sdd
-version: v1.0.0
+version: v1.1.0
 ---
 
 # Prestoteca — Constitution
 
-> Version: v1.0.0 · Ratified: 2026-10-04 · Last amended: 2026-10-04
+> Version: v1.1.0 · Ratified: 2026-10-04 · Last amended: 2026-11-03
 > The non-negotiable principles every rsc-sdd phase obeys. Stack mechanics live in
 > `02-DOCS/wiki/stack/*`; this file ratifies the principle and links the detail.
 
@@ -23,10 +23,13 @@ version: v1.0.0
 
 ## 2. Quality bar
 
-4. Code is formatted and lint-clean on every commit (Prettier + ESLint, zero warnings).
-   Enforced by pre-commit — detail in `02-DOCS/wiki/stack/<x>.md`.
+4. Code is lint-clean before merge, with zero warnings. Client: oxlint (`npm run lint` in `client/`, config in
+   `.oxlintrc.json`). Server: no linter yet — **open debt**, to be added in its own change; until then the server's
+   bar is `tsc -b` strict with no errors. No formatter is enforced (no Prettier) and there is no pre-commit hook:
+   the check runs in `verify` before merge.
 5. Types are strict; the type checker passes with no errors before merge.
-6. Tests gate the merge: TDD red→green→refactor; line coverage ≥ 80% on changed code.
+6. Tests gate the merge: TDD red→green→refactor; line coverage ≥ 80% on changed code, measured per changed file
+   with `@vitest/coverage-v8`.
    Test tooling: Vitest (unit), Supertest (API), Testing Library (components).
    Detail: `02-DOCS/wiki/stack/testing.md`.
 
@@ -63,7 +66,7 @@ version: v1.0.0
 
 A change ships only when ALL hold:
 
-- [ ] Formatter + linter clean (principle 4).
+- [ ] Linter clean where one exists — client oxlint (principle 4).
 - [ ] Type checker passes (principle 5).
 - [ ] Tests pass; coverage floor met on changed code (principle 6).
 - [ ] Conventions followed (principles 7-9).
@@ -79,3 +82,4 @@ A change ships only when ALL hold:
 | 2026-10-03 | v1.0.0 | Ratified initial constitution. | Project kickoff. |
 | 2026-10-04 | v1.0.1 | Filled stack canon, quality bar, conventions, security, accessibility, performance from product brief. | Brief review. |
 | 2026-10-04 | v1.0.2 | Pinned versions: Express 5.2.1, Node >= 18, React 19.2.7, Vite 8.1.0, TS ~6.0.2, React Router 7.x, Helmet 8+. Added `app.disable('x-powered-by')`, `trust proxy`, bcrypt 12 rounds, Zod safeParse. | Context7 library docs consultation. |
+| 2026-11-03 | v1.1.0 | Principle 4 rewritten to the real tooling: oxlint in the client, no server linter yet (open debt), no Prettier, no pre-commit; check runs in `verify`. Principle 6: coverage measured per changed file with `@vitest/coverage-v8`. DoD updated. | `analyze` of error-codes (H3, H2): the old text asked for tools the repo never had, so no change could meet the DoD. Approved by Hernán ("aplicá todo"). Decision D8. |
