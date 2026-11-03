@@ -1,7 +1,9 @@
 ---
 author: HRamiroAlbornoz
 branch: fix/loan-tool-name
-status: in-progress
+status: done
+merged: 2026-11-03
+pr: #35
 ---
 # "Mis préstamos" muestra el nombre de la herramienta
 
@@ -65,5 +67,4 @@ hechos"), que por eso muestra "Herramienta #1e5f8444" en vez del nombre. El arre
     hasta el próximo deploy de `main`.
 
 ## Next
-
-T5: Hernán crea la rama, commitea, abre el PR y mergea. Después se verifican los deploys.
+Fusionado en main el 2026-11-03 (aa412ff).
