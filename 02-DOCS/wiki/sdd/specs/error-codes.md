@@ -13,7 +13,7 @@ approved_by: Hernán — "Sí, apruebo la spec tal como está." (aprobada ítem 
 
 # Spec — Códigos de error específicos y mensajes en español
 
-> Slug: `error-codes` · Status: approved (2026-11-03) · Created: 2026-11-02
+> Slug: `error-codes` · Status: approved (2026-11-03; enmienda del mismo día, ver *Revisions*) · Created: 2026-11-02
 > Inherits: [constitution](../constitution.md) (principio 8: errores con forma consistente y mensajes genéricos al
 > cliente; principio 14: errores anunciados a lectores de pantalla)
 > Origen: punto 5 del backlog acordado el 2026-10-24 ("mensajes al usuario en inglés").
@@ -68,6 +68,10 @@ comprobación automática que falla si existe un código sin mensaje.
   los muestra.
 - **Los logs del server.** Siguen en inglés, para quien depura.
 - **Cambiar qué status HTTP devuelve cada error.** Solo se agrega precisión; el status de cada caso queda igual.
+  **Única excepción** (enmienda del 2026-11-03, decisión D7): cambiar la contraseña con una cuenta que ya fue eliminada
+  pasa a responder 404 con el mensaje 15 ("Esta cuenta ya no existe."). Hoy responde 401 y la persona lee el mensaje
+  12 ("La contraseña actual no es correcta…"), que es engañoso: al eliminar la cuenta, su contraseña se reemplaza por
+  una al azar, así que ninguna contraseña coincide.
 - **El resto de los textos de la interfaz**, que ya están en español.
 
 ## Users & context
@@ -150,12 +154,13 @@ formato) → 34. En el inicio, la 34 reemplaza a la 37.
 - **Constitución, principio 14:** los errores se anuncian a lectores de pantalla.
 - **Decisión D5** (`02-DOCS/wiki/sdd/decisions.md`): códigos específicos en el server, mensajes en el cliente; el
   texto del server queda solo para desarrollo.
-- **Los status HTTP de cada caso no cambian** (AC-6, AC-7).
+- **Los status HTTP de cada caso no cambian** (AC-6, AC-7), salvo la única excepción de *Non-goals* (contraseña de
+  una cuenta eliminada → 404).
 - **"No existe" y "no es tuyo"** siguen respondiendo igual donde hoy responden igual (préstamos ajenos).
 - **El login fallido nunca lleva al login ni borra lo escrito:** se queda en la pantalla con el mensaje 7.
-- **Ir al login depende del código del error, no del status:** el login incorrecto (7), la contraseña actual
-  incorrecta (12) y el origen no permitido también responden 401, y ninguno de ellos lleva al login. Solo lo hace la
-  situación 8.
+- **Ir al login depende del código del error, no del status:** el login incorrecto (7) y la contraseña actual
+  incorrecta (12) también responden 401, y el origen no permitido responde 403 con un código que hoy dice
+  "no autorizado"; ninguno de ellos lleva al login. Solo lo hace la situación 8.
 - **La vuelta después del login solo va a páginas de esta misma app** (ya lo prueba `App.test.tsx` con
   `returnTo=//evil.example` y similares; no puede dejar de pasar).
 - **Las validaciones del cliente siguen igual:** el formulario de publicar y editar ya valida antes de enviar con sus
@@ -216,6 +221,10 @@ formato) → 34. En el inicio, la 34 reemplaza a la 37.
   Un error al **cargar** una pantalla (no hay nada que mostrar) sí puede ocupar la pantalla.
 - **Todas las pantallas usan el mismo criterio.** También las que hoy ignoran el error del server y muestran un texto
   fijo ("Error al cargar los préstamos"): pasan a mostrar el mensaje del código.
+- **Pantallas que cargan dos cosas a la vez** (Mis préstamos: pedidos y recibidos; Perfil: herramientas e historial).
+  Si una de las dos falla, la pantalla muestra el error de carga y no la mitad que sí cargó: una pantalla a medias
+  confunde más de lo que ayuda. Si una de las fallas es la sesión terminada, gana esa (situación 8). Si la persona ya
+  se fue de la pantalla cuando llegan las respuestas, no pasa nada.
 - **Edge cases.**
   - El cliente recibe un código que no conoce (por ejemplo, el server se actualizó antes): muestra un mensaje
     genérico en español, nunca el texto del server.
@@ -246,7 +255,8 @@ formato) → 34. En el inicio, la 34 reemplaza a la 37.
 - **AC-5c** Given una búsqueda que falla (texto demasiado largo, o el server no responde), When el inicio la recibe,
   Then muestra el mensaje en español en la misma pantalla y no lo confunde con "no hay resultados".
 - **AC-6** Given cada situación de la lista de *Behaviour → Main path*, When ocurre, Then el server responde con
-  un código distinto al de las otras situaciones de la lista, y con el mismo status HTTP que antes de este cambio.
+  un código distinto al de las otras situaciones de la lista, y con el mismo status HTTP que antes de este cambio,
+  salvo la única excepción de *Non-goals*: cambiar la contraseña de una cuenta eliminada responde 404 (situación 15).
 - **AC-7** Given cualquier error de la lista, When el server lo responde, Then la respuesta mantiene la forma
   actual (`error` con código y mensaje) — solo cambia el valor del código.
 - **AC-8** Given un error interno inesperado, When el server responde, Then el cliente muestra el mensaje genérico
@@ -294,8 +304,9 @@ formato) → 34. En el inicio, la 34 reemplaza a la 37.
 - **suposición tomada** — "No existe" y "no es tuyo" se mantienen indistinguibles en los préstamos, como hoy.
   *Base:* el server ya responde igual a propósito para no revelar préstamos ajenos. *Riesgo:* si se separaran, se
   filtraría información.
-- **suposición tomada** — Los status HTTP no cambian. *Base:* AC-6 y AC-7; el cliente y los tests dependen de ellos.
-  *Riesgo:* si un caso tiene hoy un status equivocado, se arregla aparte, no en este cambio.
+- **suposición tomada** — Los status HTTP no cambian, salvo la única excepción de *Non-goals* (contraseña de una
+  cuenta eliminada → 404). *Base:* AC-6 y AC-7; el cliente y los tests dependen de ellos. *Riesgo:* si un caso tiene
+  hoy un status equivocado, se arregla aparte, no en este cambio.
 - **suposición tomada** — El texto del server queda solo para desarrollo y puede seguir en inglés. *Base:* decisión
   de Hernán, 2026-11-02. *Riesgo:* si en el futuro otro cliente (una app móvil) consume la API, tendrá que tener su
   propio mapa.
@@ -349,3 +360,10 @@ formato) → 34. En el inicio, la 34 reemplaza a la 37.
   devuelven 401 el login incorrecto, la contraseña actual incorrecta y el origen no permitido). No se toca: D5 dice
   "7 clases" y la spec dice 8; el registro de decisiones solo se agrega, y la diferencia ya está explicada en la
   revisión anterior (5).
+- 2026-11-03 — Enmienda pedida por el `analyze` de error-codes (hallazgos H1, L1 y L2) y aprobada por Hernán ("Sí,
+  aplicá todo"). Cambios: (1) *Non-goals*, *What it must respect*, la suposición de status y AC-6 nombran la **única
+  excepción** al "status no cambia": cambiar la contraseña de una cuenta eliminada responde 404 con el mensaje 15, en
+  vez del 401 de hoy con el mensaje 12, que es engañoso (decisión D7); (2) se corrige que el origen no permitido
+  responde 403, no 401; (3) *Behaviour* suma la regla de las pantallas que cargan dos cosas a la vez (si una falla,
+  error de carga; la sesión terminada gana; si la persona ya se fue, no pasa nada), que estaba solo en el plan. La
+  tabla de mensajes no cambia.

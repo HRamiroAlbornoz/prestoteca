@@ -137,3 +137,22 @@ timestamp: 2026-10-04T00:00:00Z
   - ⚠️ El build del cliente depende de que exista `server/src` (Railway construye desde la raíz). Plan B: un JSON
     generado en el cliente, comparado por test.
   - ⚠️ `TOOL_EDIT_EMPTY` conserva el 404 de hoy, aunque no sea el status correcto; se corrige aparte.
+
+## D8 — La constitución se ajusta a las herramientas reales; la cobertura se mide
+
+- **Fecha:** 2026-11-03
+- **Contexto:** El `analyze` de [error-codes](./analysis/error-codes.md) quedó bloqueado por dos puntos de la
+  [constitución](./constitution.md) que ningún cambio podía cumplir: el principio 4 pedía Prettier, ESLint y un
+  pre-commit que el repo nunca tuvo (solo hay oxlint en el cliente), y el principio 6 pedía cobertura ≥ 80 % sin la
+  herramienta para medirla (`@vitest/coverage-v8` no instalada; ya hizo fallar la verificación de `db-backups`).
+- **Opciones:**
+  - Enmendar la constitución al estado real y dejar el linter del server como deuda registrada.
+  - Sumar Prettier, ESLint y pre-commit dentro de error-codes.
+  - Dejar la constitución como está y aceptar un FAIL en cada cierre.
+- **Decisión:** la primera (constitución v1.1.0), más instalar `@vitest/coverage-v8` como tarea T017 de error-codes.
+  Aprobado por Hernán ("Sí, aplicá todo").
+- **Por qué:** agregar herramientas de calidad no es parte de la spec de errores; una regla que nadie puede cumplir
+  enseña a ignorar las reglas. Medir la cobertura, en cambio, es barato y la regla ya la pide.
+- **Consecuencias:**
+  - ✅ El cierre de cada cambio puede cumplir la *Definition of Done* tal como está escrita.
+  - ⚠️ El server sigue sin linter: deuda abierta, para un cambio propio.
