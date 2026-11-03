@@ -35,7 +35,7 @@ hechos"), que por eso muestra "Herramienta #1e5f8444" en vez del nombre. El arre
   Prueba: Vitest en rojo.
 - [x] T2 — `JOIN` en `loanRepo.ts`. Prueba: tests en verde.
 - [x] T3 — Suites de server y client, type-check, lint y build en verde. Prueba: salida de cada comando.
-- [ ] T4 — El SQL contra un Postgres real: en staging (sin base local), un préstamo entre dos cuentas de prueba
+- [x] T4 — El SQL contra un Postgres real: en staging (sin base local), un préstamo entre dos cuentas de prueba
   aparece con su nombre en "Mis préstamos" (las dos pestañas) y en el perfil. Prueba: respuesta de la API y capturas.
 - [ ] T5 — PR mergeado y staging/production en `SUCCESS`.
 
@@ -50,7 +50,20 @@ hechos"), que por eso muestra "Herramienta #1e5f8444" en vez del nombre. El arre
 - **T3** (2026-11-03): server `Test Files 27 passed (27)`, `Tests 268 passed (268)`; `tsc --noEmit` → exit 0;
   client `Tests 181 passed (181)`; lint → los mismos 2 avisos de siempre; `npm run build -w client` → exit 0.
   Límite: la base simulada no ejecuta SQL; que el `JOIN` funcione en Postgres lo prueba T4.
+- **T4** (2026-11-03, con autorización de Hernán, solo staging): `railway up -s prestoteca -e staging --ci` desde
+  el árbol de trabajo → `Deploy complete`, deploy `3061987d` en `SUCCESS`. Chrome DevTools, dos contextos aislados:
+  - Dueña: `register 201`, `login 200`, publica "QA Amoladora" (`201`). Vecino: `register 201`, `login 200`, pide
+    la herramienta del 2030-01-10 al 2030-01-15 (`POST /api/tools/:id/loans` → `201`).
+  - `GET /api/loans?type=pedidos` (vecino) → `200`, `tool_name: "QA Amoladora"`: el `JOIN` corre en Postgres.
+  - Pantallas a 375 px: vecino, "Mis préstamos" → "Pedí (1)" con la tarjeta "QA Amoladora · Pendiente ·
+    10/1/2030 — 15/1/2030 · Prueba QA". Dueña, "Me pidieron (1)" → la misma tarjeta. Dueña, perfil →
+    "Pedidos recibidos (1)" con "QA Amoladora" (antes mostraba "Herramienta #…").
+  - Las fechas se ven como se pidieron: confirma lo dicho en "No entra".
+  - Limpieza: el vecino cancela (`PATCH /api/loans/:id/status` → `200`, `cancelado`; un primer intento a
+    `/api/loans/:id` dio `404` porque esa ruta no existe), borra su cuenta (`204`); la dueña borra la herramienta
+    (`204`, después `GET` → `404`) y su cuenta (`204`, después `/api/me` → `401`). Staging queda con este código
+    hasta el próximo deploy de `main`.
 
 ## Next
 
-T4: probar el SQL contra el Postgres de staging antes de mergear.
+T5: Hernán crea la rama, commitea, abre el PR y mergea. Después se verifican los deploys.
