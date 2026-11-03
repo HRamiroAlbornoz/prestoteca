@@ -1,7 +1,9 @@
 ---
 author: HRamiroAlbornoz
 branch: fix/tailwind-v4-styles
-status: in-progress
+status: done
+merged: 2026-11-02
+pr: #28
 ---
 # La app vuelve a tener estilos (Tailwind 4)
 
@@ -70,6 +72,4 @@ Además, al pasar de v3 a v4 algunas clases cambiaron de tamaño o de nombre. Si
   `grep -c autoprefixer` en `client/package.json` y `package-lock.json` → `0` y `0`. Commit `342b341`, PR #28.
 
 ## Next
-
-T6: mergear el PR #28. Después, verificar que staging y production queden en `SUCCESS` y que el CSS desplegado
-tenga `bg-violet-600`.
+Fusionado en main el 2026-11-02 (3635587).
