@@ -27,7 +27,13 @@ timestamp: 2026-10-04T00:00:00Z
 |---------|--------|------|
 | Arreglar el deploy en Railway | done | [02-DOCS/wiki/ftd/railway-deploy.md](./ftd/railway-deploy.md) |
 | Arreglos de seguridad y errores del backend | done | [02-DOCS/wiki/ftd/security-hardening.md](./ftd/security-hardening.md) |
-| Backups automáticos de la base de producción | in-progress | [02-DOCS/wiki/ftd/db-backups.md](./ftd/db-backups.md) |
+| Backups automáticos de la base de producción | done | [02-DOCS/wiki/ftd/db-backups.md](./ftd/db-backups.md) |
+| Migrar la configuración de la app de `railway.json` a IaC | done | [02-DOCS/wiki/ftd/railway-iac.md](./ftd/railway-iac.md) |
+| Rechazar pedidos de herramientas pausadas | done | [02-DOCS/wiki/ftd/paused-tool-loans.md](./ftd/paused-tool-loans.md) |
+| Pedir préstamos: body, fechas de los tests y zona horaria | done | [02-DOCS/wiki/ftd/request-loan-dates.md](./ftd/request-loan-dates.md) |
+| Dependencias sin vulnerabilidades conocidas (`npm audit`) | done | [02-DOCS/wiki/ftd/npm-audit.md](./ftd/npm-audit.md) |
+| Cambios de estado de un préstamo: cada uno solo por quien corresponde | done | [02-DOCS/wiki/ftd/loan-transition-roles.md](./ftd/loan-transition-roles.md) |
+| Sesión que funciona: saber quién está logueado, rutas privadas y rutas que faltan | done | [02-DOCS/wiki/ftd/session.md](./ftd/session.md) |
 | La app vuelve a tener estilos (Tailwind 4) | done | [02-DOCS/wiki/ftd/tailwind-v4-styles.md](./ftd/tailwind-v4-styles.md) |
 | Barra de navegación | done | [02-DOCS/wiki/ftd/navigation.md](./ftd/navigation.md) |
 | Editar una herramienta | done | [02-DOCS/wiki/ftd/edit-tool.md](./ftd/edit-tool.md) |
