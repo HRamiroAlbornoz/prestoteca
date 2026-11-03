@@ -106,9 +106,9 @@ SERVER                                                   CLIENT
   pantalla.
 - **`AuthContext`** (interno, cambia) — guarda **por qué** se cerró la sesión (`signOut(motivo)`) y expone un
   `logout()` que dice si el server cerró la sesión.
-- **`PrivateRoute` en `App.tsx`** (interno, cambia) — sin usuario, elige el destino según el motivo: "la cerró la
-  persona" → inicio; "terminó" → login con `returnTo` y el aviso 8; sin motivo (nunca hubo sesión) → login con
-  `returnTo`, como hoy.
+- **`PrivateRoute` en `App.tsx`** (interno, cambia) — sin usuario, elige el destino según el motivo, **solo si el
+  motivo es de esta misma página**: "la cerró la persona" → inicio; "terminó" → login con `returnTo` y el aviso 8; sin
+  motivo o motivo de otra página → login con `returnTo`, como hoy.
 - **Pantallas** (internas, cambian) — usan el hook; separan el error que impide cargar (puede ocupar la pantalla) del
   error de una acción (se muestra arriba del contenido, sin reemplazarlo).
 
@@ -277,7 +277,7 @@ fetchFailureCode(err: unknown) -> ClientErrorCode | null
 ```text
 useApiError() -> { handle(code: ClientErrorCode) -> string | null }
   - code = SESSION_REQUIRED →
-      signOut('session-ended'); devuelve null (la pantalla no muestra nada: se va)
+      signOut('session-ended', ruta actual); devuelve null (la pantalla no muestra nada: se va)
       · en una pantalla privada, PrivateRoute hace la redirección (ver abajo)
       · en una pantalla pública (detalle de herramienta), el hook navega él mismo a
         /login?returnTo=<ruta actual + query, encodeURIComponent> con state { notice: 'SESSION_REQUIRED' } y replace
@@ -285,16 +285,25 @@ useApiError() -> { handle(code: ClientErrorCode) -> string | null }
   - postcondición: nunca navega por un 401 que no sea SESSION_REQUIRED
   - una pantalla que recibe varios SESSION_REQUIRED en el mismo evento llama handle una sola vez
 
-PrivateRoute, sin usuario:
-  - signOutReason = 'session-ended' → <Navigate replace to="/login?returnTo=<ruta actual>" state={{ notice: 'SESSION_REQUIRED' }}>
-  - signOutReason = 'logout'        → <Navigate replace to="/">
-  - sin motivo (nunca hubo sesión)  → /login?returnTo=<ruta actual>, como hoy
+PrivateRoute, sin usuario (ruta actual = pathname + search):
+  - signOut.from = ruta actual y signOut.reason = 'session-ended'
+        → <Navigate replace to="/login?returnTo=<ruta actual>" state={{ notice: 'SESSION_REQUIRED' }}>
+  - signOut.from = ruta actual y signOut.reason = 'logout'
+        → <Navigate replace to="/">
+  - cualquier otro caso (nunca hubo sesión, o el motivo es de otra página)
+        → <Navigate replace to="/login?returnTo=<ruta actual>">, como hoy
 ```
+
+- **El motivo solo vale para la página donde ocurrió.** `signOut` guarda `{ reason, from }`, con `from` = la ruta
+  donde estaba la persona. Sin esto, el motivo quedaba pegado: alguien que va de `/loans` a `/profile`, toca "Salir" y
+  vuelve con "atrás" a `/loans` terminaba en el inicio sin explicación, en vez de en el login. Comparar con `from` evita
+  tener que borrar el motivo con un efecto, que reabriría la carrera de R2. Una recarga del navegador borra el motivo
+  (es estado de React), así que no hace falta persistirlo ni limpiarlo.
 
 - **Por qué así (riesgo R2):** ver la tercera decisión de §2. Quien redirige desde una pantalla privada es siempre
   `PrivateRoute`, así que no importa si `signOut` se dibuja antes o después de cualquier navegación.
-- **`signOutReason`** vive en `AuthContext` junto a `currentUser`; se limpia (vuelve a "sin motivo") cuando
-  `refreshUser()` encuentra un usuario, es decir, al iniciar sesión o registrarse.
+- **`signOut` (`{ reason, from }`)** vive en `AuthContext` junto a `currentUser`; se limpia (vuelve a "sin motivo")
+  cuando `refreshUser()` encuentra un usuario, es decir, al iniciar sesión o registrarse.
 - **El login** muestra el aviso 8 cuando `location.state.notice === 'SESSION_REQUIRED'`, en su `role="alert"`, y lo
   reemplaza por el error del intento siguiente si lo hay. El aviso viaja en el state del router, no en la URL: un enlace
   armado por terceros no puede mostrarlo. Todas las navegaciones que lo llevan usan `replace`, para que "atrás" no
@@ -305,10 +314,11 @@ PrivateRoute, sin usuario:
 ### 3.6 Sesión y "Salir" (cliente)
 
 ```text
-AuthContext.signOut(reason: 'logout' | 'session-ended') -> void
-  - currentUser = null, signOutReason = reason; no pide nada al server
+AuthContext.signOut(reason: 'logout' | 'session-ended', from: string) -> void
+  - currentUser = null, signOut = { reason, from }; no pide nada al server
+  - from = pathname + search de la pantalla donde ocurrió (quien llama lo pasa: el hook y la NavBar lo leen con useLocation)
 AuthContext.logout() -> Promise<'closed' | 'failed'>
-  - POST /api/auth/logout; 2xx → signOut('logout') y 'closed'
+  - POST /api/auth/logout; 2xx → signOut('logout', from) y 'closed'  (logout recibe from de la NavBar)
   - status ≠ 2xx (p. ej. 429 por el límite de 5/min en /api/auth) o falla de red → 'failed', sin tocar currentUser
 
 NavBar "Salir":
@@ -350,7 +360,7 @@ tablas en código: el catálogo (código → status) y el mapa (código → text
 2. `authMiddleware` no encuentra token → `sendErrorCode(res, 'SESSION_REQUIRED', 'Authentication required')` → 401
    `{ error: { code: 'SESSION_REQUIRED', message: 'Authentication required' } }`.
 3. `LoanDetailPage` recibe `!res.ok` → `readApiError(res)` → `'SESSION_REQUIRED'` → `handle(code)`.
-4. El hook llama `signOut('session-ended')`; la barra pasa a mostrar "Iniciar sesión" y `PrivateRoute`, sin usuario y
+4. El hook llama `signOut('session-ended', '/loans/42')`; la barra pasa a mostrar "Iniciar sesión" y `PrivateRoute`, sin usuario y
    con ese motivo, redirige (con `replace`) a `/login?returnTo=%2Floans%2F42` con state
    `{ notice: 'SESSION_REQUIRED' }`.
 5. `LoginPage` muestra "Tu sesión terminó. Iniciá sesión para continuar." en su alerta.
@@ -390,7 +400,7 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
 | AC-10 | estática (cliente) | fuera de tests, ningún archivo de `client/src` contiene `error?.message`/`error.message` sobre datos de respuesta, ni los textos en inglés conocidos (`Network error`, `Login failed`, `Registration failed`, `Tool not found`, `Failed to`) | nada |
 | AC-11 | componente con router (memoria), con el `App` real (incluye `PrivateRoute`) | desde `/loans/42` un 401 `SESSION_REQUIRED` → ruta `/login?returnTo=%2Floans%2F42`, aviso 8 visible, barra sin sesión; tras login OK → `/loans/42`. Mismo recorrido desde `/tools/7` (pública). Perfil con los dos pedidos en 401 → una sola navegación | `fetch` |
 | AC-12 | componente | login 401 `INVALID_CREDENTIALS` → fila 7, sigue en `/login`, el email escrito sigue en el campo | `fetch` |
-| AC-13 | componente (`NavBar` en `App`) | logout con red caída y con 429 → fila 10, la barra sigue con "Salir" y el nombre. Además, "Salir" que funciona **desde `/profile`** termina en `/` (no en el login) | `fetch` |
+| AC-13 | componente (`NavBar` en `App`) | logout con red caída y con 429 → fila 10, la barra sigue con "Salir" y el nombre. Además, "Salir" que funciona **desde `/profile`** termina en `/` (no en el login); y después de "Salir", volver con "atrás" a otra página privada (`/loans`) lleva al login con `returnTo=%2Floans` y sin aviso | `fetch` |
 | AC-14 | unit (cliente, entorno node) | lee `02-DOCS/wiki/sdd/specs/error-codes.md`, extrae las filas numeradas de la tabla (tolerando CRLF y quitando la nota en cursiva de la fila 8) y compara cada texto con `MESSAGES[código]` mediante un mapa fila → código fijado en el test | nada: lee el archivo real |
 
 - **No hay e2e automático.** Los recorridos que dependen del entorno real (cookie que vence, limitador en memoria del
@@ -430,7 +440,7 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
    *Done:* AC-2, AC-3, AC-4 (unit), AC-5, AC-9c, AC-14; `npm run build` desde la raíz en verde (R1); `node:fs` en
    tests aceptado por `tsc -b`. Nota: mientras los códigos genéricos sigan en el catálogo (hasta la tarea 6), el mapa
    los apunta a la fila 37; la tarea 6 borra esas entradas del mapa junto con los códigos.
-8. **Cliente: sesión** (`AuthContext.signOut`/`signOutReason`/`logout`, `PrivateRoute` en `App.tsx`, `useApiError`,
+8. **Cliente: sesión** (`AuthContext.signOut` con `{ reason, from }` y `logout`, `PrivateRoute` en `App.tsx`, `useApiError`,
    aviso 8 en `LoginPage`, `returnTo` en `ToolDetailPage`, "Salir" en `NavBar`) — depende de: 7 — serial. *Done:*
    AC-11, AC-12, AC-13.
 9. **Cliente: pantallas de cuenta** (`RegisterPage`, `ProfilePage`) — depende de: 8 — paralelizable con 10-11.
@@ -495,3 +505,7 @@ entre teclas en la búsqueda (*debounce*); el 404 de `TOOL_EDIT_EMPTY`.
   `BAD_REQUEST`; (9) la guardia estática usa un patrón multilínea y se la ve fallar. Notas aplicadas: `replace` en
   las navegaciones con aviso, regla de §3.2 acotada a `error: {`/`code:`, `readApiError` sin códigos solo-cliente,
   correcciones de §1 y AC-5b(b), 2xx con forma inválida → `UNKNOWN_ERROR`, tipos de Node en tests a confirmar.
+- 2026-11-03 — Hueco propio del arreglo (1), encontrado antes de la segunda revisión: el motivo del cierre quedaba
+  pegado, y volver con "atrás" a otra página privada después de "Salir" llevaba al inicio en vez de al login. El motivo
+  pasa a guardar la página donde ocurrió (`{ reason, from }`) y `PrivateRoute` solo lo usa en esa página. Test
+  agregado en AC-13.
