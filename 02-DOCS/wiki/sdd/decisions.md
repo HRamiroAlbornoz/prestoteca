@@ -106,3 +106,25 @@ timestamp: 2026-10-04T00:00:00Z
 - **Consecuencias:**
   - ✅ El usuario nunca queda trabado en una pantalla privada con la sesión terminada.
   - ⚠️ Lo escrito en un formulario se pierde al ir al login; guardarlo queda fuera de este ciclo.
+
+## D7 — Dónde vive el catálogo de códigos y cómo lo lee el cliente
+
+- **Fecha:** 2026-11-03
+- **Contexto:** Fase `plan` de la spec [error-codes](./specs/error-codes.md). AC-5 pide que falte un mensaje se detecte
+  antes del merge; AC-5b, que ningún código quede fuera del catálogo. Plan: [error-codes](./plans/error-codes.md).
+- **Opciones:**
+  - Duplicar la lista de códigos en el cliente.
+  - Un paquete compartido (`shared/`) como tercer workspace.
+  - El catálogo en un archivo del server sin dependencias (`errorCodes.ts`, código → status), y el mapa del cliente
+    tipado contra él con un `import type`.
+- **Decisión:** la tercera. Además: `AppError(code, mensaje)` deriva el status del catálogo y es el único escritor del
+  JSON de error; el cliente reacciona con un hook (`useApiError`) en vez de envolver `fetch`; la tabla de la spec es el
+  oráculo del test de AC-14; el aviso de sesión terminada viaja en el state del router, no en la URL.
+- **Por qué:** `tsc -b` del cliente falla si un código no tiene mensaje, sin sumar un workspace; el `import type` se
+  borra al compilar y el bundle no incluye nada del server. Un código → un status impide que el mismo código salga con
+  dos status distintos.
+- **Consecuencias:**
+  - ✅ Agregar un código sin mensaje rompe el build y un test, no la pantalla.
+  - ⚠️ El build del cliente depende de que exista `server/src` (Railway construye desde la raíz). Plan B: un JSON
+    generado en el cliente, comparado por test.
+  - ⚠️ `TOOL_EDIT_EMPTY` conserva el 404 de hoy, aunque no sea el status correcto; se corrige aparte.
