@@ -28,7 +28,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Arreglar el deploy en Railway | done | [02-DOCS/wiki/ftd/railway-deploy.md](./ftd/railway-deploy.md) |
 | Arreglos de seguridad y errores del backend | done | [02-DOCS/wiki/ftd/security-hardening.md](./ftd/security-hardening.md) |
 | Backups automáticos de la base de producción | in-progress | [02-DOCS/wiki/ftd/db-backups.md](./ftd/db-backups.md) |
-| La app vuelve a tener estilos (Tailwind 4) | in-progress | [02-DOCS/wiki/ftd/tailwind-v4-styles.md](./ftd/tailwind-v4-styles.md) |
+| La app vuelve a tener estilos (Tailwind 4) | done | [02-DOCS/wiki/ftd/tailwind-v4-styles.md](./ftd/tailwind-v4-styles.md) |
 
 ## Product docs
 
