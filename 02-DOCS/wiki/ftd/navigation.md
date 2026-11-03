@@ -1,7 +1,9 @@
 ---
 author: HRamiroAlbornoz
 branch: feat/navigation
-status: in-progress
+status: done
+merged: 2026-11-02
+pr: #30
 ---
 # Barra de navegación
 
@@ -67,5 +69,4 @@ Una barra arriba de todas las pantallas resuelve las dos cosas.
     de la barra (anotado en "No entra").
 
 ## Next
-
-T5: Hernán crea la rama `feat/navigation`, commitea, abre el PR y mergea. Después se verifica el deploy.
+Fusionado en main el 2026-11-02 (2442b8a).
