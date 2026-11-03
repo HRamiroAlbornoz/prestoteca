@@ -29,6 +29,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Arreglos de seguridad y errores del backend | done | [02-DOCS/wiki/ftd/security-hardening.md](./ftd/security-hardening.md) |
 | Backups automáticos de la base de producción | in-progress | [02-DOCS/wiki/ftd/db-backups.md](./ftd/db-backups.md) |
 | La app vuelve a tener estilos (Tailwind 4) | done | [02-DOCS/wiki/ftd/tailwind-v4-styles.md](./ftd/tailwind-v4-styles.md) |
+| Barra de navegación | in-progress | [02-DOCS/wiki/ftd/navigation.md](./ftd/navigation.md) |
 
 ## Product docs
 

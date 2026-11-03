@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import App from './App'
 
 // These tests render the real App: real routes, real PrivateRoute, real AuthProvider.
@@ -114,5 +114,74 @@ describe('App routes and session', () => {
     renderAt('/loans/loan-1')
 
     await waitFor(() => expect(window.location.pathname).toBe('/login'))
+  })
+})
+
+describe('Navigation bar', () => {
+  beforeEach(() => {
+    sessionUser = null
+    installFakeServer()
+  })
+
+  it('offers login and register to a visitor without a session', async () => {
+    renderAt('/')
+
+    const nav = await screen.findByRole('navigation', { name: /principal/i })
+    expect(await within(nav).findByRole('link', { name: /iniciar sesión/i })).toHaveAttribute('href', '/login')
+    expect(within(nav).getByRole('link', { name: /crear cuenta/i })).toHaveAttribute('href', '/register')
+    expect(within(nav).queryByRole('link', { name: /mis préstamos/i })).not.toBeInTheDocument()
+    expect(within(nav).queryByRole('button', { name: /^salir$/i })).not.toBeInTheDocument()
+  })
+
+  it('offers publish, my loans, profile and logout to a logged-in user', async () => {
+    sessionUser = { id: 'user-1', name: 'Ana' }
+    renderAt('/')
+
+    const nav = await screen.findByRole('navigation', { name: /principal/i })
+    expect(await within(nav).findByRole('link', { name: /publicar/i })).toHaveAttribute('href', '/publish')
+    expect(within(nav).getByRole('link', { name: /mis préstamos/i })).toHaveAttribute('href', '/loans')
+    expect(within(nav).getByRole('link', { name: /perfil/i })).toHaveAttribute('href', '/profile')
+    expect(within(nav).getByRole('button', { name: /^salir$/i })).toBeInTheDocument()
+    expect(within(nav).queryByRole('link', { name: /iniciar sesión/i })).not.toBeInTheDocument()
+  })
+
+  it('shows only the home link while it does not know yet whether there is a session', () => {
+    // /api/me never answers, so the app stays in its "loading" state
+    fetchMock.mockImplementation(() => new Promise(() => {}))
+    renderAt('/')
+
+    const nav = screen.getByRole('navigation', { name: /principal/i })
+    expect(within(nav).getByRole('link', { name: /prestoteca/i })).toHaveAttribute('href', '/')
+    expect(within(nav).queryByRole('link', { name: /iniciar sesión/i })).not.toBeInTheDocument()
+    expect(within(nav).queryByRole('button', { name: /^salir$/i })).not.toBeInTheDocument()
+  })
+
+  it('logs out from a private page: tells the server, goes home and offers login again', async () => {
+    sessionUser = { id: 'user-1', name: 'Ana' }
+    renderAt('/profile')
+    await screen.findByRole('heading', { name: /mi perfil/i })
+
+    fireEvent.click(screen.getByRole('button', { name: /^salir$/i }))
+
+    const nav = screen.getByRole('navigation', { name: /principal/i })
+    expect(await within(nav).findByRole('link', { name: /iniciar sesión/i })).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST' })
+    expect(window.location.pathname).toBe('/')
+  })
+
+  it('marks the link of the current page', async () => {
+    sessionUser = { id: 'user-1', name: 'Ana' }
+    renderAt('/loans')
+
+    const nav = await screen.findByRole('navigation', { name: /principal/i })
+    expect(await within(nav).findByRole('link', { name: /mis préstamos/i })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: /perfil/i })).not.toHaveAttribute('aria-current')
+  })
+
+  it('has a skip link that points to the main content', async () => {
+    renderAt('/')
+
+    expect(screen.getByRole('link', { name: /saltar al contenido/i })).toHaveAttribute('href', '#main')
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main')
   })
 })
