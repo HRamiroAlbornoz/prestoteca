@@ -1,7 +1,9 @@
 ---
 author: HRamiroAlbornoz
 branch: chore/npm-audit
-status: in-progress
+status: done
+merged: 2026-11-02
+pr: #23
 ---
 # Dependencias sin vulnerabilidades conocidas (`npm audit`)
 
@@ -44,7 +46,7 @@ probarlo, antes de cambiar nada se creó en staging una cuenta cuyo hash lo hizo
   `backup` → 0, y salida de Vitest.
 - [x] T5 — Staging con `railway up`: la cuenta con hash de `bcrypt` 5 inicia sesión (`200`), una contraseña
   incorrecta da `401` y `/api/health` da `200`.
-- [ ] T6 — PR mergeado y deploys de staging, production y `db-backup` en `SUCCESS`.
+- [x] T6 — PR mergeado y deploys de staging, production y `db-backup` en `SUCCESS`.
 
 ## Evidence
 
@@ -73,8 +75,18 @@ probarlo, antes de cambiar nada se creó en staging una cuenta cuyo hash lo hizo
   **`bcrypt` 6 acepta los hashes de `bcrypt` 5.** Regresión: `request-loan-e2e.mjs` (ayer `400`, hoy `201`, snake_case
   `400`) y `paused-e2e.mjs` (`201`, `201`, `200`, `403`, `409`, `400`) dan lo mismo que antes. Esos scripts
   registran cuentas nuevas, así que también prueban hashes hechos por `bcrypt` 6. Limpieza completa.
+- **T6** (2026-11-02/03): PR #23 mergeado (`f777007`). Railway:
+  - `prestoteca`: el deploy de `f777007` quedó reemplazado por los siguientes; el activo el 2026-11-02 a las 22:47
+    UTC era `db60cba` (posterior, con bcrypt 6 y zod 4) en `SUCCESS` en staging y production, online.
+  - `db-backup` production: deploy `6d9e68b7` de `f777007` → `SUCCESS` (2026-11-02 21:40 UTC). Corrida programada
+    del 2026-11-03: `lastExecutionStatus: succeeded` a las 06:02:11 UTC. Log de esa corrida: `starting backup`
+    (`pg_dump (PostgreSQL) 18.6`, `keep: 14`) → `backup uploaded` (`postgres/prestoteca-2026-11-03T06-02-09Z.dump`)
+    → `old backups deleted` (`[]`) → `backup finished`.
+  - `db-backup` staging: no se redeployó con el merge, a propósito: no está conectado al repo y se despliega con
+    `railway up` (ver `db-backups.md`). El cambio de `vitest` no entra en su imagen (`npm ci --omit=dev`).
+    Su corrida del 2026-11-02 a las 06:00 UTC salió bien.
 
 ## Next
 
-T6: Hernán commitea, abre el PR y mergea. El merge también redeploya `db-backup`, porque cambia `backup/**`.
-Después se verifican los tres deploys y la corrida de backup siguiente.
+Fusionado en main el 2026-11-02 (f777007). Cerrado a mano el 2026-11-03, después de comprobar la corrida de
+backup: el hook de rsc no lo había cerrado al mergear.
