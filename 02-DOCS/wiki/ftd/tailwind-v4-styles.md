@@ -44,7 +44,7 @@ Además, al pasar de v3 a v4 algunas clases cambiaron de tamaño o de nombre. Si
   `outline-hidden`, y los ajustes oscuros quedan dentro de `@layer utilities`.
 - [x] T3 — Tests, type-check, lint y build en verde. Prueba: salida de cada comando.
 - [x] T4 — Se ve bien en el navegador, en celular (375 px) y en escritorio. Prueba: capturas.
-- [ ] T5 — Hernán saca `autoprefixer` (`npm uninstall autoprefixer -w client`) y el build sigue en verde.
+- [x] T5 — Hernán saca `autoprefixer` (`npm uninstall autoprefixer -w client`) y el build sigue en verde.
 - [ ] T6 — PR mergeado y staging/production en `SUCCESS`, con el CSS desplegado que tenga `bg-violet-600`.
 
 ## Evidence
@@ -65,7 +65,11 @@ Además, al pasar de v3 a v4 algunas clases cambiaron de tamaño o de nombre. Si
   blanca/gris oscuro con sombra, inputs con borde redondeado y botón violeta. `/` a 1280 px: título, buscador en fila
   y botón violeta. No se levantó el servidor, así que el listado sale vacío (`0 herramientas encontradas`).
   Fuera de alcance, para más adelante: en modo oscuro, el enlace violeta "Crear cuenta" tiene poco contraste con el fondo.
+- **T5** (2026-11-02, Hernán): `npm uninstall autoprefixer -w client` → `removed 10 packages`, `found 0 vulnerabilities`.
+  `npm run build -w client` → `index-CsclUtDF.css 20.95 kB` (el mismo hash que en T2), `built in 339ms`.
+  `grep -c autoprefixer` en `client/package.json` y `package-lock.json` → `0` y `0`. Commit `342b341`, PR #28.
 
 ## Next
 
-T5: Hernán corre `npm uninstall autoprefixer -w client` y después `npm run build -w client`. Luego el commit y el PR (T6).
+T6: mergear el PR #28. Después, verificar que staging y production queden en `SUCCESS` y que el CSS desplegado
+tenga `bg-violet-600`.
