@@ -1,7 +1,9 @@
 ---
 author: HRamiroAlbornoz
 branch: fix/loan-tool-name
-status: in-progress
+status: done
+merged: 2026-11-03
+pr: #35
 ---
 # "Mis préstamos" muestra el nombre de la herramienta
 
@@ -37,7 +39,7 @@ hechos"), que por eso muestra "Herramienta #1e5f8444" en vez del nombre. El arre
 - [x] T3 — Suites de server y client, type-check, lint y build en verde. Prueba: salida de cada comando.
 - [x] T4 — El SQL contra un Postgres real: en staging (sin base local), un préstamo entre dos cuentas de prueba
   aparece con su nombre en "Mis préstamos" (las dos pestañas) y en el perfil. Prueba: respuesta de la API y capturas.
-- [ ] T5 — PR mergeado y staging/production en `SUCCESS`.
+- [x] T5 — PR mergeado y staging/production en `SUCCESS`.
 
 ## Evidence
 
@@ -63,7 +65,12 @@ hechos"), que por eso muestra "Herramienta #1e5f8444" en vez del nombre. El arre
     `/api/loans/:id` dio `404` porque esa ruta no existe), borra su cuenta (`204`); la dueña borra la herramienta
     (`204`, después `GET` → `404`) y su cuenta (`204`, después `/api/me` → `401`). Staging queda con este código
     hasta el próximo deploy de `main`.
+- **T5** (2026-11-03 UTC): PR #35 mergeado con `gh pr merge --squash --delete-branch` a las 15:52:54 (`aa412ff`).
+  Railway, servicio `prestoteca`: staging `4d88d1d7` → `SUCCESS` (15:53:48), production `707dcd80` → `SUCCESS`
+  (15:54:04); staging volvió así al código de `main`. En los dos: `/api/health` → `{"status":"ok","db":"connected"}`
+  y `GET /api/loans?type=pedidos` sin sesión → `401` (la ruta responde). Logs de production con nivel `error`: solo
+  el aviso de npm de siempre (`npm warn config production Use --omit=dev instead`). El `JOIN` contra Postgres ya se
+  probó en T4 con el mismo código.
 
 ## Next
-
-T5: Hernán crea la rama, commitea, abre el PR y mergea. Después se verifican los deploys.
+Fusionado en main el 2026-11-03 (aa412ff).
