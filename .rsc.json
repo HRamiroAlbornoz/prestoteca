@@ -8,6 +8,7 @@
     "accessibility",
     "analytics",
     "analyze",
+    "asdd",
     "automation-strategy",
     "clarify",
     "connect-tool",
@@ -30,7 +31,6 @@
     "railway",
     "react",
     "review",
-    "sdd",
     "sdd-init",
     "ship",
     "simplify-code",
@@ -52,7 +52,7 @@
     "refuter-tests"
   ],
   "ownSkills": [],
-  "catalogVersion": "3.7.5",
+  "catalogVersion": "4.0.1",
   "tier": null,
   "optOuts": [],
   "onboarding": {
