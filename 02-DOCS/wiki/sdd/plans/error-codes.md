@@ -22,6 +22,10 @@ Valores exactos que toda tarea respeta. El revisor de cada tarea los lee primero
 - **Forma de toda respuesta de error (sin excepción):** JSON `{ "error": { "code": "<CÓDIGO>", "message": "<texto>" } }`.
   `code` pertenece al catálogo de §3.1. `message` es texto para desarrollo, en inglés, y **nunca** se muestra al
   usuario. Ningún otro campo (`details`, `retryable`, `action`) se agrega en este ciclo.
+- **Los textos para desarrollo (`message`) no cambian** (tampoco los pocos que hoy están en español): este cambio solo
+  toca el `code`. Hay tests que afirman esos textos (p. ej.
+  `originWiring.test.ts:64` espera `'Missing required fields'`, emitido por `authRoutes.ts:74`); cambiarlos rompería
+  la tarea dueña de ese test.
 - **Status HTTP:** cada situación responde el mismo status que antes de este cambio (tabla de §3.1). Única fuente del
   status: el catálogo (un código → un status). Única excepción registrada (D7): cambiar la contraseña de una cuenta
   eliminada → `ACCOUNT_NOT_FOUND` 404.
@@ -342,6 +346,7 @@ un `role="alert"` arriba del contenido, que sigue visible.
 | `LoanDetailPage` | préstamo (+ nombre de la herramienta) | cambiar estado | hoy un error de transición reemplaza el préstamo: pasa a error de acción |
 | `MyLoansPage` | dos listas en paralelo | — | deja "Error al cargar los préstamos"; regla de dos pedidos (abajo) |
 | `ProfilePage` | herramientas + historial en paralelo | contraseña, eliminar cuenta | deja "Error al cargar el perfil"; regla de dos pedidos (abajo); una falla del historial, que hoy se ignora, pasa a ser error de carga; `settingsError` ya es de acción |
+| `NavBar` | — | salir | §3.6 |
 
 **Regla de dos pedidos en paralelo** (`MyLoansPage`, `ProfilePage`): los dos pedidos se esperan con
 `Promise.allSettled` (hoy `Promise.all`, que pierde el resultado del otro si uno falla por red). Cada pedido termina en
@@ -349,7 +354,6 @@ un `role="alert"` arriba del contenido, que sigue visible.
 falla de ese pedido). Prioridad: si alguno dio `SESSION_REQUIRED`, gana y se llama `handle` una sola vez; si no, se
 muestra el código del primer pedido de la lista que falló (préstamos pedidos antes que recibidos; herramientas antes
 que historial). Si los dos se cancelaron (`AbortError`), no se muestra nada.
-| `NavBar` | — | salir | §3.6 |
 
 ## 4. Data model & flow
 
@@ -431,7 +435,8 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
    `UserRepository.create`, que es de la 3), y la aserción `'TOO_MANY_REQUESTS'` de `authRoutes.test.ts:175-176` (la
    única línea de ese archivo que toca esta tarea: el código lo cambia el limitador).
 3. **Módulo auth + me** (registro, login, `GET /me`, contraseña con `findActiveById`, eliminar cuenta,
-   `accountDeletion`) — depende de: 1 — paralelizable. *Done:* filas 1-7, 11-16 en la tabla de AC-6. Tests:
+   `accountDeletion`, y `meRoutes.ts` —`/api/me/tools` y `/api/me/history`, que hoy escriben `UNAUTHORIZED` a mano en
+   `:18` y `:42`—) — depende de: 1 — paralelizable. *Done:* filas 1-7, 11-16 en la tabla de AC-6. Tests:
    `authRoutes` (salvo la aserción del limitador, de la 2), `authService`, `authValidation`, `meAccountRoutes`,
    `accountDeletion`, `userRepo`, y el bloque `UserRepository.create` de `errors.test.ts` (hoy afirma
    `ConflictError`; pasa a `EMAIL_TAKEN`). La 2 y la 3 tocan bloques distintos de `errors.test.ts` y de
@@ -535,3 +540,8 @@ entre teclas en la búsqueda (*debounce*); el 404 de `TOOL_EDIT_EMPTY`.
   sin sesión abierta; (6-8, bajas) un pedido cancelado en el inicio no toca ningún estado, los tests de AC-11/AC-13
   fijan la ruta con `window.history.pushState`, el `state` del aviso es un objeto constante y `authContext.test.tsx`
   se actualiza en la tarea 8.
+- 2026-11-03 — Tercera revisión, acotada a la ronda anterior (pedida por Hernán). Confirmó que `useTransitions={false}`
+  hace lo que el plan dice (verificado en el código de react-router 7.18.4: ni `navigate` ni `<Link>` usan
+  `startTransition` con la prop en `false`) y que el texto de la excepción de `ACCOUNT_NOT_FOUND` es exacto. Hallazgos
+  bajos aplicados: `meRoutes.ts` se asigna a la tarea 3; §0 fija que los textos para desarrollo no cambian (hay tests
+  que los afirman entre tareas); la tabla de §3.7 queda entera, con la regla debajo.
