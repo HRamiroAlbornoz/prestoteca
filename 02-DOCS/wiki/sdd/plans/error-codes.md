@@ -78,17 +78,17 @@ SERVER                                                   CLIENT
       ▲                                                        │
       │ lanzan / responden                                     ▼
  middlewares (auth, origin, rateLimit)                  errors/useApiError.ts (hook)
- rutas y servicios (auth, me, tools,                    (SESSION_REQUIRED → signOut('session-ended');
-  loans, search)                                         resto → texto para la pantalla)
+ rutas y servicios (auth, me, tools,                    (SESSION_REQUIRED → navega al login
+  loans, search)                                         y olvida al usuario; resto → texto)
                                                                │
       ── HTTP: { error: { code, message } } ──────────▶  pages/* y NavBar
                                                         (error de carga vs. error de acción)
                                                                │
                                                         contexts/AuthContext
-                                                        (signOut(motivo), logout que informa)
+                                                        (markSignedOut, logout que informa)
                                                                │
-                                                        App.tsx · PrivateRoute
-                                                        (sin usuario: el motivo decide el destino)
+                                                        App.tsx · <BrowserRouter useTransitions={false}>
+                                                        (navegación síncrona: sin carrera con PrivateRoute)
 ```
 
 - **`server/src/modules/errors/errorCodes.ts`** (interno, nuevo) — la lista de códigos y el status de cada uno. Sin
@@ -101,14 +101,12 @@ SERVER                                                   CLIENT
   más los 4 mensajes que solo produce el cliente.
 - **`client/src/errors/apiError.ts`** (interno, nuevo) — convierte una respuesta fallida o una excepción de `fetch` en
   un `ClientErrorCode`. Nunca devuelve el texto del server.
-- **`client/src/errors/useApiError.ts`** (interno, nuevo) — decide la reacción: `SESSION_REQUIRED` → cierra la sesión
-  en la app con el motivo "terminó" (y en una pantalla pública navega al login); cualquier otro → el texto para la
-  pantalla.
-- **`AuthContext`** (interno, cambia) — guarda **por qué** se cerró la sesión (`signOut(motivo)`) y expone un
+- **`client/src/errors/useApiError.ts`** (interno, nuevo) — decide la reacción: `SESSION_REQUIRED` → navega al login
+  con `returnTo` y el aviso 8, y olvida al usuario; cualquier otro → el texto para la pantalla. Funciona igual en
+  pantallas públicas y privadas: no necesita saber cuál es cuál.
+- **`AuthContext`** (interno, cambia) — expone `markSignedOut()` (olvida al usuario sin pedir nada al server) y un
   `logout()` que dice si el server cerró la sesión.
-- **`PrivateRoute` en `App.tsx`** (interno, cambia) — sin usuario, elige el destino según el motivo, **solo si el
-  motivo es de esta misma página**: "la cerró la persona" → inicio; "terminó" → login con `returnTo` y el aviso 8; sin
-  motivo o motivo de otra página → login con `returnTo`, como hoy.
+- **`App.tsx`** (interno, cambia) — `<BrowserRouter useTransitions={false}>`. `PrivateRoute` no cambia.
 - **Pantallas** (internas, cambian) — usan el hook; separan el error que impide cargar (puede ocupar la pantalla) del
   error de una acción (se muestra arriba del contenido, sin reemplazarlo).
 
@@ -128,12 +126,17 @@ El `import type` se borra al compilar: el bundle del cliente no incluye nada del
 tocaría cada llamada y su manejo de `AbortController`; el hook solo cambia qué se hace cuando ya falló, que es lo que
 pide la spec. Cada pantalla sigue haciendo su `fetch` como hoy.
 
-**Tercera decisión: el destino tras perder la sesión lo decide `PrivateRoute`, leyendo el motivo.** React Router 7
-mete cada navegación en un `startTransition`, así que un `setCurrentUser(null)` (actualización urgente) se dibuja
-antes que cualquier `navigate()` hecho en el mismo evento: en ese dibujo `PrivateRoute` ve la página privada sin
-usuario y redirige por su cuenta, pisando la navegación y su `state` (verificado en
-`react-router/dist/development/chunk-OB3PAWPO.mjs`, `startTransition` en el `setState` del router y `<Navigate>` que
-navega en un efecto). Si el que redirige es siempre `PrivateRoute` y sabe el motivo, el orden deja de importar.
+**Tercera decisión: navegación síncrona (`<BrowserRouter useTransitions={false}>`).** React Router 7 mete por defecto
+cada navegación en un `startTransition`, así que un `setCurrentUser(null)` (actualización urgente) se dibuja antes que
+un `navigate()` hecho en el mismo evento: en ese dibujo `PrivateRoute` ve la página privada sin usuario y redirige por
+su cuenta, pisando la navegación y su `state` (verificado en `react-router/dist/development/chunk-OB3PAWPO.mjs`: el
+`setState` del router usa `startTransition` salvo con `useTransitions === false`). Con `useTransitions={false}` —prop
+pública de `BrowserRouter`, documentada en los `.d.ts` de 7.x— la navegación también es urgente: React agrupa las dos
+actualizaciones del mismo evento en un solo dibujo, con la ruta nueva y sin usuario, y `PrivateRoute` de la página vieja
+ya no se monta. Se eligió frente a guardar un "motivo de cierre" que `PrivateRoute` leyera (versión anterior de este
+plan): ese mecanismo necesitaba recordar la página donde ocurrió, saber qué pantallas son privadas y seguía fallando con
+una ruta repetida en el historial. **Costo:** la app pierde las transiciones de React al navegar; hoy no usa `lazy` ni
+`Suspense`, así que no hay cambio visible. Si algún día se agregan, hay que revisar esta decisión.
 
 ## 3. Interfaces & contracts
 
@@ -234,9 +237,13 @@ apiNotFound(req, res)                   // montado en /api después de wireRoute
   `AuthContext` lo trata como "sin sesión" y no muestra nada. `ACCOUNT_NOT_FOUND` es solo para cambiar la contraseña
   o eliminar la cuenta.
 - **Excepción registrada al "status no cambia":** cambiar la contraseña busca hoy al usuario con `findById`, que no
-  filtra `deleted_at`, así que una cuenta eliminada nunca llega al 404 y la fila 15 sería inalcanzable. La ruta pasa a
-  `findActiveById`: una cuenta eliminada responde `ACCOUNT_NOT_FOUND` 404 en vez de lo que hoy responda (401 o éxito).
-  Es la única excepción del plan; está en D7 y su test lo nombra.
+  filtra `deleted_at`. Al eliminar una cuenta, su contraseña guardada se reemplaza por una al azar
+  (`accountDeletion.ts:47-51`), así que una cuenta eliminada (p. ej. con un token viejo en otro dispositivo) recibe
+  siempre 401 y la persona leería la fila 12, "La contraseña actual no es correcta", que es engañosa. La ruta pasa a
+  `findActiveById`: una cuenta eliminada responde `ACCOUNT_NOT_FOUND` 404 (fila 15). Las validaciones previas (400)
+  no cambian. Eliminar la cuenta ya responde 404 hoy en ese caso (`accountDeletion.ts:21-27`, también cuando dos
+  borrados corren a la vez), así que ahí no hay excepción. Es la única excepción del plan; está en D7 y su test la
+  nombra.
 
 ### 3.3 Mapa de mensajes (cliente)
 
@@ -277,55 +284,47 @@ fetchFailureCode(err: unknown) -> ClientErrorCode | null
 ```text
 useApiError() -> { handle(code: ClientErrorCode) -> string | null }
   - code = SESSION_REQUIRED →
-      signOut('session-ended', ruta actual); devuelve null (la pantalla no muestra nada: se va)
-      · en una pantalla privada, PrivateRoute hace la redirección (ver abajo)
-      · en una pantalla pública (detalle de herramienta), el hook navega él mismo a
-        /login?returnTo=<ruta actual + query, encodeURIComponent> con state { notice: 'SESSION_REQUIRED' } y replace
+      navigate('/login?returnTo=<pathname + search, encodeURIComponent>', { replace: true, state: SESSION_NOTICE })
+      y después markSignedOut(), en el mismo evento; devuelve null (la pantalla no muestra nada: se va)
   - otro → devuelve messageFor(code)
   - postcondición: nunca navega por un 401 que no sea SESSION_REQUIRED
   - una pantalla que recibe varios SESSION_REQUIRED en el mismo evento llama handle una sola vez
 
-PrivateRoute, sin usuario (ruta actual = pathname + search):
-  - signOut.from = ruta actual y signOut.reason = 'session-ended'
-        → <Navigate replace to="/login?returnTo=<ruta actual>" state={{ notice: 'SESSION_REQUIRED' }}>
-  - signOut.from = ruta actual y signOut.reason = 'logout'
-        → <Navigate replace to="/">
-  - cualquier otro caso (nunca hubo sesión, o el motivo es de otra página)
-        → <Navigate replace to="/login?returnTo=<ruta actual>">, como hoy
+SESSION_NOTICE = { notice: 'SESSION_REQUIRED' }   // objeto constante del módulo, no uno nuevo en cada llamada
 ```
 
-- **El motivo solo vale para la página donde ocurrió.** `signOut` guarda `{ reason, from }`, con `from` = la ruta
-  donde estaba la persona. Sin esto, el motivo quedaba pegado: alguien que va de `/loans` a `/profile`, toca "Salir" y
-  vuelve con "atrás" a `/loans` terminaba en el inicio sin explicación, en vez de en el login. Comparar con `from` evita
-  tener que borrar el motivo con un efecto, que reabriría la carrera de R2. Una recarga del navegador borra el motivo
-  (es estado de React), así que no hace falta persistirlo ni limpiarlo.
-
-- **Por qué así (riesgo R2):** ver la tercera decisión de §2. Quien redirige desde una pantalla privada es siempre
-  `PrivateRoute`, así que no importa si `signOut` se dibuja antes o después de cualquier navegación.
-- **`signOut` (`{ reason, from }`)** vive en `AuthContext` junto a `currentUser`; se limpia (vuelve a "sin motivo")
-  cuando `refreshUser()` encuentra un usuario, es decir, al iniciar sesión o registrarse.
-- **El login** muestra el aviso 8 cuando `location.state.notice === 'SESSION_REQUIRED'`, en su `role="alert"`, y lo
-  reemplaza por el error del intento siguiente si lo hay. El aviso viaja en el state del router, no en la URL: un enlace
-  armado por terceros no puede mostrarlo. Todas las navegaciones que lo llevan usan `replace`, para que "atrás" no
-  vuelva a la pantalla privada ni repita el aviso.
+- **Por qué funciona (riesgo R2):** con `useTransitions={false}` (§2, tercera decisión) la navegación y
+  `markSignedOut()` se dibujan juntas; `PrivateRoute` de la página vieja nunca ve "sin usuario". Vale igual en una
+  pantalla pública (detalle de herramienta) que en una privada. `PrivateRoute` no cambia: sin usuario y sin haber
+  pasado por el hook (nunca hubo sesión, recarga, "atrás" a una página privada) sigue llevando al login con `returnTo`,
+  sin aviso, como hoy.
+- **El login** muestra el aviso 8 solo si `location.state.notice === 'SESSION_REQUIRED'` **y** no hay sesión abierta,
+  en su `role="alert"`, y lo reemplaza por el error del intento siguiente si lo hay. El aviso viaja en el state del
+  router, no en la URL: un enlace armado por terceros no puede mostrarlo.
+- **Al entrar, el login reemplaza su entrada del historial:** `navigate(returnTo, { replace: true })` (hoy agrega una
+  entrada nueva, `LoginPage.tsx:45`). Así "atrás" después de iniciar sesión no vuelve al login con el aviso viejo; y
+  si volviera por otro camino, la condición "sin sesión abierta" lo oculta.
 - **"Iniciar sesión para pedir"** (detalle de herramienta) navega a `/login?returnTo=/tools/<id>` sin state: no es un
   error, no muestra el aviso (AC-11, salvedad).
 
 ### 3.6 Sesión y "Salir" (cliente)
 
 ```text
-AuthContext.signOut(reason: 'logout' | 'session-ended', from: string) -> void
-  - currentUser = null, signOut = { reason, from }; no pide nada al server
-  - from = pathname + search de la pantalla donde ocurrió (quien llama lo pasa: el hook y la NavBar lo leen con useLocation)
+AuthContext.markSignedOut() -> void
+  - currentUser = null; no pide nada al server
 AuthContext.logout() -> Promise<'closed' | 'failed'>
-  - POST /api/auth/logout; 2xx → signOut('logout', from) y 'closed'  (logout recibe from de la NavBar)
-  - status ≠ 2xx (p. ej. 429 por el límite de 5/min en /api/auth) o falla de red → 'failed', sin tocar currentUser
+  - POST /api/auth/logout; 2xx → 'closed'; status ≠ 2xx (p. ej. 429 por el límite de 5/min en /api/auth) o falla
+    de red → 'failed'
+  - no toca currentUser: quien llama decide el orden
 
 NavBar "Salir":
-  - 'closed' → en una pantalla privada, PrivateRoute lleva al inicio; en una pública, la NavBar navega a '/'
+  - 'closed' → navigate('/') y después markSignedOut(), en el mismo evento (con useTransitions={false} se dibujan
+    juntas: desde una página privada termina en '/', no en el login)
   - 'failed' → la barra sigue mostrando la sesión; aparece messageFor('LOGOUT_FAILED') en un role="alert" debajo
     de la barra; desaparece en el siguiente intento de "Salir" o al navegar
 ```
+
+- `authContext.test.tsx` llama hoy `logout()` y espera que olvide al usuario: la tarea 8 lo actualiza al contrato nuevo.
 
 ### 3.7 Pantallas
 
@@ -344,9 +343,12 @@ un `role="alert"` arriba del contenido, que sigue visible.
 | `MyLoansPage` | dos listas en paralelo | — | deja "Error al cargar los préstamos"; regla de dos pedidos (abajo) |
 | `ProfilePage` | herramientas + historial en paralelo | contraseña, eliminar cuenta | deja "Error al cargar el perfil"; regla de dos pedidos (abajo); una falla del historial, que hoy se ignora, pasa a ser error de carga; `settingsError` ya es de acción |
 
-**Regla de dos pedidos en paralelo** (`MyLoansPage`, `ProfilePage`): si alguno respondió `SESSION_REQUIRED`, gana y
-se llama `handle` una sola vez; si no, se muestra el código del primer pedido de la lista que falló (préstamos
-pedidos antes que recibidos; herramientas antes que historial).
+**Regla de dos pedidos en paralelo** (`MyLoansPage`, `ProfilePage`): los dos pedidos se esperan con
+`Promise.allSettled` (hoy `Promise.all`, que pierde el resultado del otro si uno falla por red). Cada pedido termina en
+"éxito" o en un `ClientErrorCode` (respuesta fallida → `readApiError`; excepción → `fetchFailureCode`, que cuenta como
+falla de ese pedido). Prioridad: si alguno dio `SESSION_REQUIRED`, gana y se llama `handle` una sola vez; si no, se
+muestra el código del primer pedido de la lista que falló (préstamos pedidos antes que recibidos; herramientas antes
+que historial). Si los dos se cancelaron (`AbortError`), no se muestra nada.
 | `NavBar` | — | salir | §3.6 |
 
 ## 4. Data model & flow
@@ -360,11 +362,12 @@ tablas en código: el catálogo (código → status) y el mapa (código → text
 2. `authMiddleware` no encuentra token → `sendErrorCode(res, 'SESSION_REQUIRED', 'Authentication required')` → 401
    `{ error: { code: 'SESSION_REQUIRED', message: 'Authentication required' } }`.
 3. `LoanDetailPage` recibe `!res.ok` → `readApiError(res)` → `'SESSION_REQUIRED'` → `handle(code)`.
-4. El hook llama `signOut('session-ended', '/loans/42')`; la barra pasa a mostrar "Iniciar sesión" y `PrivateRoute`, sin usuario y
-   con ese motivo, redirige (con `replace`) a `/login?returnTo=%2Floans%2F42` con state
-   `{ notice: 'SESSION_REQUIRED' }`.
+4. El hook navega (con `replace`) a `/login?returnTo=%2Floans%2F42` con state `{ notice: 'SESSION_REQUIRED' }` y
+   llama `markSignedOut()`; con la navegación síncrona, las dos cosas se dibujan juntas y la barra pasa a mostrar
+   "Iniciar sesión".
 5. `LoginPage` muestra "Tu sesión terminó. Iniciá sesión para continuar." en su alerta.
-6. La persona inicia sesión → `safeReturnTo('/loans/42')` → vuelve a `/loans/42`.
+6. La persona inicia sesión → `safeReturnTo('/loans/42')` → vuelve a `/loans/42`, reemplazando la entrada del login
+   en el historial.
 
 **Flujo secundario — búsqueda demasiado larga en el inicio (AC-5c):** `GET /api/tools?q=<61 caracteres>` →
 `searchService` lanza `AppError('SEARCH_QUERY_TOO_LONG', …)` → 400 → `HomePage` muestra la fila 33 en su alerta, con
@@ -398,9 +401,9 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
 | AC-9b | componente (`ToolDetailPage`) | pausar/eliminar con 409/403 → mensaje + nombre, estado y botones siguen en pantalla | `fetch` |
 | AC-9c | unit (mapa) | `RATE_LIMITED` → texto con "Esperá un minuto" | nada |
 | AC-10 | estática (cliente) | fuera de tests, ningún archivo de `client/src` contiene `error?.message`/`error.message` sobre datos de respuesta, ni los textos en inglés conocidos (`Network error`, `Login failed`, `Registration failed`, `Tool not found`, `Failed to`) | nada |
-| AC-11 | componente con el `App` real (trae su propio `BrowserRouter`: no se le puede anidar un `MemoryRouter`); la ruta inicial se fija con `window.history.pushState`, como en `App.test.tsx` | desde `/loans/42` un 401 `SESSION_REQUIRED` → ruta `/login?returnTo=%2Floans%2F42`, aviso 8 visible, barra sin sesión; tras login OK → `/loans/42`. Mismo recorrido desde `/tools/7` (pública). Perfil con los dos pedidos en 401 → una sola navegación | `fetch` |
+| AC-11 | componente con el `App` real (trae su propio `BrowserRouter`: no se le puede anidar un `MemoryRouter`); la ruta inicial se fija con `window.history.pushState`, como en `App.test.tsx` | desde `/loans/42` un 401 `SESSION_REQUIRED` → ruta `/login?returnTo=%2Floans%2F42`, aviso 8 visible, barra sin sesión; tras login OK → `/loans/42`, y "atrás" no vuelve a mostrar el aviso. Mismo recorrido desde `/tools/7` (pública). Perfil con los dos pedidos en 401 → una sola navegación; perfil con 401 + red caída → gana `SESSION_REQUIRED` | `fetch` |
 | AC-12 | componente | login 401 `INVALID_CREDENTIALS` → fila 7, sigue en `/login`, el email escrito sigue en el campo | `fetch` |
-| AC-13 | componente (`NavBar` en el `App` real, ruta inicial con `window.history.pushState`) | logout con red caída y con 429 → fila 10, la barra sigue con "Salir" y el nombre. Además, "Salir" que funciona **desde `/profile`** termina en `/` (no en el login); y después de "Salir", volver con "atrás" a otra página privada (`/loans`) lleva al login con `returnTo=%2Floans` y sin aviso | `fetch` |
+| AC-13 | componente (`NavBar` en el `App` real, ruta inicial con `window.history.pushState`) | logout con red caída y con 429 → fila 10, la barra sigue con "Salir" y el nombre. Además, "Salir" que funciona **desde `/profile`** termina en `/` (no en el login); y después de "Salir", volver con "atrás" a una página privada (`/loans`, aunque esté repetida en el historial) lleva al login con `returnTo=%2Floans` y sin aviso | `fetch` |
 | AC-14 | unit (cliente, entorno node) | lee `02-DOCS/wiki/sdd/specs/error-codes.md`, extrae las filas numeradas de la tabla (tolerando CRLF y quitando la nota en cursiva de la fila 8) y compara cada texto con `MESSAGES[código]` mediante un mapa fila → código fijado en el test | nada: lee el archivo real |
 
 - **No hay e2e automático.** Los recorridos que dependen del entorno real (cookie que vence, limitador en memoria del
@@ -424,10 +427,15 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
    *Done:* tests unit del catálogo (un status por código) y de `sendError`; `tsc -b` y la suite del server en verde.
 2. **Emisores transversales del server:** `authMiddleware`, `originChecker`, `rateLimit`, `errorHandler`, montaje de
    `apiNotFound` — depende de: 1 — paralelizable con 3-5. *Done:* AC-5b(b). Tests: `middleware.test.ts`,
-   `originWiring.test.ts`, `rateLimitIsolation.test.ts`, `errors.test.ts`, `securityAc.test.ts`.
+   `originWiring.test.ts`, `rateLimitIsolation.test.ts`, `securityAc.test.ts`, `errors.test.ts` (salvo el bloque
+   `UserRepository.create`, que es de la 3), y la aserción `'TOO_MANY_REQUESTS'` de `authRoutes.test.ts:175-176` (la
+   única línea de ese archivo que toca esta tarea: el código lo cambia el limitador).
 3. **Módulo auth + me** (registro, login, `GET /me`, contraseña con `findActiveById`, eliminar cuenta,
    `accountDeletion`) — depende de: 1 — paralelizable. *Done:* filas 1-7, 11-16 en la tabla de AC-6. Tests:
-   `authRoutes`, `authService`, `authValidation`, `meAccountRoutes`, `accountDeletion`, `userRepo`.
+   `authRoutes` (salvo la aserción del limitador, de la 2), `authService`, `authValidation`, `meAccountRoutes`,
+   `accountDeletion`, `userRepo`, y el bloque `UserRepository.create` de `errors.test.ts` (hoy afirma
+   `ConflictError`; pasa a `EMAIL_TAKEN`). La 2 y la 3 tocan bloques distintos de `errors.test.ts` y de
+   `authRoutes.test.ts`: si corren en paralelo, se integran una después de la otra.
 4. **Módulo tools + search** (crear, editar, pausar, eliminar, detalle, listado; `TOOL_EDIT_EMPTY` en el servicio) —
    depende de: 1 — paralelizable. *Done:* filas 17-22, 33 y casos "bug" de tools. Tests: `toolsRoutes`,
    `toolService`, `toolRepo`, `toolDetail`, `searchService`, `searchRepo`, `t030_routes` (también cubre `/api/me/*`:
@@ -435,14 +443,18 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
 5. **Módulo loans** (crear —incluye `TOOL_NOT_FOUND` y `TOOL_PAUSED` de `loansRoutes.ts`—, detalle, transición,
    listas) — depende de: 1 — paralelizable. *Done:* filas 23-32. Tests: `loansRoutes`, `loanService`, `loanRepo`.
 6. **Guardia estática del server (AC-5b a) + AC-7/AC-8; se borran las subclases y los códigos genéricos** — depende
-   de: 2-5 (falla mientras quede un emisor viejo) — serial.
-7. **Cliente: `errors/` (mapa, `readApiError`, `fetchFailureCode`)** — depende de: 1 (tipos) — paralelizable con 2-6.
+   de: 2-5 (falla mientras quede un emisor viejo) y de 7 (borra las entradas genéricas de `client/src/errors/messages.ts`,
+   que crea la 7) — serial. Tests: reescribe los usos de subclases que quedan en `errors.test.ts` (el `it.each` con
+   `ValidationError`/`ForbiddenError`/`NotFoundError`/`ConflictError` y el PATCH con `new NotFoundError`), y el mapa
+   del cliente.
+7. **Cliente: `errors/` (mapa, `readApiError`, `fetchFailureCode`)** — depende de: 1 (tipos) — paralelizable con 2-5.
    *Done:* AC-2, AC-3, AC-4 (unit), AC-5, AC-9c, AC-14; `npm run build` desde la raíz en verde (R1); `node:fs` en
    tests aceptado por `tsc -b`. Nota: mientras los códigos genéricos sigan en el catálogo (hasta la tarea 6), el mapa
    los apunta a la fila 37; la tarea 6 borra esas entradas del mapa junto con los códigos.
-8. **Cliente: sesión** (`AuthContext.signOut` con `{ reason, from }` y `logout`, `PrivateRoute` en `App.tsx`, `useApiError`,
-   aviso 8 en `LoginPage`, `returnTo` en `ToolDetailPage`, "Salir" en `NavBar`) — depende de: 7 — serial. *Done:*
-   AC-11, AC-12, AC-13.
+8. **Cliente: sesión** (`useTransitions={false}` en `App.tsx`, `AuthContext.markSignedOut` y `logout` que informa,
+   `useApiError`, aviso 8 y `navigate(returnTo, { replace: true })` en `LoginPage`, `returnTo` en `ToolDetailPage`,
+   "Salir" en `NavBar`) — depende de: 7 — serial. *Done:* AC-11, AC-12, AC-13; `App.test.tsx` y
+   `authContext.test.tsx` actualizados y en verde.
 9. **Cliente: pantallas de cuenta** (`RegisterPage`, `ProfilePage`) — depende de: 8 — paralelizable con 10-11.
 10. **Cliente: pantallas de herramientas** (`HomePage`, `ToolDetailPage` carga/acción, `PublishForm`) — depende de: 8
     — paralelizable. *Done:* AC-5c, AC-9b.
@@ -452,10 +464,11 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
 13. **Cierre:** verify de toda la rama, prueba en staging (sesión vencida → login → vuelta; demasiados pedidos;
     superposición), archivo de verificación — depende de: todo — serial.
 
-- **Paralelizables (alcance disjunto, archivos y tests asignados arriba):** 2, 3, 4, 5 y 7 entre sí; 9, 10 y 11
-  entre sí. `ToolDetailPage` lo tocan la 8 (`returnTo`) y la 10 (carga/acción): por eso la 10 va después de la 8.
+- **Paralelizables (alcance disjunto, archivos y tests asignados arriba):** 2, 3, 4, 5 y 7 entre sí (2 y 3 con la
+  salvedad de los dos archivos de test compartidos por bloques); 9, 10 y 11 entre sí. `ToolDetailPage` lo tocan la 8 (`returnTo`) y la 10 (carga/acción): por eso la 10 va después de la 8.
 - **Orden duro:** 1 antes que todo (define los tipos que todo usa); 6 y 12 al final de su lado porque son las guardias
-  que fallan mientras quede algo viejo; 8 antes que las pantallas porque todas usan el hook.
+  que fallan mientras quede algo viejo; 6 después de 7 porque limpia el mapa que crea la 7; 8 antes que las pantallas
+  porque todas usan el hook.
 - **Cada tarea deja `tsc -b`, lint y las suites de server y client en verde.** Por eso las subclases y los códigos
   genéricos sobreviven hasta la tarea 6.
 - **Presupuesto de revisión** (`config.yaml`: 400 líneas / 12 archivos por tarea): las tareas 3, 4, 5, 10 y 11 son las
@@ -468,7 +481,7 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
 | # | Riesgo | Disparador | Impacto | Mitigación |
 |---|---|---|---|---|
 | R1 | El `import type` del cliente hacia `server/src` rompe el build | Railpack construye sin la carpeta `server`, o `tsc -b` del cliente rechaza el archivo fuera de `src` | El deploy falla | Tarea 7 corre `npm run build` desde la raíz como en Railway; el archivo del catálogo no tiene imports ni sintaxis no borrable (`erasableSyntaxOnly`). Plan B: un JSON generado en `client/src/errors/` + el test de AC-5 que lo compara con el catálogo |
-| R2 | Carrera entre una navegación y `PrivateRoute` | React Router 7 aplica la navegación en un `startTransition`; `signOut()` se dibuja antes | Llega al login sin el aviso 8, o "Salir" termina en el login | Confirmado en la revisión. Mitigado por diseño: `PrivateRoute` decide el destino por el motivo (§2, tercera decisión; §3.5). Tests de AC-11 y AC-13 con el `App` real |
+| R2 | Carrera entre una navegación y `PrivateRoute` | React Router 7 aplica la navegación en un `startTransition`; `markSignedOut()` se dibuja antes | Llega al login sin el aviso 8, o "Salir" termina en el login | Confirmado en la revisión. Mitigado con `<BrowserRouter useTransitions={false}>` (§2, tercera decisión). Tests de AC-11 y AC-13 con el `App` real. Si en el futuro se agrega `lazy`/`Suspense`, revisar la decisión |
 | R3 | Diff grande y tests viejos que afirman textos | Las tareas 3-5 y 9-11 tocan muchos archivos | Revisiones largas, tests borrados "porque fallaban" | Presupuesto por tarea; la regla de §5 (actualizar, nunca borrar sin reemplazo); el revisor de cada tarea lo controla |
 | R4 | AC-14 frágil frente a la spec | Alguien edita la tabla (fila nueva, formato) | El test falla aunque el código esté bien | Es el comportamiento buscado: la tabla es la referencia. El parser solo toma filas `\| <n> \| … \| … \|` y el mensaje de falla dice qué fila difiere |
 | R5 | `logout` cambia de comportamiento | "Salir" con 429 (5/min en `/api/auth`) | Antes cerraba en la app; ahora dice que falló | Es lo que pide AC-13; el mensaje explica qué hacer |
@@ -484,8 +497,8 @@ estado previo.
 **Decisiones abiertas:** ninguna que bloquee `tasks`. Tomadas en este plan y registradas como D7: catálogo en un
 archivo del server sin dependencias con el status de cada código; mapa del cliente tipado con `import type`; hook en
 vez de envolver `fetch`; la tabla de la spec como oráculo de AC-14; aviso de sesión terminada en el state del router;
-`PrivateRoute` decide el destino según el motivo del cierre; `ACCOUNT_NOT_FOUND` como única excepción al "status no
-cambia".
+navegación síncrona (`useTransitions={false}`) para que navegar y olvidar al usuario se dibujen juntos;
+`ACCOUNT_NOT_FOUND` como única excepción al "status no cambia".
 
 **Para el backlog (fuera de este cambio):** validar que los ids sean UUID (hoy un id mal formado da 500); esperar
 entre teclas en la búsqueda (*debounce*); el 404 de `TOOL_EDIT_EMPTY`.
@@ -509,3 +522,16 @@ entre teclas en la búsqueda (*debounce*); el 404 de `TOOL_EDIT_EMPTY`.
   pegado, y volver con "atrás" a otra página privada después de "Salir" llevaba al inicio en vez de al login. El motivo
   pasa a guardar la página donde ocurrió (`{ reason, from }`) y `PrivateRoute` solo lo usa en esa página. Test
   agregado en AC-13.
+- 2026-11-03 — Segunda revisión de un agente con contexto limpio, acotada a lo que cambió (pedida por Hernán).
+  Veredicto: `Problemas encontrados`, 8 hallazgos (1 alta, 4 media, 3 baja), todos verificados contra el código.
+  Cambios: (1) se reasignan los tests que una tarea rompía a otra (`authRoutes.test.ts:175` → tarea 2; bloque
+  `UserRepository.create` de `errors.test.ts` → tarea 3; la 6 reescribe los usos de subclases) y la 6 depende de la 7;
+  (2) **se reemplaza el "motivo de cierre" por `<BrowserRouter useTransitions={false}>`**: con la navegación síncrona,
+  navegar y olvidar al usuario se dibujan juntos, el hook y "Salir" navegan ellos mismos y `PrivateRoute` no cambia.
+  Esto elimina `{ reason, from }`, la necesidad de saber qué pantallas son privadas y el caso de la ruta repetida en el
+  historial; (3) la regla de dos pedidos usa `Promise.allSettled` y cuenta la falla de red como falla de ese pedido;
+  (4) se corrige el porqué de la excepción de `ACCOUNT_NOT_FOUND`: hoy la persona caería en la fila 12, y la fila 15 ya
+  se alcanza al eliminar la cuenta; (5) el login reemplaza su entrada del historial al entrar, y el aviso 8 solo se ve
+  sin sesión abierta; (6-8, bajas) un pedido cancelado en el inicio no toca ningún estado, los tests de AC-11/AC-13
+  fijan la ruta con `window.history.pushState`, el `state` del aviso es un objeto constante y `authContext.test.tsx`
+  se actualiza en la tarea 8.
