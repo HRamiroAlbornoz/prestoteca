@@ -119,13 +119,16 @@ timestamp: 2026-10-04T00:00:00Z
     tipado contra él con un `import type`.
 - **Decisión:** la tercera. Además: `AppError(code, mensaje)` deriva el status del catálogo y es el único escritor del
   JSON de error; el cliente reacciona con un hook (`useApiError`) en vez de envolver `fetch`; la tabla de la spec es el
-  oráculo del test de AC-14; el aviso de sesión terminada viaja en el state del router, no en la URL; tras perder la
-  sesión, `PrivateRoute` decide el destino según el motivo que guarda `AuthContext` ("Salir" → inicio; "terminó" →
-  login con el aviso), solo en la página donde ocurrió (el motivo guarda esa ruta), porque React Router 7 navega dentro de un `startTransition` y una navegación hecha a mano
-  pierde la carrera contra el `setCurrentUser(null)`.
+  oráculo del test de AC-14; el aviso de sesión terminada viaja en el state del router, no en la URL; la app usa
+  `<BrowserRouter useTransitions={false}>`. React Router 7 mete por defecto cada navegación en un `startTransition`,
+  y entonces un `setCurrentUser(null)` se dibuja antes que la navegación y `PrivateRoute` la pisa. Con la navegación
+  síncrona las dos actualizaciones se dibujan juntas. Se descartó guardar un "motivo de cierre" que `PrivateRoute`
+  leyera: hacía falta recordar la página, saber qué pantallas son privadas, y fallaba con una ruta repetida en el
+  historial. Costo: sin transiciones de React al navegar; la app no usa `lazy` ni `Suspense`.
 - **Excepción al "status no cambia" de la spec:** cambiar la contraseña busca al usuario con `findActiveById` en vez
-  de `findById` (que no filtra cuentas eliminadas). Una cuenta eliminada pasa a responder `ACCOUNT_NOT_FOUND` 404;
-  sin esto, la fila 15 de la spec no se podía alcanzar.
+  de `findById` (que no filtra cuentas eliminadas). Hoy una cuenta eliminada recibe siempre 401, porque al eliminarla
+  su contraseña se reemplaza por una al azar, y la persona leería "La contraseña actual no es correcta" (fila 12), que
+  es engañoso. Pasa a responder `ACCOUNT_NOT_FOUND` 404 (fila 15). Eliminar la cuenta ya responde 404 en ese caso.
 - **Por qué:** `tsc -b` del cliente falla si un código no tiene mensaje, sin sumar un workspace; el `import type` se
   borra al compilar y el bundle no incluye nada del server. Un código → un status impide que el mismo código salga con
   dos status distintos.
