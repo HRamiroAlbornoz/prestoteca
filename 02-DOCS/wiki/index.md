@@ -16,6 +16,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Spec | Prestoteca MVP — Spec | [02-DOCS/wiki/sdd/specs/prestoteca-mvp.md](./sdd/specs/prestoteca-mvp.md) |
 | Spec | Códigos de error específicos y mensajes en español (approved 2026-11-03) | [02-DOCS/wiki/sdd/specs/error-codes.md](./sdd/specs/error-codes.md) |
 | Plan | Prestoteca MVP — Plan | [02-DOCS/wiki/sdd/plans/prestoteca-mvp.md](./sdd/plans/prestoteca-mvp.md) |
+| Plan | Códigos de error específicos y mensajes en español (approved 2026-11-03) | [02-DOCS/wiki/sdd/plans/error-codes.md](./sdd/plans/error-codes.md) |
 | Decisions | Prestoteca — Decision Records | [02-DOCS/wiki/sdd/decisions.md](./sdd/decisions.md) |
 | Analysis | Prestoteca — Consistency Gate | [02-DOCS/wiki/sdd/analysis/prestoteca-mvp.md](./sdd/analysis/prestoteca-mvp.md) |
 | Verification | db-backups — 2026-10-24 (FAIL: coverage not measured) | [02-DOCS/wiki/sdd/verifications/db-backups-2026-10-24.md](./sdd/verifications/db-backups-2026-10-24.md) |
