@@ -47,7 +47,7 @@ Además, al pasar de v3 a v4 algunas clases cambiaron de tamaño o de nombre. Si
 - [x] T3 — Tests, type-check, lint y build en verde. Prueba: salida de cada comando.
 - [x] T4 — Se ve bien en el navegador, en celular (375 px) y en escritorio. Prueba: capturas.
 - [x] T5 — Hernán saca `autoprefixer` (`npm uninstall autoprefixer -w client`) y el build sigue en verde.
-- [ ] T6 — PR mergeado y staging/production en `SUCCESS`, con el CSS desplegado que tenga `bg-violet-600`.
+- [x] T6 — PR mergeado y staging/production en `SUCCESS`, con el CSS desplegado que tenga `bg-violet-600`.
 
 ## Evidence
 
@@ -70,6 +70,12 @@ Además, al pasar de v3 a v4 algunas clases cambiaron de tamaño o de nombre. Si
 - **T5** (2026-11-02, Hernán): `npm uninstall autoprefixer -w client` → `removed 10 packages`, `found 0 vulnerabilities`.
   `npm run build -w client` → `index-CsclUtDF.css 20.95 kB` (el mismo hash que en T2), `built in 339ms`.
   `grep -c autoprefixer` en `client/package.json` y `package-lock.json` → `0` y `0`. Commit `342b341`, PR #28.
+- **T6** (2026-11-03 UTC): PR #28 mergeado a las 02:21:56 UTC (`3635587`). Railway, servicio `prestoteca`:
+  staging `ab59fe1f` → `SUCCESS` (02:22:57 UTC), production `b28c63a6` → `SUCCESS` (02:22:47 UTC). Las dos URLs
+  (`prestoteca-staging` y `prestoteca-production.up.railway.app`) sirven `/assets/index-CsclUtDF.css` (el mismo hash
+  que el build local) y ese CSS contiene `bg-violet-600`. `/api/health` → `200` en los dos. Captura de production a
+  375 px: estado "Cargando…" con tarjetas esqueleto, y después "11 herramientas encontradas" con tarjetas
+  blancas con sombra, etiquetas de colores y el botón "Buscar" violeta.
 
 ## Next
 Fusionado en main el 2026-11-02 (3635587).
