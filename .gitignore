@@ -164,3 +164,7 @@ backup/**/*.dump
 .claude/skills/tidy
 .opencode/rsc/ux
 .opencode/rsc/tidy
+
+# rsc local state (hooks, seals, logs) and managed skill links — machine-local
+.claude/skills/asdd
+.opencode/rsc/asdd
