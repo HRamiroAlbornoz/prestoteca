@@ -6,12 +6,14 @@ tags: [sdd, spec, errors, i18n]
 timestamp: 2026-11-02T22:00:00Z
 topic: sdd
 slug: error-codes
-status: draft
+status: approved
+approved: 2026-11-03
+approved_by: Hernán — "Sí, apruebo la spec tal como está." (aprobada ítem por ítem, no en autopiloto)
 ---
 
 # Spec — Códigos de error específicos y mensajes en español
 
-> Slug: `error-codes` · Status: draft · Created: 2026-11-02
+> Slug: `error-codes` · Status: approved (2026-11-03) · Created: 2026-11-02
 > Inherits: [constitution](../constitution.md) (principio 8: errores con forma consistente y mensajes genéricos al
 > cliente; principio 14: errores anunciados a lectores de pantalla)
 > Origen: punto 5 del backlog acordado el 2026-10-24 ("mensajes al usuario en inglés").
@@ -75,6 +77,103 @@ comprobación automática que falla si existe un código sin mensaje.
 - **Quien mantiene la app** (Hernán). Necesita que cada error tenga un nombre estable para buscarlo en el código y en
   los logs, y que agregar un caso nuevo no deje un hueco silencioso en la pantalla.
 
+## What the user can do
+
+Cualquier persona que usa la app (con o sin sesión), cuando una acción falla, lee en la misma pantalla qué pasó y,
+si puede hacer algo, qué. Si su sesión venció o no tiene sesión mientras hace algo que la requiere, la app la lleva a
+iniciar sesión y, al entrar, la devuelve a la pantalla donde estaba. No hace falta ningún permiso especial: vale para
+todas las pantallas y todos los roles.
+
+## What result they get
+
+Para cada situación, el usuario ve exactamente este texto. **Esta tabla es la referencia que aprueba Hernán**; la
+implementación la copia tal cual. Los nombres técnicos de los códigos no van acá: los define el `plan`.
+
+| # | Situación | Mensaje que ve el usuario |
+|---|---|---|
+| **Registro** |||
+| 1 | Falta algún dato | Completá todos los campos. |
+| 2 | El nombre no tiene entre 2 y 50 caracteres | El nombre tiene que tener entre 2 y 50 caracteres. |
+| 3 | La contraseña no tiene entre 8 y 72 caracteres | La contraseña tiene que tener entre 8 y 72 caracteres. |
+| 4 | El email tiene más de 254 caracteres | El email es demasiado largo. |
+| 5 | El email ya está registrado | Ya hay una cuenta con ese email. Iniciá sesión o usá otro email. |
+| **Sesión** |||
+| 6 | Al iniciar sesión, falta el email o la contraseña | Escribí tu email y tu contraseña. |
+| 7 | Al iniciar sesión, email o contraseña incorrectos | El email o la contraseña no son correctos. |
+| 8 | No hay sesión, venció o no es válida (en una acción que la requiere) | Tu sesión terminó. Iniciá sesión para continuar. *(y la app lleva al login)* |
+| 9 | *(fusionada con la 8 el 2026-11-03: ver Revisions)* | — |
+| 10 | "Salir" falla (sin conexión, o el server lo rechaza) | No pudimos cerrar tu sesión. Revisá tu conexión e intentá de nuevo en un momento. |
+| **Cuenta** |||
+| 11 | Falta la contraseña actual o la nueva | Completá la contraseña actual y la nueva. |
+| 12 | La contraseña actual no coincide | La contraseña actual no es correcta. Revisala e intentá de nuevo. |
+| 13 | La contraseña nueva no tiene entre 8 y 72 caracteres | La contraseña nueva tiene que tener entre 8 y 72 caracteres. |
+| 14 | La contraseña nueva es solo espacios | La contraseña nueva no puede ser solo espacios. |
+| 15 | La cuenta ya no existe (se eliminó con la sesión abierta) | Esta cuenta ya no existe. |
+| 16 | La cuenta tiene préstamos activos y no se puede eliminar | No podés eliminar tu cuenta mientras tengas préstamos en curso. |
+| **Herramientas** |||
+| 17 | Al publicar, falta algún dato | Completá todos los campos. |
+| 18 | El nombre no tiene entre 3 y 60 caracteres | El nombre tiene que tener entre 3 y 60 caracteres. |
+| 19 | La descripción tiene más de 500 caracteres | La descripción puede tener hasta 500 caracteres. |
+| 20 | La herramienta no existe | Esta herramienta no existe o fue eliminada. |
+| 21 | No es tuya (editar, pausar o eliminar) | Solo podés modificar tus propias herramientas. |
+| 22 | Tiene préstamos activos y no se puede eliminar | No podés eliminar esta herramienta mientras tenga préstamos en curso. |
+| 23 | Está pausada y no acepta pedidos | Esta herramienta está pausada y no acepta pedidos por ahora. |
+| **Préstamos** |||
+| 24 | Falta alguna fecha | Elegí la fecha de inicio y la de fin. |
+| 25 | La fecha de inicio ya pasó | La fecha de inicio no puede ser anterior a hoy. |
+| 26 | La fecha de fin es anterior a la de inicio | La fecha de fin no puede ser anterior a la de inicio. |
+| 27 | La nota tiene más de 300 caracteres | La nota puede tener hasta 300 caracteres. |
+| 28 | Es tu propia herramienta | No podés pedir prestada tu propia herramienta. |
+| 29 | Se superpone con otro préstamo | La herramienta ya está reservada en esas fechas. Probá con otras. |
+| 30 | El cambio de estado no existe desde el estado actual | Este préstamo ya cambió de estado. Recargá la página para ver cómo está. |
+| 31 | El cambio existe pero no le corresponde a tu rol | Esta acción le corresponde a la otra persona del préstamo. |
+| 32 | El préstamo no existe | Este préstamo no existe. |
+| **Búsqueda** |||
+| 33 | El texto buscado tiene más de 60 caracteres | La búsqueda puede tener hasta 60 caracteres. |
+| 34 | No se pudo cargar el listado (error del server o código desconocido) | No pudimos cargar las herramientas. Intentá de nuevo en un momento. |
+| **General** |||
+| 35 | Demasiados pedidos seguidos (en el login o navegando) | Hubo demasiados pedidos en poco tiempo. Esperá un minuto y volvé a intentar. |
+| 36 | Sin conexión o el server no responde | No hay conexión con el servidor. Revisá tu internet e intentá de nuevo. |
+| 37 | Error interno, situación que solo produce un bug, código desconocido o respuesta sin formato | Algo salió mal. Intentá de nuevo en un momento. |
+
+Además, el resultado visible respeta *Behaviour → Dónde se ve el error*: el mensaje aparece en la pantalla donde se
+hizo la acción, sin reemplazar su contenido.
+
+**En el inicio (búsqueda y listado), qué mensaje gana:** sin conexión → 36; texto demasiado largo → 33; demasiados
+pedidos → 35; cualquier otra falla al cargar el listado (error del server, código desconocido, respuesta sin
+formato) → 34. En el inicio, la 34 reemplaza a la 37.
+
+## What it must respect
+
+- **Constitución, principio 8:** las respuestas de error mantienen su forma consistente y los detalles quedan en
+  los logs, nunca en la respuesta.
+- **Constitución, principio 14:** los errores se anuncian a lectores de pantalla.
+- **Decisión D5** (`02-DOCS/wiki/sdd/decisions.md`): códigos específicos en el server, mensajes en el cliente; el
+  texto del server queda solo para desarrollo.
+- **Los status HTTP de cada caso no cambian** (AC-6, AC-7).
+- **"No existe" y "no es tuyo"** siguen respondiendo igual donde hoy responden igual (préstamos ajenos).
+- **El login fallido nunca lleva al login ni borra lo escrito:** se queda en la pantalla con el mensaje 7.
+- **Ir al login depende del código del error, no del status:** el login incorrecto (7), la contraseña actual
+  incorrecta (12) y el origen no permitido también responden 401, y ninguno de ellos lleva al login. Solo lo hace la
+  situación 8.
+- **La vuelta después del login solo va a páginas de esta misma app** (ya lo prueba `App.test.tsx` con
+  `returnTo=//evil.example` y similares; no puede dejar de pasar).
+- **Las validaciones del cliente siguen igual:** el formulario de publicar y editar ya valida antes de enviar con sus
+  propios mensajes en español (PR #32); esos textos no cambian.
+- **Los límites de intentos** (5 por minuto en autenticación, 30 por minuto en general) no cambian.
+- **Todo lo que hoy pasa en los tests** sigue pasando, salvo lo que este cambio reemplaza a propósito (los textos).
+
+## How it proves it
+
+- **Tests automáticos, uno o más por criterio de aceptación**, en las suites de server y client. Su salida queda en
+  el archivo de verificación de esta spec (`02-DOCS/wiki/sdd/verifications/error-codes-<fecha>.md`).
+- **AC-5 es una comprobación que se ejecuta**: recorre el catálogo del server y falla si un código no tiene mensaje
+  en el cliente. La evidencia es verla fallar a propósito con un código sin mensaje y después pasar.
+- **La tabla de *What result they get*** se compara contra el mapa del cliente con un test: si un texto difiere, falla.
+- **Prueba en staging** de los casos que dependen del entorno real: sesión vencida que lleva al login y vuelve,
+  demasiados intentos, y un error de préstamo (superposición). Quedan las respuestas de la API y capturas de pantalla.
+- Un check que no se pudo correr se registra como **no corrido**, nunca como aprobado.
+
 ## Behaviour
 
 - **Main path.** Cuando una acción falla por una situación prevista, el usuario ve en la misma pantalla un mensaje en
@@ -84,7 +183,14 @@ comprobación automática que falla si existe un código sin mensaje.
     email es demasiado largo; el email ya está registrado. (La pantalla de registro no valida antes de enviar, así
     que estos casos llegan al usuario tal cual.)
   - Sesión: falta el email o la contraseña (al iniciar sesión); email o contraseña incorrectos (al iniciar sesión);
-    no hay sesión; la sesión venció o no es válida.
+    no hay sesión, venció o no es válida. Estos tres son una sola situación para el usuario: la cookie de sesión dura
+    lo mismo que la sesión (1 hora), así que cuando la sesión vence el navegador ya la descartó y el server solo ve
+    "no hay sesión". En esa situación, además del mensaje, la app lleva al usuario a iniciar sesión y, al entrar, lo
+    devuelve a la pantalla donde estaba, **también desde las pantallas públicas**. Hoy eso falla en el detalle de una
+    herramienta: "Iniciar sesión para pedir" y "Pedir prestada" mandan al login con un parámetro que el login no lee,
+    y la persona termina en el inicio. Arreglarlo entra en este cambio.
+    "Salir" que falla (sin conexión, o porque el server lo rechaza, por ejemplo por demasiados pedidos): la app lo
+    dice y la sesión sigue abierta. Hoy parece cerrada, pero al recargar vuelve, porque el server nunca se enteró.
   - Cuenta: falta la contraseña actual o la nueva; la contraseña actual no coincide; la contraseña nueva no tiene
     entre 8 y 72 caracteres; la contraseña nueva es solo espacios; la cuenta ya no existe (se eliminó con la sesión
     abierta); la cuenta tiene préstamos activos y no se puede eliminar.
@@ -95,8 +201,9 @@ comprobación automática que falla si existe un código sin mensaje.
     estado actual; el cambio existe pero no le corresponde a tu rol (por ejemplo, quien pidió intenta aceptar); el
     préstamo no existe.
   - Búsqueda: el texto buscado es demasiado largo; no se pudo cargar el listado. El inicio pasa a mostrar estos
-    errores (hoy muestra la lista vacía sin decir nada, y no se distingue "falló" de "no hay resultados").
-  - General: demasiados intentos seguidos. El mensaje dice que hay que esperar un minuto, que es la ventana real de
+    errores (hoy muestra la lista vacía sin decir nada, y no se distingue "falló" de "no hay resultados"). Qué mensaje
+    gana en cada falla está en *What result they get*.
+  - General: demasiados pedidos seguidos (en el login o navegando). El mensaje dice que hay que esperar un minuto, que es la ventana real de
     los límites.
 - **Situaciones que solo produce un bug o un cliente roto** (cuerpo mal formado o demasiado grande, identificador
   inválido, origen no permitido, parámetro de listado o de página inválido, categoría o estado de herramienta que no
@@ -148,20 +255,40 @@ comprobación automática que falla si existe un código sin mensaje.
   anuncia (sigue siendo una región de alerta, como hoy).
 - **AC-9b** Given el detalle de una herramienta propia, When pausar o eliminar falla, Then el mensaje de error se ve
   en esa misma pantalla y el detalle de la herramienta (nombre, estado, acciones) sigue visible.
-- **AC-9c** Given demasiados intentos seguidos, When el server lo rechaza, Then el mensaje dice que hay que esperar un
+- **AC-9c** Given demasiados pedidos seguidos, When el server lo rechaza, Then el mensaje dice que hay que esperar un
   minuto.
 - **AC-10** Given todas las pantallas del cliente, When se busca en su código un texto de error en inglés visible al
-  usuario, Then no queda ninguno (los 6 textos de respaldo en inglés que hay hoy pasan a español).
+  usuario, Then no queda ninguno (los textos de respaldo en inglés que hay hoy, como `'Tool not found'`,
+  `'Login failed'` o `'Registration failed'`, pasan a español).
+- **AC-11** Given un usuario cuya sesión terminó, en una pantalla privada o en el detalle de una herramienta,
+  When hace una acción que el server rechaza por falta de sesión (o toca "Iniciar sesión para pedir"), Then ve el
+  mensaje 8 (salvo al tocar "Iniciar sesión para pedir", que no es un error), llega a la pantalla de login y, al
+  iniciar sesión, vuelve a la pantalla donde estaba.
+- **AC-12** Given un usuario en la pantalla de login, When el server rechaza el email o la contraseña, Then ve el
+  mensaje 7 en esa misma pantalla, sigue en el login y lo que escribió en el email no se borra.
+- **AC-13** Given un usuario con sesión, When toca "Salir" y el cierre falla (sin conexión, o el server responde con
+  un error), Then ve el mensaje 10 y la barra sigue mostrando que tiene la sesión abierta.
+- **AC-14** Given la tabla de *What result they get*, When se comparan sus textos con los que muestra el cliente para
+  cada situación, Then son idénticos, letra por letra.
 
 ## Points to clarify
 
 - **suposición tomada** — El cliente sabe si hay sesión. *Base:* desde el PR #26 (2026-11-02) consulta `GET /api/me`
-  al arrancar; antes no lo sabía nunca. *Riesgo:* ninguno nuevo; la pregunta de abajo ya se puede contestar.
-- **pregunta abierta** — Cuando la sesión venció o no hay sesión, ¿alcanza con el mensaje ("Tu sesión venció.
-  Volvé a iniciar sesión.") o la app tiene que, además, llevar al usuario a la pantalla de login? El checklist sugiere
-  la segunda (`código → acción`), y cambia el alcance en el cliente. Restricción, sea cual sea la respuesta: un login
-  fallido también es un rechazo por credenciales, y **nunca** dispara esa acción; ahí solo se muestra "email o
-  contraseña incorrectos" en la misma pantalla de login.
+  al arrancar; antes no lo sabía nunca. *Riesgo:* ninguno nuevo.
+- **suposición tomada** — Con la sesión vencida o sin sesión, la app lleva al login y después vuelve a donde estaba
+  (respuesta de Hernán, 2026-11-03, a la pregunta abierta de la primera versión). *Base:* las páginas privadas ya
+  hacen eso al entrar sin sesión (`/login?returnTo=…`, PR #26); el detalle de una herramienta usa hoy `returnUrl`,
+  que el login no lee, y se arregla en este cambio. *Riesgo:* si una pantalla tiene un formulario a medio llenar, lo
+  escrito se pierde al ir al login; con sesiones de 1 hora puede pasar. Guardarlo queda fuera de este ciclo.
+- **suposición tomada** — "No hay sesión", "venció" y "no es válida" son una sola situación con un solo mensaje (8).
+  *Base:* la cookie dura lo mismo que la sesión (1 hora), así que al vencer el server solo ve "no hay sesión"; un
+  token inválido solo aparece con una cookie adulterada. *Riesgo:* si en el futuro la cookie dura más que la sesión
+  (por ejemplo, para renovarla), conviene separarlas de nuevo.
+- **suposición tomada** — "Salir" que falla (sin conexión o rechazado por el server) deja la sesión abierta y lo dice
+  (mensaje 10), en vez de mostrarla cerrada. *Base:* hoy la app la muestra cerrada pero el server la mantiene, y al
+  recargar vuelve: eso confunde. *Riesgo:* bajo; si se prefiere cerrarla igual en la app, cambia AC-13.
+- **suposición tomada** — "Nombre o descripción con largo inválido" se separa en dos situaciones (mensajes 18 y 19),
+  para que el mensaje diga cuál de los dos está mal. *Base:* el resto de la tabla nombra el campo. *Riesgo:* ninguno.
 - **suposición tomada** — Los mensajes usan voseo rioplatense ("Intentá", "Volvé"). *Base:* toda la interfaz
   actual lo usa. *Riesgo:* bajo; si se quisiera neutro, cambian los textos, no el contrato.
 - **suposición tomada** — "No existe" y "no es tuyo" se mantienen indistinguibles en los préstamos, como hoy.
@@ -200,3 +327,25 @@ comprobación automática que falla si existe un código sin mensaje.
   7; (6) la edición sin campos, que hoy responde "no existe", pasa al grupo genérico. Fuera de esta spec se encontró
   que el cliente nunca sabía si había sesión (arreglado en el PR #26, `session`) y se anotaron en el backlog la falta
   de estilos, la falta de navegación, "Editar" sin ruta y el barrio sin validar.
+- 2026-11-03 — Adaptación al formato de ASDD (rsc 4.0.1), pedida por Hernán, aunque la spec está exenta por fecha.
+  Cambios: (1) se agregan *What the user can do*, *What result they get* (con la **tabla de 37 mensajes**, la
+  referencia que Hernán aprueba), *What it must respect* y *How it proves it*; (2) la pregunta abierta de la sesión
+  se responde: llevar al login y volver a donde estaba (AC-11), y el login fallido nunca lo hace (AC-12); (3) se suma
+  "Salir" sin conexión (mensaje 10, AC-13), pendiente desde la feature de navegación; (4) AC-10 deja de fijar una
+  cantidad de textos en inglés; (5) AC-14: los textos del cliente son idénticos a la tabla; (6) "nombre o
+  descripción inválidos" se separa en dos situaciones. Contexto nuevo desde la versión anterior: el formulario de
+  editar (PR #32) ya muestra mensajes en español por status; pasan a salir del mapa como el resto.
+- 2026-11-03 — Revisión de un agente con contexto limpio (pedida por Hernán; leyó solo la spec, la constitución y
+  D5, y usó el código para verificar). Veredicto: `Issues found`, 4 problemas y 3 notas, todos verificados contra el
+  código antes de cambiar nada. Cambios: (1) las filas 8 y 9 se fusionan en un solo mensaje ("Tu sesión terminó.
+  Iniciá sesión para continuar."): la cookie dura lo mismo que la sesión (`authRoutes.ts:57,87`, `env.ts:14`), así
+  que el server nunca ve una sesión vencida, solo "no hay sesión" (`middleware/auth.ts:15`); la fila 9 queda vacía
+  para no renumerar; (2) volver después del login también desde el detalle de una herramienta, que hoy manda
+  `returnUrl` (`ToolDetailPage.tsx:55,191`) y el login solo lee `returnTo` (`LoginPage.tsx:28`); entra en el cambio y
+  AC-11 lo cubre; (3) "Salir" falla también si el server lo rechaza (pasa por el límite de 5 por minuto,
+  `index.ts:46`), no solo sin conexión: fila 10 y AC-13 lo incluyen; (4) en el inicio se dice qué mensaje gana en
+  cada falla (36, 33, 35 o 34; la 34 reemplaza a la 37 ahí); (5) la fila 35 dice "pedidos" en vez de "intentos",
+  porque también salta navegando (30 por minuto); (6) ir al login depende del código, no del status 401 (también
+  devuelven 401 el login incorrecto, la contraseña actual incorrecta y el origen no permitido). No se toca: D5 dice
+  "7 clases" y la spec dice 8; el registro de decisiones solo se agrega, y la diferencia ya está explicada en la
+  revisión anterior (5).
