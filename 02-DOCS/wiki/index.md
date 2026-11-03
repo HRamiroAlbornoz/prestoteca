@@ -20,6 +20,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Decisions | Prestoteca — Decision Records | [02-DOCS/wiki/sdd/decisions.md](./sdd/decisions.md) |
 | Analysis | Prestoteca — Consistency Gate | [02-DOCS/wiki/sdd/analysis/prestoteca-mvp.md](./sdd/analysis/prestoteca-mvp.md) |
 | Analysis | error-codes — control cruzado (PASS 2026-11-03, 2.ª corrida) | [02-DOCS/wiki/sdd/analysis/error-codes.md](./sdd/analysis/error-codes.md) |
+| Progress | error-codes — avance de implement | [02-DOCS/wiki/sdd/progress/error-codes.md](./sdd/progress/error-codes.md) |
 | Verification | error-codes — línea base de cobertura (T017, 2026-11-03) | [02-DOCS/wiki/sdd/verifications/error-codes-coverage-baseline.md](./sdd/verifications/error-codes-coverage-baseline.md) |
 | Verification | db-backups — 2026-10-24 (FAIL: coverage not measured) | [02-DOCS/wiki/sdd/verifications/db-backups-2026-10-24.md](./sdd/verifications/db-backups-2026-10-24.md) |
 | Verification | db-backups — 2026-10-24, second run (PASS for its scope; coverage 82.68 %) | [02-DOCS/wiki/sdd/verifications/db-backups-2026-10-24-2.md](./sdd/verifications/db-backups-2026-10-24-2.md) |
