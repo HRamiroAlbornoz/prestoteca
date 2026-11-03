@@ -21,7 +21,18 @@ export interface Loan {
   updated_at: string
 }
 
-type QueryFn = (text: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>
+// A loan plus the name of its tool, for the lists people read ("Mis préstamos", profile)
+export interface LoanWithTool extends Loan {
+  tool_name: string
+}
+
+// The name lives in the tools table. loans.tool_id is NOT NULL and deleting a tool only marks it
+// (soft delete), so every loan finds its tool and a plain JOIN never drops a loan.
+const SELECT_LOANS_WITH_TOOL = `SELECT loans.*, tools.name AS tool_name
+       FROM loans
+       JOIN tools ON tools.id = loans.tool_id`
+
+type QueryFn =(text: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>
 
 // Loans that are still in progress: they block deleting the tool (RF-07) and the account
 export const ACTIVE_STATUSES = ['pendiente', 'aceptado', 'entregado', 'vencido']
@@ -58,20 +69,22 @@ export class LoanRepository {
     return result.rows as Loan[]
   }
 
-  async findAllByBorrower(borrowerId: string): Promise<Loan[]> {
+  async findAllByBorrower(borrowerId: string): Promise<LoanWithTool[]> {
     const result = await this.query(
-      `SELECT * FROM loans WHERE borrower_id = $1`,
+      `${SELECT_LOANS_WITH_TOOL}
+       WHERE loans.borrower_id = $1`,
       [borrowerId],
     )
-    return result.rows as Loan[]
+    return result.rows as LoanWithTool[]
   }
 
-  async findAllByOwner(ownerId: string): Promise<Loan[]> {
+  async findAllByOwner(ownerId: string): Promise<LoanWithTool[]> {
     const result = await this.query(
-      `SELECT * FROM loans WHERE owner_id = $1`,
+      `${SELECT_LOANS_WITH_TOOL}
+       WHERE loans.owner_id = $1`,
       [ownerId],
     )
-    return result.rows as Loan[]
+    return result.rows as LoanWithTool[]
   }
 
   async updateStatus(id: string, status: string): Promise<Loan | null> {
