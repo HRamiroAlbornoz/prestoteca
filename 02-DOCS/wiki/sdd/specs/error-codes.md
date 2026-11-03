@@ -6,12 +6,14 @@ tags: [sdd, spec, errors, i18n]
 timestamp: 2026-11-02T22:00:00Z
 topic: sdd
 slug: error-codes
-status: draft
+status: approved
+approved: 2026-11-03
+approved_by: Hernán — "Sí, apruebo la spec tal como está." (aprobada ítem por ítem, no en autopiloto)
 ---
 
 # Spec — Códigos de error específicos y mensajes en español
 
-> Slug: `error-codes` · Status: draft · Created: 2026-11-02
+> Slug: `error-codes` · Status: approved (2026-11-03) · Created: 2026-11-02
 > Inherits: [constitution](../constitution.md) (principio 8: errores con forma consistente y mensajes genéricos al
 > cliente; principio 14: errores anunciados a lectores de pantalla)
 > Origen: punto 5 del backlog acordado el 2026-10-24 ("mensajes al usuario en inglés").
