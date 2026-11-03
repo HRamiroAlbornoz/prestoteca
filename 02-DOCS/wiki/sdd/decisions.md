@@ -121,7 +121,7 @@ timestamp: 2026-10-04T00:00:00Z
   JSON de error; el cliente reacciona con un hook (`useApiError`) en vez de envolver `fetch`; la tabla de la spec es el
   oráculo del test de AC-14; el aviso de sesión terminada viaja en el state del router, no en la URL; tras perder la
   sesión, `PrivateRoute` decide el destino según el motivo que guarda `AuthContext` ("Salir" → inicio; "terminó" →
-  login con el aviso), porque React Router 7 navega dentro de un `startTransition` y una navegación hecha a mano
+  login con el aviso), solo en la página donde ocurrió (el motivo guarda esa ruta), porque React Router 7 navega dentro de un `startTransition` y una navegación hecha a mano
   pierde la carrera contra el `setCurrentUser(null)`.
 - **Excepción al "status no cambia" de la spec:** cambiar la contraseña busca al usuario con `findActiveById` en vez
   de `findById` (que no filtra cuentas eliminadas). Una cuenta eliminada pasa a responder `ACCOUNT_NOT_FOUND` 404;
