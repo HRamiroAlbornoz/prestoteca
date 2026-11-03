@@ -119,7 +119,13 @@ timestamp: 2026-10-04T00:00:00Z
     tipado contra él con un `import type`.
 - **Decisión:** la tercera. Además: `AppError(code, mensaje)` deriva el status del catálogo y es el único escritor del
   JSON de error; el cliente reacciona con un hook (`useApiError`) en vez de envolver `fetch`; la tabla de la spec es el
-  oráculo del test de AC-14; el aviso de sesión terminada viaja en el state del router, no en la URL.
+  oráculo del test de AC-14; el aviso de sesión terminada viaja en el state del router, no en la URL; tras perder la
+  sesión, `PrivateRoute` decide el destino según el motivo que guarda `AuthContext` ("Salir" → inicio; "terminó" →
+  login con el aviso), porque React Router 7 navega dentro de un `startTransition` y una navegación hecha a mano
+  pierde la carrera contra el `setCurrentUser(null)`.
+- **Excepción al "status no cambia" de la spec:** cambiar la contraseña busca al usuario con `findActiveById` en vez
+  de `findById` (que no filtra cuentas eliminadas). Una cuenta eliminada pasa a responder `ACCOUNT_NOT_FOUND` 404;
+  sin esto, la fila 15 de la spec no se podía alcanzar.
 - **Por qué:** `tsc -b` del cliente falla si un código no tiene mensaje, sin sumar un workspace; el `import type` se
   borra al compilar y el bundle no incluye nada del server. Un código → un status impide que el mismo código salga con
   dos status distintos.
