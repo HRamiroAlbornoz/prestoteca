@@ -353,7 +353,15 @@ un `role="alert"` arriba del contenido, que sigue visible.
 "éxito" o en un `ClientErrorCode` (respuesta fallida → `readApiError`; excepción → `fetchFailureCode`, que cuenta como
 falla de ese pedido). Prioridad: si alguno dio `SESSION_REQUIRED`, gana y se llama `handle` una sola vez; si no, se
 muestra el código del primer pedido de la lista que falló (préstamos pedidos antes que recibidos; herramientas antes
-que historial). Si los dos se cancelaron (`AbortError`), no se muestra nada.
+que historial).
+
+- **Cancelación:** las dos pantallas crean un `AbortController` por carga y lo cancelan en la limpieza del efecto (hoy
+  no cancelan nada). Al volver de `Promise.allSettled`, **si la señal está cancelada no se hace nada** —ni `handle`, ni
+  estado, ni navegación—, sin importar qué devolvió cada pedido. Así un 401 que llegó justo antes de salir de la
+  pantalla no lleva al login desde una página que la persona ya dejó.
+- **Carga parcial:** si un pedido funcionó y el otro falló, se muestra el error de carga y no la parte que sí cargó
+  (una pantalla a medias confunde más de lo que ayuda).
+- **Respuesta 2xx ilegible** (el cuerpo no es el JSON esperado): cuenta como falla de ese pedido con `UNKNOWN_ERROR`.
 
 ## 4. Data model & flow
 
@@ -439,7 +447,10 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
    `:18` y `:42`—) — depende de: 1 — paralelizable. *Done:* filas 1-7, 11-16 en la tabla de AC-6. Tests:
    `authRoutes` (salvo la aserción del limitador, de la 2), `authService`, `authValidation`, `meAccountRoutes`,
    `accountDeletion`, `userRepo`, y el bloque `UserRepository.create` de `errors.test.ts` (hoy afirma
-   `ConflictError`; pasa a `EMAIL_TAKEN`). La 2 y la 3 tocan bloques distintos de `errors.test.ts` y de
+   `ConflictError`; pasa a `EMAIL_TAKEN`). También reemplaza los dobles de prueba que construyen subclases viejas
+   (`new ConflictError(...)` en `authValidation.test.ts:9,22` y `authRoutes.test.ts:9,22`; `ConflictError` y
+   `NotFoundError` en `accountDeletion.test.ts:9`) por `AppError` con el código nuevo, y afirma ese código, no solo el
+   status. La 2 y la 3 tocan bloques distintos de `errors.test.ts` y de
    `authRoutes.test.ts`: si corren en paralelo, se integran una después de la otra.
 4. **Módulo tools + search** (crear, editar, pausar, eliminar, detalle, listado; `TOOL_EDIT_EMPTY` en el servicio) —
    depende de: 1 — paralelizable. *Done:* filas 17-22, 33 y casos "bug" de tools. Tests: `toolsRoutes`,
@@ -451,7 +462,9 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
    de: 2-5 (falla mientras quede un emisor viejo) y de 7 (borra las entradas genéricas de `client/src/errors/messages.ts`,
    que crea la 7) — serial. Tests: reescribe los usos de subclases que quedan en `errors.test.ts` (el `it.each` con
    `ValidationError`/`ForbiddenError`/`NotFoundError`/`ConflictError` y el PATCH con `new NotFoundError`), y el mapa
-   del cliente.
+   del cliente. Antes de borrar, busca usos de las subclases en **todo** `server/tests` (no solo en `errors.test.ts`):
+   `server/tsconfig.json` excluye `tests`, así que `tsc -b` no los detecta y fallarían recién al correr Vitest. *Done:*
+   esa búsqueda da cero resultados y las dos suites pasan.
 7. **Cliente: `errors/` (mapa, `readApiError`, `fetchFailureCode`)** — depende de: 1 (tipos) — paralelizable con 2-5.
    *Done:* AC-2, AC-3, AC-4 (unit), AC-5, AC-9c, AC-14; `npm run build` desde la raíz en verde (R1); `node:fs` en
    tests aceptado por `tsc -b`. Nota: mientras los códigos genéricos sigan en el catálogo (hasta la tarea 6), el mapa
@@ -544,4 +557,8 @@ entre teclas en la búsqueda (*debounce*); el 404 de `TOOL_EDIT_EMPTY`.
   hace lo que el plan dice (verificado en el código de react-router 7.18.4: ni `navigate` ni `<Link>` usan
   `startTransition` con la prop en `false`) y que el texto de la excepción de `ACCOUNT_NOT_FOUND` es exacto. Hallazgos
   bajos aplicados: `meRoutes.ts` se asigna a la tarea 3; §0 fija que los textos para desarrollo no cambian (hay tests
-  que los afirman entre tareas); la tabla de §3.7 queda entera, con la regla debajo.
+  que los afirman entre tareas); la tabla de §3.7 queda entera, con la regla debajo. Hallazgos medios aplicados con
+  el visto bueno de Hernán: (1) Perfil y Mis préstamos cancelan sus pedidos al cerrarse y, con la señal cancelada, no
+  reaccionan a nada; una carga parcial se muestra como error de carga; un 2xx ilegible es `UNKNOWN_ERROR`; (2) la
+  tarea 3 reemplaza los dobles de prueba que usan subclases viejas, y la tarea 6 busca esos usos en todo
+  `server/tests` antes de borrar (`tsc -b` no type-chequea los tests del server).
