@@ -1,7 +1,9 @@
 ---
 author: HRamiroAlbornoz
 branch: feat/edit-tool
-status: in-progress
+status: done
+merged: 2026-11-02
+pr: #32
 ---
 # Editar una herramienta
 
@@ -77,5 +79,4 @@ es, `404` si no existe). Lo que falta es todo del lado del cliente.
   `aria-describedby="tool-name-error"`; contraste del mensaje 9,33:1 (`rgb(252,165,165)` sobre `rgb(24,24,27)`).
 
 ## Next
-
-T5: Hernán instala `zod` en el cliente (`npm install zod -w client`) y corre el build. Después el PR.
+Fusionado en main el 2026-11-02 (fc0a4a1).
