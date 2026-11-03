@@ -300,7 +300,7 @@ describe('ToolDetailPage', () => {
     confirmSpy.mockRestore()
   })
 
-  it('navigates to /publish on edit', async () => {
+  it('navigates to the edit page on edit', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       json: async () => toolData,
@@ -316,7 +316,7 @@ describe('ToolDetailPage', () => {
 
     await waitFor(() => {
       // navigate() was called — verify via mockNavigate calls
-      expect(mockNavigate).toHaveBeenCalledWith('/publish/tool-1')
+      expect(mockNavigate).toHaveBeenCalledWith('/tools/tool-1/edit')
     })
   })
 })

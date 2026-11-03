@@ -63,7 +63,7 @@ export function ToolDetailPage() {
 
   const handleEdit = () => {
     if (!tool) return
-    navigate(`/publish/${tool.id}`)
+    navigate(`/tools/${tool.id}/edit`)
   }
 
   const handlePause = async () => {

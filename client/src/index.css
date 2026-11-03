@@ -55,6 +55,8 @@
     /* Alert backgrounds */
     .bg-red-50 { background-color: #450a0a; }
     .text-red-700 { color: #fca5a5; }
+    /* Field error messages: red-600 on the dark card is ~3.7:1, below the 4.5:1 AA minimum */
+    .text-red-600 { color: #fca5a5; }
     .border-red-200 { border-color: #7f1d1d; }
     .bg-green-50 { background-color: #052e16; }
     .text-green-700 { color: #86efac; }
