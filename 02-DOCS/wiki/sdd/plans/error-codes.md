@@ -43,8 +43,10 @@ Valores exactos que toda tarea respeta. El revisor de cada tarea los lee primero
 - **Límites que no cambian:** 5 pedidos/min por IP en `/api/auth/*`, 30/min en el resto; body JSON máx. 10 kb.
 - **Logs del server:** siguen en inglés; un error inesperado se loguea en el server y responde `INTERNAL_ERROR` sin
   stack, SQL ni rutas de archivos (constitución, principio 8).
-- **Calidad (constitución 4-6):** oxlint/ESLint sin warnings, `tsc -b` sin errores en `client` y `server`, TDD
-  red→green→refactor, cobertura ≥ 80 % de las líneas cambiadas. Tests: Vitest, Supertest, Testing Library.
+- **Calidad (constitución 4-6, versión 1.1.0):** `npm run lint` (oxlint) sin warnings en `client`; el server no tiene
+  linter todavía (pendiente registrado en la constitución, fuera de este cambio); `tsc -b` sin errores en `client` y
+  `server`; TDD red→green→refactor; cobertura ≥ 80 % de líneas en cada archivo de código cambiado, medida con
+  `@vitest/coverage-v8` (T017). Tests: Vitest, Supertest, Testing Library.
 - **Commits:** gitmoji + Conventional Commits, en inglés; sin `Co-Authored-By` de una IA ni pie "generated with".
 - **Fuera de alcance (no tocar):** otros idiomas, botón de reintentar, `retryable`, mensajes por campo desde el
   server, textos de éxito del server, logs, cambiar status, validaciones del cliente en `utils/toolForm.ts`, guardar
@@ -231,9 +233,9 @@ apiNotFound(req, res)                   // montado en /api después de wireRoute
   la clave `error: {` dentro de un `.json(` (aunque estén en líneas distintas) ni una clave `code:` con un literal.
   Lanzar `new AppError('CÓDIGO', …)` o llamar `sendErrorCode(res, 'CÓDIGO', …)` sí está permitido: el tipo
   `ServerErrorCode` ya impide un código fuera del catálogo.
-- **Subclases (`ValidationError`, `NotFoundError`, …):** la tarea 1 las conserva como adaptadores finos sobre el
+- **Subclases (`ValidationError`, `NotFoundError`, …):** T002 las conserva como adaptadores finos sobre el
   `AppError` nuevo (con el código genérico que tienen hoy, que sigue en el catálogo mientras tanto), para que el server
-  compile entre tareas. La tarea 6 las borra, junto con los códigos genéricos, cuando ningún archivo las usa.
+  compile entre tareas. T009 las borra, junto con los códigos genéricos, cuando ningún archivo las usa.
 - **Dónde se decide cada código:** lo emite quien conoce la situación. Ejemplos: `TOOL_NAME_LENGTH` lo lanzan tanto
   la ruta de crear como `toolRepo.update`; `TOOL_NOT_FOUND` y `TOOL_PAUSED` también los responde la ruta de pedir
   préstamo (`loansRoutes.ts`); `TOOL_EDIT_EMPTY` lo decide **el servicio** `edit()`, **después** de comprobar que la
@@ -330,7 +332,7 @@ NavBar "Salir":
     de la barra; desaparece en el siguiente intento de "Salir" o al navegar
 ```
 
-- `authContext.test.tsx` llama hoy `logout()` y espera que olvide al usuario: la tarea 8 lo actualiza al contrato nuevo.
+- `authContext.test.tsx` llama hoy `logout()` y espera que olvide al usuario: T010 lo actualiza al contrato nuevo.
 
 ### 3.7 Pantallas
 
@@ -426,7 +428,7 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
   en staging **pegando** el texto de 61 caracteres, no tecleándolo: teclearlo dispara un pedido por letra y salta antes
   el límite de 30/min (fila 35).
 - **Lectura de archivos en tests del cliente** (AC-10, AC-14): corren en entorno `node` de Vitest. Que `tsc -b` del
-  cliente acepte `node:fs` (hoy `types` es solo `["vite/client"]`) se confirma en la tarea 7; si no, se agregan los
+  cliente acepte `node:fs` (hoy `types` es solo `["vite/client"]`) se confirma en T008; si no, se agregan los
   tipos de Node solo para los tests.
 - **Real, no simulado:** el archivo de la spec en AC-14 (es el oráculo); el catálogo en AC-5; el `errorHandler` y el
   orden real de middlewares de `createApp()` en AC-5b(b) (no un router aislado).
@@ -436,15 +438,20 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
 
 ## 6. Sequencing & dependencies
 
-1. **Catálogo + `AppError` nuevo** (`errorCodes.ts`, `AppError(code, msg)`, `sendErrorCode`, `apiNotFound`; las
+> **Pasos y tareas.** Los números de esta lista son *pasos* del plan; dentro de §6, "la 3" o "de 2-5" se refieren a
+> pasos. Fuera de §6 y en `implement` solo se citan los IDs de *Tasks*. Equivalencia: paso 1 = T001-T002 · 2 = T003 ·
+> 3 = T004 (auth) + T005 (me) · 4 = T006 · 5 = T007 · 6 = T009 · 7 = T008 · 8 = T010 · 9 = T011 · 10 = T012 + T013 ·
+> 11 = T014 · 12 = T015 · 13 = T016. Además, T017 (medir cobertura) no tiene paso propio: la agregó `analyze`.
+
+1. **[T001-T002] Catálogo + `AppError` nuevo** (`errorCodes.ts`, `AppError(code, msg)`, `sendErrorCode`, `apiNotFound`; las
    subclases quedan como adaptadores y los códigos genéricos siguen en el catálogo) — depende de: nada — serial.
    *Done:* tests unit del catálogo (un status por código) y de `sendError`; `tsc -b` y la suite del server en verde.
-2. **Emisores transversales del server:** `authMiddleware`, `originChecker`, `rateLimit`, `errorHandler`, montaje de
+2. **[T003] Emisores transversales del server:** `authMiddleware`, `originChecker`, `rateLimit`, `errorHandler`, montaje de
    `apiNotFound` — depende de: 1 — paralelizable con 3-5. *Done:* AC-5b(b). Tests: `middleware.test.ts`,
    `originWiring.test.ts`, `rateLimitIsolation.test.ts`, `securityAc.test.ts`, `errors.test.ts` (salvo el bloque
    `UserRepository.create`, que es de la 3), y la aserción `'TOO_MANY_REQUESTS'` de `authRoutes.test.ts:175-176` (la
    única línea de ese archivo que toca esta tarea: el código lo cambia el limitador).
-3. **Módulo auth + me** (registro, login, `GET /me`, contraseña con `findActiveById`, eliminar cuenta,
+3. **[T004 auth, T005 me] Módulo auth + me** (registro, login, `GET /me`, contraseña con `findActiveById`, eliminar cuenta,
    `accountDeletion`, y `meRoutes.ts` —`/api/me/tools` y `/api/me/history`, que hoy escriben `UNAUTHORIZED` a mano en
    `:18` y `:42`—) — depende de: 1 — paralelizable. *Done:* filas 1-7, 11-16 en la tabla de AC-6. Tests:
    `authRoutes` (salvo la aserción del limitador, de la 2), `authService`, `authValidation`, `meAccountRoutes`,
@@ -454,34 +461,34 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
    `NotFoundError` en `accountDeletion.test.ts:9`) por `AppError` con el código nuevo, y afirma ese código, no solo el
    status. La 2 y la 3 tocan bloques distintos de `errors.test.ts` y de
    `authRoutes.test.ts`: si corren en paralelo, se integran una después de la otra.
-4. **Módulo tools + search** (crear, editar, pausar, eliminar, detalle, listado; `TOOL_EDIT_EMPTY` en el servicio) —
+4. **[T006] Módulo tools + search** (crear, editar, pausar, eliminar, detalle, listado; `TOOL_EDIT_EMPTY` en el servicio) —
    depende de: 1 — paralelizable. *Done:* filas 17-22, 33 y casos "bug" de tools. Tests: `toolsRoutes`,
    `toolService`, `toolRepo`, `toolDetail`, `searchService`, `searchRepo`, `t030_routes` (también cubre `/api/me/*`:
    lo toma esta tarea entero).
-5. **Módulo loans** (crear —incluye `TOOL_NOT_FOUND` y `TOOL_PAUSED` de `loansRoutes.ts`—, detalle, transición,
+5. **[T007] Módulo loans** (crear —incluye `TOOL_NOT_FOUND` y `TOOL_PAUSED` de `loansRoutes.ts`—, detalle, transición,
    listas) — depende de: 1 — paralelizable. *Done:* filas 23-32. Tests: `loansRoutes`, `loanService`, `loanRepo`.
-6. **Guardia estática del server (AC-5b a) + AC-7/AC-8; se borran las subclases y los códigos genéricos** — depende
+6. **[T009] Guardia estática del server (AC-5b a) + AC-7/AC-8; se borran las subclases y los códigos genéricos** — depende
    de: 2-5 (falla mientras quede un emisor viejo) y de 7 (borra las entradas genéricas de `client/src/errors/messages.ts`,
    que crea la 7) — serial. Tests: reescribe los usos de subclases que quedan en `errors.test.ts` (el `it.each` con
    `ValidationError`/`ForbiddenError`/`NotFoundError`/`ConflictError` y el PATCH con `new NotFoundError`), y el mapa
    del cliente. Antes de borrar, busca usos de las subclases en **todo** `server/tests` (no solo en `errors.test.ts`):
    `server/tsconfig.json` excluye `tests`, así que `tsc -b` no los detecta y fallarían recién al correr Vitest. *Done:*
    esa búsqueda da cero resultados y las dos suites pasan.
-7. **Cliente: `errors/` (mapa, `readApiError`, `fetchFailureCode`)** — depende de: 1 (tipos) — paralelizable con 2-5.
+7. **[T008] Cliente: `errors/` (mapa, `readApiError`, `fetchFailureCode`)** — depende de: 1 (tipos) — paralelizable con 2-5.
    *Done:* AC-2, AC-3, AC-4 (unit), AC-5, AC-9c, AC-14; `npm run build` desde la raíz en verde (R1); `node:fs` en
-   tests aceptado por `tsc -b`. Nota: mientras los códigos genéricos sigan en el catálogo (hasta la tarea 6), el mapa
-   los apunta a la fila 37; la tarea 6 borra esas entradas del mapa junto con los códigos.
-8. **Cliente: sesión** (`useTransitions={false}` en `App.tsx`, `AuthContext.markSignedOut` y `logout` que informa,
+   tests aceptado por `tsc -b`. Nota: mientras los códigos genéricos sigan en el catálogo (hasta el paso 6, T009), el
+   mapa los apunta a la fila 37; T009 borra esas entradas del mapa junto con los códigos.
+8. **[T010] Cliente: sesión** (`useTransitions={false}` en `App.tsx`, `AuthContext.markSignedOut` y `logout` que informa,
    `useApiError`, aviso 8 y `navigate(returnTo, { replace: true })` en `LoginPage`, `returnTo` en `ToolDetailPage`,
    "Salir" en `NavBar`) — depende de: 7 — serial. *Done:* AC-11, AC-12, AC-13; `App.test.tsx` y
    `authContext.test.tsx` actualizados y en verde.
-9. **Cliente: pantallas de cuenta** (`RegisterPage`, `ProfilePage`) — depende de: 8 — paralelizable con 10-11.
-10. **Cliente: pantallas de herramientas** (`HomePage`, `ToolDetailPage` carga/acción, `PublishForm`) — depende de: 8
+9. **[T011] Cliente: pantallas de cuenta** (`RegisterPage`, `ProfilePage`) — depende de: 8 — paralelizable con 10-11.
+10. **[T012 Home, T013 detalle y formulario] Cliente: pantallas de herramientas** (`HomePage`, `ToolDetailPage` carga/acción, `PublishForm`) — depende de: 8
     — paralelizable. *Done:* AC-5c, AC-9b.
-11. **Cliente: pantallas de préstamos** (`RequestLoanPage`, `LoanDetailPage`, `MyLoansPage`) — depende de: 8 —
+11. **[T014] Cliente: pantallas de préstamos** (`RequestLoanPage`, `LoanDetailPage`, `MyLoansPage`) — depende de: 8 —
     paralelizable.
-12. **Guardia estática del cliente (AC-10) + AC-1/AC-9 completos** — depende de: 9-11 — serial.
-13. **Cierre:** verify de toda la rama, prueba en staging (sesión vencida → login → vuelta; demasiados pedidos;
+12. **[T015] Guardia estática del cliente (AC-10) + AC-1/AC-9 completos** — depende de: 9-11 — serial.
+13. **[T016] Cierre:** verify de toda la rama, prueba en staging (sesión vencida → login → vuelta; demasiados pedidos;
     superposición), archivo de verificación — depende de: todo — serial.
 
 - **Paralelizables (alcance disjunto, archivos y tests asignados arriba):** 2, 3, 4, 5 y 7 entre sí (2 y 3 con la
@@ -490,7 +497,7 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
   que fallan mientras quede algo viejo; 6 después de 7 porque limpia el mapa que crea la 7; 8 antes que las pantallas
   porque todas usan el hook.
 - **Cada tarea deja `tsc -b`, lint y las suites de server y client en verde.** Por eso las subclases y los códigos
-  genéricos sobreviven hasta la tarea 6.
+  genéricos sobreviven hasta el paso 6 (T009).
 - **Presupuesto de revisión** (`config.yaml`: 400 líneas / 12 archivos por tarea): las tareas 3, 4, 5, 10 y 11 son las
   más grandes; `tasks` las parte si un módulo pasa el presupuesto.
 
@@ -500,9 +507,9 @@ cambia" es `ACCOUNT_NOT_FOUND` al cambiar la contraseña (§3.2).
 
 | # | Riesgo | Disparador | Impacto | Mitigación |
 |---|---|---|---|---|
-| R1 | El `import type` del cliente hacia `server/src` rompe el build | Railpack construye sin la carpeta `server`, o `tsc -b` del cliente rechaza el archivo fuera de `src` | El deploy falla | Tarea 7 corre `npm run build` desde la raíz como en Railway; el archivo del catálogo no tiene imports ni sintaxis no borrable (`erasableSyntaxOnly`). Plan B: un JSON generado en `client/src/errors/` + el test de AC-5 que lo compara con el catálogo |
+| R1 | El `import type` del cliente hacia `server/src` rompe el build | Railpack construye sin la carpeta `server`, o `tsc -b` del cliente rechaza el archivo fuera de `src` | El deploy falla | T008 corre `npm run build` desde la raíz como en Railway; el archivo del catálogo no tiene imports ni sintaxis no borrable (`erasableSyntaxOnly`). Plan B: un JSON generado en `client/src/errors/` + el test de AC-5 que lo compara con el catálogo |
 | R2 | Carrera entre una navegación y `PrivateRoute` | React Router 7 aplica la navegación en un `startTransition`; `markSignedOut()` se dibuja antes | Llega al login sin el aviso 8, o "Salir" termina en el login | Confirmado en la revisión. Mitigado con `<BrowserRouter useTransitions={false}>` (§2, tercera decisión). Tests de AC-11 y AC-13 con el `App` real. Si en el futuro se agrega `lazy`/`Suspense`, revisar la decisión |
-| R3 | Diff grande y tests viejos que afirman textos | Las tareas 3-5 y 9-11 tocan muchos archivos | Revisiones largas, tests borrados "porque fallaban" | Presupuesto por tarea; la regla de §5 (actualizar, nunca borrar sin reemplazo); el revisor de cada tarea lo controla |
+| R3 | Diff grande y tests viejos que afirman textos | T003-T007 y T011-T014 tocan muchos archivos | Revisiones largas, tests borrados "porque fallaban" | Presupuesto por tarea; la regla de §5 (actualizar, nunca borrar sin reemplazo); el revisor de cada tarea lo controla |
 | R4 | AC-14 frágil frente a la spec | Alguien edita la tabla (fila nueva, formato) | El test falla aunque el código esté bien | Es el comportamiento buscado: la tabla es la referencia. El parser solo toma filas `\| <n> \| … \| … \|` y el mensaje de falla dice qué fila difiere |
 | R5 | `logout` cambia de comportamiento | "Salir" con 429 (5/min en `/api/auth`) | Antes cerraba en la app; ahora dice que falló | Es lo que pide AC-13; el mensaje explica qué hacer |
 | R6 | `TOOL_EDIT_EMPTY` conserva un 404 incorrecto | PATCH sin campos | Status semánticamente equivocado | Solo lo produce un cliente roto; la spec deja los status para otro cambio (suposición "status no cambian"). Anotar en el backlog |
@@ -549,7 +556,8 @@ código hasta verde. Toda tarea hereda §0. **Done-check común a todas** (adem�
 | T013 | [P] | Migrate `ToolDetailPage` (load vs action error) and `PublishForm` | `npx vitest run src/pages/toolPages.test.tsx src/pages/editTool.test.tsx src/pages/publishForm.test.tsx` green; pause/delete failure keeps name, status and buttons visible; edit 403 → row 21, 404 → row 20; 2xx with bad shape → row 37 | T010 | AC-9b, AC-1 | 1 |
 | T014 | [P] | Migrate the loan screens (`RequestLoanPage`, `LoanDetailPage`, `MyLoansPage`) | `npx vitest run src/pages/requestLoan.test.tsx src/pages/loanPages.test.tsx src/pages/myLoans.test.tsx` green; rows 23-29 on request; transition error is an action error (loan stays visible); my-loans two-requests rule | T010 | AC-1, AC-4, AC-9 | 1 |
 | T015 |  | Add the client static guard and the AC-1/AC-9 sweep | `npx vitest run src/errors/noServerText.test.ts src/pages/accessibility.test.tsx` green; guard seen failing against a copy of today's `LoginPage.tsx`; every error alert has `role="alert"` | T011, T012, T013, T014 | AC-10, AC-1, AC-9 | 1 |
-| T016 |  | Close: all done-checks pass + staging checks + verification file | every row above checked; `verify` closing run green on the whole branch; staging: session ended → login → back, rate limit, overlap (API responses + screenshots); `02-DOCS/wiki/sdd/verifications/error-codes-<fecha>.md` written | all | all ACs | — |
+| T016 |  | Close: all done-checks pass + staging checks + verification file | every row above checked; `verify` closing run green on the whole branch; coverage of every changed source file ≥ 80 % lines, read per file from `npx vitest run --coverage` in `server` and `client` (T017); staging: session ended → login → back, rate limit, overlap (API responses + screenshots); `02-DOCS/wiki/sdd/verifications/error-codes-<fecha>.md` written | all (incl. T017) | all ACs | — |
+| T017 | [P] | Make coverage measurable: install `@vitest/coverage-v8` and record a baseline | Hernán runs `npm install -D @vitest/coverage-v8@5.1.0 --workspace server --workspace client` (same version as `vitest`, 5.1.0); `cd server && npx vitest run --coverage` and `cd client && npx vitest run --coverage --coverage.provider=v8` print a per-file table; baseline numbers saved for the verification file. If the server's global thresholds (`server/vitest.config.ts:30-35`, 80 %) make the run exit non-zero today, that is recorded as the starting point, not "fixed" here: the bar for this change is per changed file | — | Constitución 6 (DoD) | 1 |
 
 **Interfaces comunes del server** (T003-T007 consumen lo que produce T002)
 - Produces (T002): `type ServerErrorCode` (claves de `ERROR_CODES`); `new AppError(code: ServerErrorCode, devMessage: string)` con
@@ -578,6 +586,24 @@ código hasta verde. Toda tarea hereda §0. **Done-check común a todas** (adem�
   es T005 (la más chica).
 - **Revisión de cada tarea de Qwen:** Claude corre los done-checks (no confía en el reporte), lee el diff contra §0 y
   §3, y aplica la revisión que pida `rsc risk`. Dos fallas en la misma tarea → la toma Claude.
+- **Qué lleva el pedido (brief) de cada tarea delegada.** Qwen solo ve su brief, así que tiene que llevar todo lo que
+  la tarea consulta, copiado (no un enlace):
+
+  | Tarea | Siempre | Además |
+  | --- | --- | --- |
+  | T005, T006, T007 | §0, su fila de *Tasks*, *Interfaces comunes del server* | §3.1 completa (tabla código ↔ fila ↔ status) y §3.2 (dónde se decide cada código, excepción de `ACCOUNT_NOT_FOUND` para T005, `TOOL_EDIT_EMPTY` para T006) |
+  | T011, T012, T013, T014 | §0, su fila de *Tasks*, *Interfaces comunes del cliente* | §3.4 (lectura de fallas), §3.5 (`handle`), la fila de su pantalla en §3.7 y, para T011 y T014, la *Regla de dos pedidos en paralelo* completa; para T012, la prioridad del inicio |
+
+  Además: la lista exacta de archivos que puede tocar (los de su done-check) y la orden de no tocar ningún otro.
+
+**Ramas y PRs** (constitución, principio 10: trabajo en rama, merge por PR)
+- Una rama por PR, creada desde `main` actualizado: `feat/error-codes-server` (T017, T001-T007),
+  `feat/error-codes-client-base` (T008, T009) y `feat/error-codes-screens` (T010-T016). Cada una nace cuando la
+  anterior ya está mergeada.
+- Los worktrees de Qwen salen de la rama del PR en curso (`--base-branch` en Orca) y se integran a esa rama después
+  de la revisión; nunca a `main`.
+- Los comandos de ramas, push y PR los corre Hernán. Como el hook de rsc commitea `02-DOCS/` en la rama activa, las
+  ediciones de docs se hacen con la rama del PR activa, nunca con `main`.
 
 ## Review Workload Forecast
 
@@ -589,7 +615,7 @@ código hasta verde. Toda tarea hereda §0. **Done-check común a todas** (adem�
 | Suggested delivery | `autochain` en 3 PRs | supera por mucho el `line_budget` de 400; cada PR se puede desplegar solo |
 
 **Los 3 PRs** (cada uno deja la app funcionando igual o mejor):
-1. **Server** — T001-T007. El cliente actual sigue mostrando el `message` del server, como hoy: nada empeora.
+1. **Server** — T017, T001-T007. El cliente actual sigue mostrando el `message` del server, como hoy: nada empeora.
 2. **Base del cliente + limpieza** — T008, T009. El mapa existe pero ninguna pantalla lo usa todavía.
 3. **Pantallas** — T010-T015, y el cierre T016. Acá cambia lo que ve el usuario.
 
@@ -638,3 +664,9 @@ código hasta verde. Toda tarea hereda §0. **Done-check común a todas** (adem�
   Los 13 pasos de §6 pasan a 16 tareas: el paso 1 se parte en test (T001) e implementación (T002), y el paso 3 en auth
   (T004, riesgo 2) y me (T005, riesgo 1), para que la parte de riesgo alto quede chica. Los números de §6 siguen siendo
   los del plan; los IDs `Txxx` son los que citan `analyze` e `implement`.
+- 2026-11-03 — Arreglos pedidos por `analyze` (BLOCKED: 3 HIGH, 3 MEDIUM, 2 LOW), aprobados por Hernán ("Sí, aplicá
+  todo"). H1/L1/L2 se resolvieron en la spec (enmienda); H3 en la constitución (v1.1.0, D8). En este plan: (H2) nueva
+  tarea **T017** —instalar `@vitest/coverage-v8` y medir una línea base— y T016 mide la cobertura por archivo
+  cambiado; §0 cita la constitución v1.1.0; (M1) cada paso de §6 lleva su ID `Txxx`, con una tabla de equivalencias,
+  y las referencias de §3, §5 y §7 usan IDs; (M2) *Tasks* dice qué secciones copia el brief de cada tarea delegada a
+  Qwen; (M3) *Tasks* fija una rama por PR y que los worktrees de Qwen salen de esa rama.
