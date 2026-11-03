@@ -89,3 +89,20 @@ timestamp: 2026-10-04T00:00:00Z
   - ✅ Ningún texto del server llega a la pantalla; el usuario ve mensajes en español con qué hacer.
   - ⚠️ Cada situación nueva toca server y cliente. Mitigación: un test que falla si un código no tiene mensaje (AC-5).
   - ⚠️ Objeción registrada en specify y no tomada: con traducir en el server, el mensaje viajaba solo.
+
+## D6 — Spec de códigos de error aprobada; sesión terminada lleva al login
+
+- **Fecha:** 2026-11-03
+- **Contexto:** La spec [error-codes](./specs/error-codes.md) se adaptó al formato de ASDD (rsc 4.0.1), pasó una
+  revisión con contexto limpio (4 problemas, corregidos y verificados contra el código) y Hernán la aprobó: "Sí,
+  apruebo la spec tal como está."
+- **Decisiones:**
+  - Cuando no hay sesión (o terminó), la app muestra "Tu sesión terminó. Iniciá sesión para continuar.", lleva al
+    login y después vuelve a la pantalla donde estaba. Un login fallido nunca lo hace. Ir al login depende del código
+    del error, no del status 401.
+  - "No hay sesión", "venció" y "no es válida" son una sola situación: la cookie dura lo mismo que la sesión (1 h).
+  - Los 36 textos de la tabla de *What result they get* son la referencia aprobada; el cliente los copia tal cual.
+  - "Salir" que falla deja la sesión abierta y lo dice.
+- **Consecuencias:**
+  - ✅ El usuario nunca queda trabado en una pantalla privada con la sesión terminada.
+  - ⚠️ Lo escrito en un formulario se pierde al ir al login; guardarlo queda fuera de este ciclo.
