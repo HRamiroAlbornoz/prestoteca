@@ -9,6 +9,7 @@ slug: error-codes
 status: approved
 approved: 2026-11-03
 approved_by: Hernán — "Sí, apruebo la spec tal como está." (aprobada ítem por ítem, no en autopiloto)
+branch: feat/error-codes-server
 ---
 
 # Spec — Códigos de error específicos y mensajes en español
