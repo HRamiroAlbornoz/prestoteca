@@ -173,7 +173,7 @@ describe('auth routes', () => {
         })
 
       expect(res.status).toBe(429)
-      expect(res.body.error.code).toBe('TOO_MANY_REQUESTS')
+      expect(res.body.error.code).toBe('RATE_LIMITED')
     })
   })
 })

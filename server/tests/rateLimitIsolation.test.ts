@@ -60,4 +60,16 @@ describe('rate limiters keep separate counters', () => {
     expect(browsing.at(-1)).toBe(429)
     expect(browsing.slice(0, 30).every((status) => status === 200)).toBe(true)
   })
+
+  it('answers the blocked general request with RATE_LIMITED in the catalog format', async () => {
+    const app = createApp()
+
+    await repeat(30, () => request(app).get('/api/tools'))
+    const res = await request(app).get('/api/tools')
+
+    expect(res.status).toBe(429)
+    expect(res.body).toEqual({
+      error: { code: 'RATE_LIMITED', message: 'Too many requests. Please try again later.' },
+    })
+  })
 })

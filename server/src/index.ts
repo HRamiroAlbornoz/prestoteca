@@ -6,7 +6,7 @@ import helmet from 'helmet'
 import { loadEnv } from './modules/config/env.js'
 import { checkDbConnection } from './modules/db/pool.js'
 import { authRateLimiter } from './modules/middleware/rateLimit.js'
-import { errorHandler } from './modules/errors/AppError.js'
+import { apiNotFound, errorHandler } from './modules/errors/AppError.js'
 import { wireRoutes } from './routes.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -47,6 +47,18 @@ export async function createApp(): Promise<ExpressApplication> {
 
   // Wire all API routes (general rate limiter applied inside routes.ts)
   wireRoutes(app)
+
+  // An /api/... route that none of the routers above answered: JSON 404 instead of
+  // falling through to the static files and Express's HTML 404 page.
+  // OPTIONS ("which methods do you accept here?") keeps going: Express answers it on its
+  // own at the end, with the methods of the route (e.g. GET, HEAD for /api/health).
+  app.use('/api', (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.method === 'OPTIONS') {
+      next()
+      return
+    }
+    apiNotFound(req, res)
+  })
 
   // Serve frontend static files (built by Vite)
   const clientDist = join(__dirname, '..', 'client-dist')

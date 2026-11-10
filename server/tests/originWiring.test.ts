@@ -35,7 +35,7 @@ describe('origin check wiring on /api/auth', () => {
       const res = await request(app).post(path).send({})
 
       expect(res.status).toBe(403)
-      expect(res.body.error.message).toBe('Invalid origin')
+      expect(res.body).toEqual({ error: { code: 'ORIGIN_NOT_ALLOWED', message: 'Invalid origin' } })
     },
   )
 
@@ -48,6 +48,7 @@ describe('origin check wiring on /api/auth', () => {
       .send({})
 
     expect(res.status).toBe(403)
+    expect(res.body.error.code).toBe('ORIGIN_NOT_ALLOWED')
   })
 
   it('lets POST /api/auth/login through to the handler with the allowed origin', async () => {

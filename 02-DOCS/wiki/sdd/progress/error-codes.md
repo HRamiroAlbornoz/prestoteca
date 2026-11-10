@@ -55,3 +55,16 @@ slug: error-codes
 - controls: tests ✅ · build ✅ (`tsc -b`, `npm run build`) · security ✅ (un error no previsto sigue respondiendo solo `INTERNAL_ERROR`; el detalle va al log) · traceability ✅ (AC-6, AC-7)
 - coverage: errorCodes.ts 100 % líneas · AppError.ts 90 % líneas
 - note: los genéricos `UNAUTHORIZED`/`FORBIDDEN`/`NOT_FOUND`/`CONFLICT` quedan en el catálogo, marcados como temporales; T009 los borra
+
+## T003 — 2026-11-10
+- status: complete — aprobada por Hernán (tier 2)
+- red: 17 aserciones fallan por el código viejo (`UNAUTHORIZED`, `TOO_MANY_REQUESTS`) y por el 404 HTML de `/api/nope`
+- green: suite del server 28 archivos, 394/394; `tsc -b` y `npm run build` limpios
+- files: server/src/index.ts, server/src/modules/middleware/{auth,origin,rateLimit}.ts; tests middleware, originWiring,
+  rateLimitIsolation, securityAc, errors, authRoutes
+- risk: tier 2 (auth: `jwt.verify`) — 3 refuters + aprobación humana
+- review: ronda 1: 3 refuters → 3 nits (stub viejo y test SPA débil arreglados; OPTIONS 200→404 arreglado por elección
+  de Hernán); ronda 2 (correctness, solo el diff nuevo): pass, 2 nits aceptados → decisión D9
+- controls: tests ✅ · build ✅ · security ✅ (refuter-security pass: sin oráculo de rutas, límites y origen antes del 404) · traceability ✅ (AC-5b, AC-6 filas 8 y 35, AC-8)
+- coverage: index.ts 85,71 % · auth.ts 100 % · origin.ts 100 % · rateLimit.ts 83,87 %
+- note: el test "token inválido" de middleware.test.ts probaba "sin token" (la mini-app no lee cookies); ahora usa el header
