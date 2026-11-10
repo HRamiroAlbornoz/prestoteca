@@ -156,3 +156,24 @@ timestamp: 2026-10-04T00:00:00Z
 - **Consecuencias:**
   - ✅ El cierre de cada cambio puede cumplir la *Definition of Done* tal como está escrita.
   - ⚠️ El server sigue sin linter: deuda abierta, para un cambio propio.
+
+## D9 — Dos bordes del 404 en JSON de `/api` que se aceptan (error-codes, T003)
+
+- **Fecha:** 2026-11-10
+- **Contexto:** T003 monta en `server/src/index.ts` un 404 en JSON (`API_ROUTE_NOT_FOUND`) para las rutas `/api/...` que
+  no existen. La revisión encontró que tapaba la respuesta automática de Express a `OPTIONS` (p. ej. `/api/health` con
+  sesión pasaba de 200 a 404); se arregló dejando pasar `OPTIONS` (elección de Hernán). La ronda 2 dejó dos bordes.
+- **Bordes:**
+  1. `OPTIONS` a una `/api` inexistente, con sesión, sigue respondiendo la página HTML 404 de Express (mismo status que
+     antes). No tiene arreglo sin volver a tapar la respuesta automática: Express solo la da si el pedido llega al final
+     de la cadena, y un 404 en JSON al final la taparía de nuevo.
+  2. `/API/...` en mayúsculas, con sesión, pasa de 200 (la página de la app) a 404 JSON. Express compara `app.use('/api')`
+     sin distinguir mayúsculas; la entrega de la SPA sí distingue. Sin sesión responde 401, igual que antes.
+- **Opciones:** aceptar los dos; agregar más casos especiales en `index.ts`.
+- **Decisión:** aceptar los dos. Aprobado por Hernán el 2026-11-10 ("Sí, acepto los dos y apruebo T003").
+- **Por qué:** ningún cliente real los produce (los navegadores mandan `OPTIONS` sin cookies y reciben el 401 en JSON;
+  la app de React usa minúsculas), y el segundo deja una respuesta más correcta que la de antes.
+- **Consecuencias:**
+  - ✅ Todo pedido no-`OPTIONS` a una `/api` inexistente responde JSON; los `OPTIONS` conservan su status de antes.
+  - ⚠️ Una excepción consciente a "toda respuesta de error es JSON" (§0 del plan) para `OPTIONS` de rutas inexistentes,
+    y otra a "ningún status cambia" (D7) para `/API` en mayúsculas.
