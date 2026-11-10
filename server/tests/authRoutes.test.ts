@@ -6,7 +6,7 @@ import { authRoutes } from '../src/modules/auth/authRoutes.js'
 import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import { authRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
-import { ConflictError } from '../src/modules/errors/AppError.js'
+import { AppError } from '../src/modules/errors/AppError.js'
 
 function createMockApp() {
   const usersByEmail = new Map<string, { id: string; name: string; email: string; password_hash: string; neighborhood: string }>()
@@ -19,7 +19,7 @@ function createMockApp() {
     create: vi.fn(async (input: { name: string; email: string; password_hash: string; neighborhood: string }) => {
       if (usersByEmail.has(input.email)) {
         // Same error the real UserRepository raises for a repeated email
-        throw new ConflictError('Email already exists')
+        throw new AppError('EMAIL_TAKEN', 'Email already exists')
       }
       const user = {
         id: `uuid-${nextId++}`,
@@ -68,6 +68,63 @@ describe('auth routes', () => {
         .send({ name: 'Ana' })
 
       expect(res.status).toBe(400)
+      expect(res.body).toEqual({ error: { code: 'REGISTER_MISSING_FIELDS', message: 'Missing required fields' } })
+    })
+
+    // One field missing (or only spaces) at a time, so each part of the check is pinned
+    it.each([
+      ['no name', { email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro' }],
+      ['a name of only spaces', { name: '   ', email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro' }],
+      ['no email', { name: 'Ana', password: 'ana12345', neighborhood: 'Centro' }],
+      ['no password', { name: 'Ana', email: 'ana@example.com', neighborhood: 'Centro' }],
+      ['no neighborhood', { name: 'Ana', email: 'ana@example.com', password: 'ana12345' }],
+    ])('returns 400 REGISTER_MISSING_FIELDS with %s', async (_case, body) => {
+      const res = await request(app).post('/api/auth/register').send(body)
+
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({ error: { code: 'REGISTER_MISSING_FIELDS', message: 'Missing required fields' } })
+    })
+
+    it.each([
+      ['a single-letter name', { name: 'A', password: 'ana12345' }],
+      ['a 51-character name', { name: 'A'.repeat(51), password: 'ana12345' }],
+    ])('returns 400 REGISTER_NAME_LENGTH for %s', async (_case, fields) => {
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({ email: 'ana@example.com', neighborhood: 'Centro', ...fields })
+
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({
+        error: { code: 'REGISTER_NAME_LENGTH', message: 'El nombre debe tener entre 2 y 50 caracteres' },
+      })
+    })
+
+    it.each([
+      ['a 2-character name', { name: 'Al', email: 'al@example.com', password: 'ana12345' }],
+      ['a 50-character name', { name: 'A'.repeat(50), email: 'long@example.com', password: 'ana12345' }],
+      ['a 254-character email', { name: 'Ana', email: 'a'.repeat(249) + '@x.co', password: 'ana12345' }],
+      ['an 8-character password', { name: 'Ana', email: 'ana8@example.com', password: 'a'.repeat(8) }],
+      ['a 72-character password', { name: 'Ana', email: 'ana72@example.com', password: 'a'.repeat(72) }],
+    ])('accepts %s (the limit itself is valid)', async (_case, fields) => {
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({ neighborhood: 'Centro', ...fields })
+
+      expect(res.status).toBe(201)
+    })
+
+    it.each([
+      ['a 7-character password', 'a'.repeat(7)],
+      ['a 73-character password', 'a'.repeat(73)],
+    ])('returns 400 REGISTER_PASSWORD_LENGTH for %s', async (_case, password) => {
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({ name: 'Ana', email: 'ana@example.com', password, neighborhood: 'Centro' })
+
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({
+        error: { code: 'REGISTER_PASSWORD_LENGTH', message: 'La contraseña debe tener entre 8 y 72 caracteres' },
+      })
     })
 
     it('returns 409 on duplicate email', async () => {
@@ -80,6 +137,7 @@ describe('auth routes', () => {
         .send({ name: 'Ana López', email: 'ana@example.com', password: 'ana45678', neighborhood: 'Norte' })
 
       expect(res.status).toBe(409)
+      expect(res.body).toEqual({ error: { code: 'EMAIL_TAKEN', message: 'Email already exists' } })
     })
   })
 
@@ -109,6 +167,18 @@ describe('auth routes', () => {
         .send({ email: 'maria@example.com', password: 'wrongpassword' })
 
       expect(res.status).toBe(401)
+      expect(res.body.error.code).toBe('INVALID_CREDENTIALS')
+    })
+
+    it.each([
+      ['no password', { email: 'maria@example.com' }],
+      ['no email', { password: 'maria123' }],
+      ['a blank email', { email: '   ', password: 'maria123' }],
+    ])('returns 400 LOGIN_MISSING_FIELDS with %s', async (_case, body) => {
+      const res = await request(app).post('/api/auth/login').send(body)
+
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({ error: { code: 'LOGIN_MISSING_FIELDS', message: 'Missing required fields' } })
     })
 
     it('returns the same 401 response on non-existent email as on wrong password', async () => {
@@ -127,7 +197,7 @@ describe('auth routes', () => {
       expect(unknownEmail.status).toBe(401)
       expect(unknownEmail.body).toEqual(wrongPassword.body)
       expect(unknownEmail.body).toEqual({
-        error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' },
+        error: { code: 'INVALID_CREDENTIALS', message: 'Invalid credentials' },
       })
     })
   })

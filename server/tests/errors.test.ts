@@ -217,14 +217,14 @@ describe('UserRepository.create', () => {
     return { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool
   }
 
-  it('turns a duplicate-email violation from PostgreSQL into a 409 ConflictError', async () => {
+  it('turns a duplicate-email violation from PostgreSQL into a 409 EMAIL_TAKEN', async () => {
     // 23505 = unique_violation: what PostgreSQL really raises for a repeated email
     const repo = new UserRepository(poolWhoseInsertFails(Object.assign(new Error('duplicate key'), { code: '23505' })))
 
     const attempt = repo.create({ name: 'Ana', email: 'ana@example.com', password_hash: 'x', neighborhood: 'Centro' })
 
-    await expect(attempt).rejects.toBeInstanceOf(ConflictError)
-    await expect(attempt).rejects.toThrow('Email already exists')
+    await expect(attempt).rejects.toBeInstanceOf(AppError)
+    await expect(attempt).rejects.toMatchObject({ code: 'EMAIL_TAKEN', status: 409, message: 'Email already exists' })
   })
 
   it('lets any other database error through unchanged', async () => {
