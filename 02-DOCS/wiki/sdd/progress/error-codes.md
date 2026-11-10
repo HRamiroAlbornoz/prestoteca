@@ -68,3 +68,16 @@ slug: error-codes
 - controls: tests ✅ · build ✅ · security ✅ (refuter-security pass: sin oráculo de rutas, límites y origen antes del 404) · traceability ✅ (AC-5b, AC-6 filas 8 y 35, AC-8)
 - coverage: index.ts 85,71 % · auth.ts 100 % · origin.ts 100 % · rateLimit.ts 83,87 %
 - note: el test "token inválido" de middleware.test.ts probaba "sin token" (la mini-app no lee cookies); ahora usa el header
+
+## T004 — 2026-11-10
+- status: complete — aprobada por Hernán (tier 2)
+- red: 14 aserciones fallan por el código viejo (`BAD_REQUEST`, `UNAUTHORIZED`, `ConflictError`)
+- green: suite del server 29 archivos, 414/414 (junto con T005); `tsc -b` y `npm run build` limpios
+- files: server/src/modules/auth/{authRoutes,authService,userRepo}.ts; tests authRoutes, authService, authValidation, errors
+- risk: tier 2 (auth) — 3 refuters + aprobación humana
+- review: ronda 1: security pass (sin enumeración de emails: mismo `if`, mismo cuerpo, bcrypt siempre); correctness y
+  tests pass con 3 nits (bordes aceptados de los límites sin test; "faltan datos" con un solo caso) → arreglados
+  (5 casos de borde aceptados, 5 casos de un campo faltante). Mutantes del diff: 18/18 detectados
+- controls: tests ✅ · build ✅ · security ✅ · traceability ✅ (AC-6 filas 1-7, AC-12)
+- coverage: authRoutes.ts 100 % · authService.ts 100 % · userRepo.ts 90 %
+- backlog: email/contraseña no string → 500 (preexistente, fuera de alcance)
