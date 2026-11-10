@@ -112,3 +112,20 @@ slug: error-codes
 - controls: tests ✅ · build ✅ · security no aplica (tier 1, sin auth) · traceability ✅ (AC-6 filas 17-22 y 33, AC-5c server)
 - coverage: toolsRoutes.ts 89,65 % · toolService.ts 88,88 % · toolRepo.ts 100 % · searchService.ts 100 % · searchRepo.ts 88,88 %
 - note: el mensaje de desarrollo de `TOOL_EDIT_EMPTY` sigue siendo 'Tool not found' (§0: los mensajes no cambian)
+
+## T007 — 2026-11-10
+- status: complete. Implementada por Qwen (worktree `t007-loans`), revisada por Claude
+- red: 15 tests fallan por los códigos viejos (reporte de Qwen)
+- green: suite del server 29 archivos, 457/457 (con T004-T006); `tsc -b` y `npm run build` limpios
+- files: server/src/modules/loans/{loansRoutes,loanService}.ts; tests loansRoutes, loanService
+- risk: tier 1 — 1 revisor de contexto fresco
+- review de Claude: código bien a la primera; los tests fijaban 8 de 13 códigos y faltaba la comparación ajeno =
+  inexistente → devueltos a Qwen y agregados. Qwen se detuvo sin `worker_done`; Claude verificó todo y corrió 3 mutantes
+  (detectados)
+- review revisor: 1 blocker — Qwen dejó commiteable un bloque de test que reescribía `src/` con `writeFileSync` y lanzaba
+  `vitest` anidado (su "prueba de mutantes") → borrado; el código de `src/` se comprobó intacto. 1 should-fix (ese mismo
+  bloque) y 2 nits arreglados (código en el 409 por HTTP, test del `updateStatus` que devuelve null, una aserción doble);
+  1 nit aceptado (helper de mock duplicado)
+- controls: tests ✅ · build ✅ · security no aplica (tier 1) · traceability ✅ (AC-6 filas 23-32; ajeno = inexistente)
+- coverage: loansRoutes.ts 91,46 % · loanService.ts 100 %
+- lección: los pedidos a Qwen prohíben tests que escriban en `src/` o lancen procesos; Claude lo busca con `grep` antes de aplicar un parche
