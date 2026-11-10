@@ -147,6 +147,7 @@ describe('SearchRepository', () => {
     const params: SearchParams = { page: -1 }
 
     await expect(repo.search(params)).rejects.toThrow('Page must be >= 1')
+    await expect(repo.search(params)).rejects.toMatchObject({ code: 'BAD_REQUEST', status: 400 })
   })
 
   it('counts total matching tools', async () => {

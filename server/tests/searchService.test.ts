@@ -155,6 +155,21 @@ describe('SearchService', () => {
     const input: SearchInput = { page: -1 }
 
     await expect(service.search(input)).rejects.toThrow('Page must be >= 1')
+    await expect(service.search(input)).rejects.toMatchObject({ code: 'BAD_REQUEST', status: 400 })
+  })
+
+  it('throws SEARCH_QUERY_TOO_LONG when query exceeds 60 characters', async () => {
+    const input: SearchInput = { q: 'x'.repeat(61) }
+
+    await expect(service.search(input)).rejects.toThrow('Search query must be at most 60 characters')
+    await expect(service.search(input)).rejects.toMatchObject({ code: 'SEARCH_QUERY_TOO_LONG', status: 400 })
+  })
+
+  it('accepts a query of exactly 60 characters', async () => {
+    const input: SearchInput = { q: 'x'.repeat(60) }
+    const result = await service.search(input)
+
+    expect(result.items).toBeDefined()
   })
 
   it('defaults to page 1 and limit 12', async () => {

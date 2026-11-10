@@ -3,7 +3,7 @@ import express from 'express'
 import type { ToolService } from './toolService.js'
 import type { SearchService } from '../search/searchService.js'
 import type { AuthRequest } from '../middleware/auth.js'
-import { sendError } from '../errors/AppError.js'
+import { sendError, sendErrorCode } from '../errors/AppError.js'
 
 export function toolsRoutes(service: ToolService, searchService: SearchService): Router {
   const router = express.Router()
@@ -15,7 +15,7 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
     const pageNum = page ? parseInt(String(page), 10) : 1
 
     if (page !== undefined && (isNaN(pageNum) || pageNum < 1)) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Page must be a positive integer' } })
+      sendErrorCode(res, 'BAD_REQUEST', 'Page must be a positive integer')
       return
     }
 
@@ -35,14 +35,14 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
   router.get('/:id', (req: express.Request, res: express.Response) => {
     const id = req.params.id
     if (typeof id !== 'string') {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Invalid tool ID' } })
+      sendErrorCode(res, 'BAD_REQUEST', 'Invalid tool ID')
       return
     }
 
     service.getDetail(id)
       .then((tool) => {
         if (!tool) {
-          res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Tool not found' } })
+          sendErrorCode(res, 'TOOL_NOT_FOUND', 'Tool not found')
           return
         }
         res.status(200).json(tool)
@@ -56,7 +56,7 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
   router.post('/', (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 
@@ -67,19 +67,19 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
     const trimmedDescription = description?.trim()
 
     if (!trimmedName || !trimmedDescription || !category || !condition) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing required fields' } })
+      sendErrorCode(res, 'TOOL_MISSING_FIELDS', 'Missing required fields')
       return
     }
 
     // Name validation: 3-60 characters
     if (trimmedName.length < 3 || trimmedName.length > 60) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The tool name must be between 3 and 60 characters' } })
+      sendErrorCode(res, 'TOOL_NAME_LENGTH', 'The tool name must be between 3 and 60 characters')
       return
     }
 
     // Description validation: max 500 characters
     if (trimmedDescription.length > 500) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The tool description must be at most 500 characters' } })
+      sendErrorCode(res, 'TOOL_DESCRIPTION_TOO_LONG', 'The tool description must be at most 500 characters')
       return
     }
 
@@ -100,13 +100,13 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
   router.patch('/:id', (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 
     const id = req.params.id
     if (typeof id !== 'string') {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Invalid tool ID' } })
+      sendErrorCode(res, 'BAD_REQUEST', 'Invalid tool ID')
       return
     }
 
@@ -114,7 +114,7 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
 
     // Pausing is one-way: the spec has no "reactivate", so `true` is the only accepted value
     if (is_paused !== undefined && is_paused !== true) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'is_paused only accepts true' } })
+      sendErrorCode(res, 'BAD_REQUEST', 'is_paused only accepts true')
       return
     }
 
@@ -145,7 +145,7 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
     run()
       .then((tool) => {
         if (!tool) {
-          res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Tool not found' } })
+          sendErrorCode(res, 'TOOL_NOT_FOUND', 'Tool not found')
           return
         }
         res.status(200).json(tool)
@@ -159,13 +159,13 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
   router.delete('/:id', (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 
     const id = req.params.id
     if (typeof id !== 'string') {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Invalid tool ID' } })
+      sendErrorCode(res, 'BAD_REQUEST', 'Invalid tool ID')
       return
     }
 

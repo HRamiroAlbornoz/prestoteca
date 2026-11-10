@@ -96,3 +96,19 @@ slug: error-codes
 - controls: tests ✅ · build ✅ · security ✅ (el 404 de cuenta eliminada solo lo ve quien tiene ese token) · traceability ✅ (AC-6 filas 8 y 11-16, excepción D7)
 - coverage: accountDeletion.ts 100 % · meAccountRoutes.ts 88,88 % · meRoutes.ts 90,9 %
 - backlog: carrera borrar cuenta / cambiar contraseña (`updatePassword` y `findByEmail` sin `deleted_at`), preexistente
+
+## T006 — 2026-11-10
+- status: complete. Implementada por Qwen (worktree `t006-tools`), revisada por Claude
+- red: 3 tests fallan por los códigos viejos (reporte de Qwen)
+- green: suite del server 29 archivos, 444/444 (junto con T004 y T005); `tsc -b` limpio
+- files: server/src/modules/tools/{toolsRoutes,toolService,toolRepo}.ts, server/src/modules/search/{searchService,searchRepo}.ts;
+  tests toolsRoutes, toolService, toolRepo, toolDetail, searchService, searchRepo
+- risk: tier 1 — 1 revisor de contexto fresco
+- review de Claude: el código estaba bien a la primera, pero los tests fijaban 5 de los 10 códigos → devueltos a Qwen,
+  que agregó los que faltaban; mutantes de Claude (código de publicar y de repo) detectados. Claude agregó los tests de
+  `toolRepo.update` (78 % → 100 % de cobertura)
+- review revisor: pass; 1 should-fix (sin test de servicio para `TOOL_EDIT_EMPTY` ni de su orden) + 3 nits → arreglados
+  (3 tests de servicio, test HTTP de `SEARCH_QUERY_TOO_LONG`, comentario y variables sin uso)
+- controls: tests ✅ · build ✅ · security no aplica (tier 1, sin auth) · traceability ✅ (AC-6 filas 17-22 y 33, AC-5c server)
+- coverage: toolsRoutes.ts 89,65 % · toolService.ts 88,88 % · toolRepo.ts 100 % · searchService.ts 100 % · searchRepo.ts 88,88 %
+- note: el mensaje de desarrollo de `TOOL_EDIT_EMPTY` sigue siendo 'Tool not found' (§0: los mensajes no cambian)
