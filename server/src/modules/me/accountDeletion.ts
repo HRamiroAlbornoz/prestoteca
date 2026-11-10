@@ -1,7 +1,7 @@
 import type { Pool } from 'pg'
 import { withTransaction } from '../db/transaction.js'
 import { ACTIVE_STATUSES } from '../loans/loanRepo.js'
-import { ConflictError, NotFoundError } from '../errors/AppError.js'
+import { AppError } from '../errors/AppError.js'
 
 export const DELETED_USER_NAME = 'Usuario eliminado'
 
@@ -23,7 +23,7 @@ export async function deleteAccount(
       [userId],
     )
     if (user.rowCount === 0) {
-      throw new NotFoundError('User not found')
+      throw new AppError('ACCOUNT_NOT_FOUND', 'User not found')
     }
 
     // Same rule as deleting a tool (RF-07): loans in progress must end first
@@ -35,7 +35,7 @@ export async function deleteAccount(
       [userId, ...ACTIVE_STATUSES],
     )
     if ((activeLoan.rowCount ?? 0) > 0) {
-      throw new ConflictError('No podés eliminar tu cuenta mientras tengas préstamos activos')
+      throw new AppError('ACCOUNT_HAS_ACTIVE_LOANS', 'No podés eliminar tu cuenta mientras tengas préstamos activos')
     }
 
     await client.query(

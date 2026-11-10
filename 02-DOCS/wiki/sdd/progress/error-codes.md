@@ -68,3 +68,31 @@ slug: error-codes
 - controls: tests ✅ · build ✅ · security ✅ (refuter-security pass: sin oráculo de rutas, límites y origen antes del 404) · traceability ✅ (AC-5b, AC-6 filas 8 y 35, AC-8)
 - coverage: index.ts 85,71 % · auth.ts 100 % · origin.ts 100 % · rateLimit.ts 83,87 %
 - note: el test "token inválido" de middleware.test.ts probaba "sin token" (la mini-app no lee cookies); ahora usa el header
+
+## T004 — 2026-11-10
+- status: complete — aprobada por Hernán (tier 2)
+- red: 14 aserciones fallan por el código viejo (`BAD_REQUEST`, `UNAUTHORIZED`, `ConflictError`)
+- green: suite del server 29 archivos, 414/414 (junto con T005); `tsc -b` y `npm run build` limpios
+- files: server/src/modules/auth/{authRoutes,authService,userRepo}.ts; tests authRoutes, authService, authValidation, errors
+- risk: tier 2 (auth) — 3 refuters + aprobación humana
+- review: ronda 1: security pass (sin enumeración de emails: mismo `if`, mismo cuerpo, bcrypt siempre); correctness y
+  tests pass con 3 nits (bordes aceptados de los límites sin test; "faltan datos" con un solo caso) → arreglados
+  (5 casos de borde aceptados, 5 casos de un campo faltante). Mutantes del diff: 18/18 detectados
+- controls: tests ✅ · build ✅ · security ✅ · traceability ✅ (AC-6 filas 1-7, AC-12)
+- coverage: authRoutes.ts 100 % · authService.ts 100 % · userRepo.ts 90 %
+- backlog: email/contraseña no string → 500 (preexistente, fuera de alcance)
+
+## T005 — 2026-11-10
+- status: complete — aprobada por Hernán (tier 2). Implementada por Qwen (OpenCode vía Orca, worktree `t005-me`), revisada por Claude
+- red: 11 tests fallan por los códigos viejos (reporte de Qwen)
+- green: 24/24 en los tests de `me`; con T004 en la carpeta principal, 29 archivos, 418/418; `tsc -b` limpio
+- files: server/src/modules/me/{meRoutes,meAccountRoutes,accountDeletion}.ts; tests meAccountRoutes, accountDeletion, meRoutes (nuevo)
+- risk: tier 2 (`bcrypt.compare` en meAccountRoutes; el pronóstico decía 1) — 3 refuters + aprobación humana
+- review de Claude antes de los refuters: el test D7 no distinguía `findById` de `findActiveById` y dos tests de
+  `deleteAccount` se aflojaron a `toBeInstanceOf(AppError)` → devueltos a Qwen y arreglados; prueba del mutante
+  `findById` repetida por Claude: el test falla con 401
+- review refuters: security pass; correctness pass (2 nits); tests: 1 should-fix (títulos con nombres de subclases) + 3 nits
+  → todos arreglados por Claude en la carpeta principal (solo tests); los mutantes que sobrevivían ahora mueren
+- controls: tests ✅ · build ✅ · security ✅ (el 404 de cuenta eliminada solo lo ve quien tiene ese token) · traceability ✅ (AC-6 filas 8 y 11-16, excepción D7)
+- coverage: accountDeletion.ts 100 % · meAccountRoutes.ts 88,88 % · meRoutes.ts 90,9 %
+- backlog: carrera borrar cuenta / cambiar contraseña (`updatePassword` y `findByEmail` sin `deleted_at`), preexistente
