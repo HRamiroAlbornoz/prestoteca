@@ -81,3 +81,18 @@ slug: error-codes
 - controls: tests ✅ · build ✅ · security ✅ · traceability ✅ (AC-6 filas 1-7, AC-12)
 - coverage: authRoutes.ts 100 % · authService.ts 100 % · userRepo.ts 90 %
 - backlog: email/contraseña no string → 500 (preexistente, fuera de alcance)
+
+## T005 — 2026-11-10
+- status: complete — aprobada por Hernán (tier 2). Implementada por Qwen (OpenCode vía Orca, worktree `t005-me`), revisada por Claude
+- red: 11 tests fallan por los códigos viejos (reporte de Qwen)
+- green: 24/24 en los tests de `me`; con T004 en la carpeta principal, 29 archivos, 418/418; `tsc -b` limpio
+- files: server/src/modules/me/{meRoutes,meAccountRoutes,accountDeletion}.ts; tests meAccountRoutes, accountDeletion, meRoutes (nuevo)
+- risk: tier 2 (`bcrypt.compare` en meAccountRoutes; el pronóstico decía 1) — 3 refuters + aprobación humana
+- review de Claude antes de los refuters: el test D7 no distinguía `findById` de `findActiveById` y dos tests de
+  `deleteAccount` se aflojaron a `toBeInstanceOf(AppError)` → devueltos a Qwen y arreglados; prueba del mutante
+  `findById` repetida por Claude: el test falla con 401
+- review refuters: security pass; correctness pass (2 nits); tests: 1 should-fix (títulos con nombres de subclases) + 3 nits
+  → todos arreglados por Claude en la carpeta principal (solo tests); los mutantes que sobrevivían ahora mueren
+- controls: tests ✅ · build ✅ · security ✅ (el 404 de cuenta eliminada solo lo ve quien tiene ese token) · traceability ✅ (AC-6 filas 8 y 11-16, excepción D7)
+- coverage: accountDeletion.ts 100 % · meAccountRoutes.ts 88,88 % · meRoutes.ts 90,9 %
+- backlog: carrera borrar cuenta / cambiar contraseña (`updatePassword` y `findByEmail` sin `deleted_at`), preexistente
