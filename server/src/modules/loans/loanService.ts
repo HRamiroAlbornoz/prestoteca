@@ -1,5 +1,5 @@
 import type { LoanRepository } from './loanRepo.js'
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors/AppError.js'
+import { AppError } from '../errors/AppError.js'
 import { todayInAppTimeZone } from './appDate.js'
 
 // Same answer for "does not exist" and "exists but you are not part of it":
@@ -38,7 +38,7 @@ export class LoanService {
   async create(input: CreateLoanInput): Promise<import('./loanRepo.js').Loan> {
     // Cannot borrow own tool
     if (input.userId === input.ownerId) {
-      throw new ValidationError('No puedes pedir tu propia herramienta')
+      throw new AppError('LOAN_OWN_TOOL', 'No puedes pedir tu propia herramienta')
     }
 
     // Check for overlapping dates
@@ -48,7 +48,8 @@ export class LoanService {
       input.endDate,
     )
     if (hasOverlap) {
-      throw new ConflictError(
+      throw new AppError(
+        'LOAN_DATES_OVERLAP',
         'La herramienta tiene un préstamo activo con fechas solapadas',
       )
     }
@@ -67,12 +68,12 @@ export class LoanService {
   async getDetail(loanId: string, userId: string): Promise<import('./loanRepo.js').Loan> {
     const loan = await this.repo.findById(loanId)
     if (!loan) {
-      throw new NotFoundError(LOAN_NOT_FOUND)
+      throw new AppError('LOAN_NOT_FOUND', LOAN_NOT_FOUND)
     }
 
     // User must be participant (owner or borrower)
     if (loan.owner_id !== userId && loan.borrower_id !== userId) {
-      throw new NotFoundError(LOAN_NOT_FOUND)
+      throw new AppError('LOAN_NOT_FOUND', LOAN_NOT_FOUND)
     }
 
     return loan
@@ -85,18 +86,19 @@ export class LoanService {
   ): Promise<import('./loanRepo.js').Loan> {
     const loan = await this.repo.findById(loanId)
     if (!loan) {
-      throw new NotFoundError(LOAN_NOT_FOUND)
+      throw new AppError('LOAN_NOT_FOUND', LOAN_NOT_FOUND)
     }
 
     // User must be participant (owner or borrower)
     if (loan.owner_id !== userId && loan.borrower_id !== userId) {
-      throw new NotFoundError(LOAN_NOT_FOUND)
+      throw new AppError('LOAN_NOT_FOUND', LOAN_NOT_FOUND)
     }
 
     // Validate transition: first whether the change exists at all, then whether this person may make it
     const allowedRoles = TRANSITIONS[loan.status]?.[newStatus]
     if (!allowedRoles) {
-      throw new ConflictError(
+      throw new AppError(
+        'LOAN_TRANSITION_INVALID',
         `Transición inválida: de "${loan.status}" a "${newStatus}"`,
       )
     }
@@ -104,13 +106,14 @@ export class LoanService {
     // A participant already knows the loan exists, so a 403 reveals nothing new (unlike a stranger, who gets 404)
     const role: Role = loan.owner_id === userId ? 'owner' : 'borrower'
     if (!allowedRoles.includes(role)) {
-      throw new ForbiddenError(
+      throw new AppError(
+        'LOAN_TRANSITION_WRONG_ROLE',
         `Solo ${allowedRoles.includes('owner') ? 'el dueño' : 'quien pidió'} puede pasar el préstamo a "${newStatus}"`,
       )
     }
 
     const updated = await this.repo.updateStatus(loanId, newStatus)
-    if (!updated) throw new NotFoundError(LOAN_NOT_FOUND)
+    if (!updated) throw new AppError('LOAN_NOT_FOUND', LOAN_NOT_FOUND)
     return updated
   }
 
