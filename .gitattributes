@@ -1,0 +1,3 @@
+# Specs keep LF line endings on disk too (not only in the repository).
+# rsc reads them from disk before a push and misreads CRLF files (it reports every section as missing).
+02-DOCS/wiki/sdd/specs/*.md text eol=lf
