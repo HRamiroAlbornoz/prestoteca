@@ -43,3 +43,15 @@ slug: error-codes
 - controls: tests ✅ (rojo esperado) · build ✅ (server `tsconfig` excluye tests; sin cambio en `src`) · security no aplica (solo tests) · traceability ✅ (AC-6, AC-7)
 - note: el rojo es por import, no por aserción (el done-check aprobado lo pide así); T002 crea primero los
   módulos con stubs para ver el rojo por aserción antes del verde
+
+## T002 — 2026-11-10
+- status: complete
+- red: con stubs (`ERROR_CODES = {}`, `sendErrorCode`/`apiNotFound` vacías) → 117 de 121 fallan por aserción
+  (`expected +0 to be 404`, `expected 'TOOL_NOT_OWNER' to be 403`), no por import
+- green: `cd server && npx vitest run tests/errorCodes.test.ts` → 121/121; suite completa del server 28 archivos, 389/389, sin tocar tests viejos
+- files: server/src/modules/errors/errorCodes.ts (nuevo), server/src/modules/errors/AppError.ts
+- risk: tier 1 — 1 revisor de contexto fresco
+- review: 0 hallazgos, VERDICT pass (ronda 1)
+- controls: tests ✅ · build ✅ (`tsc -b`, `npm run build`) · security ✅ (un error no previsto sigue respondiendo solo `INTERNAL_ERROR`; el detalle va al log) · traceability ✅ (AC-6, AC-7)
+- coverage: errorCodes.ts 100 % líneas · AppError.ts 90 % líneas
+- note: los genéricos `UNAUTHORIZED`/`FORBIDDEN`/`NOT_FOUND`/`CONFLICT` quedan en el catálogo, marcados como temporales; T009 los borra

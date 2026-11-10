@@ -1,73 +1,79 @@
 import type express from 'express'
+import { ERROR_CODES, type ServerErrorCode } from './errorCodes.js'
 
-// Every error code the API can answer with, in one place.
-export const ERROR_CODES = {
-  BAD_REQUEST: 'BAD_REQUEST',
-  UNAUTHORIZED: 'UNAUTHORIZED',
-  FORBIDDEN: 'FORBIDDEN',
-  NOT_FOUND: 'NOT_FOUND',
-  CONFLICT: 'CONFLICT',
-  PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
-  INTERNAL_ERROR: 'INTERNAL_ERROR',
-} as const
-
-export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES]
-
-// An error we expect and know how to explain to the client (bad input, missing resource, ...).
-// Its message is safe to show. Any other error is a bug or an outage: the client only gets
-// a generic message, and the detail goes to the log.
+// An error we expect and know how to explain (bad input, missing resource, ...).
+// It carries a code from the catalog; the HTTP status comes from that code, never by hand.
+// `message` is for developers (English) and is never shown to the user: the client
+// shows its own text for the code. Any other error is a bug or an outage: the client only
+// gets INTERNAL_ERROR, and the detail goes to the log.
 export class AppError extends Error {
+  readonly status: number
+
   constructor(
-    readonly status: number,
-    readonly code: ErrorCode,
-    message: string,
+    readonly code: ServerErrorCode,
+    devMessage: string,
   ) {
-    super(message)
+    super(devMessage)
     this.name = new.target.name
+    this.status = ERROR_CODES[code].status
   }
 }
 
+// Old generic errors, kept only until every route sends a specific code (task T009
+// removes them). Each one is an AppError with the generic code it always had.
 export class ValidationError extends AppError {
   constructor(message: string) {
-    super(400, ERROR_CODES.BAD_REQUEST, message)
+    super('BAD_REQUEST', message)
   }
 }
 
 export class UnauthorizedError extends AppError {
   constructor(message: string) {
-    super(401, ERROR_CODES.UNAUTHORIZED, message)
+    super('UNAUTHORIZED', message)
   }
 }
 
 export class ForbiddenError extends AppError {
   constructor(message: string) {
-    super(403, ERROR_CODES.FORBIDDEN, message)
+    super('FORBIDDEN', message)
   }
 }
 
 export class NotFoundError extends AppError {
   constructor(message: string) {
-    super(404, ERROR_CODES.NOT_FOUND, message)
+    super('NOT_FOUND', message)
   }
 }
 
 export class ConflictError extends AppError {
   constructor(message: string) {
-    super(409, ERROR_CODES.CONFLICT, message)
+    super('CONFLICT', message)
   }
 }
 
-// Answers a caught error. Expected errors keep their status and message; anything else
-// becomes a 500 with `fallbackMessage`, and the original error is logged (never sent).
-// The request body is never logged: it can carry passwords.
-export function sendError(res: express.Response, err: unknown, fallbackMessage: string): void {
+// The one place that writes an error body: { error: { code, message } }, with the status
+// of the code. Middlewares and route validations call it instead of res.status().json().
+export function sendErrorCode(res: express.Response, code: ServerErrorCode, devMessage: string): void {
+  res.status(ERROR_CODES[code].status).json({ error: { code, message: devMessage } })
+}
+
+// Answers a caught error. An AppError keeps its code and message; anything else
+// becomes INTERNAL_ERROR with `fallbackDevMessage`, and the original error is logged
+// (never sent). The request body is never logged: it can carry passwords.
+export function sendError(res: express.Response, err: unknown, fallbackDevMessage: string): void {
   if (err instanceof AppError) {
-    res.status(err.status).json({ error: { code: err.code, message: err.message } })
+    sendErrorCode(res, err.code, err.message)
     return
   }
 
   console.error('[error] unexpected error:', err)
-  res.status(500).json({ error: { code: ERROR_CODES.INTERNAL_ERROR, message: fallbackMessage } })
+  sendErrorCode(res, 'INTERNAL_ERROR', fallbackDevMessage)
+}
+
+// For an /api/... route that does not exist: answers in the catalog format instead of
+// Express's HTML 404 page. Mounted on /api after all the API routes.
+export function apiNotFound(_req: express.Request, res: express.Response): void {
+  sendErrorCode(res, 'API_ROUTE_NOT_FOUND', 'API route not found')
 }
 
 // Errors raised by express.json() when it reads the body
@@ -94,11 +100,11 @@ export function errorHandler(
 
   const type = bodyParserErrorType(err)
   if (type === 'entity.parse.failed') {
-    res.status(400).json({ error: { code: ERROR_CODES.BAD_REQUEST, message: 'Malformed JSON body' } })
+    sendErrorCode(res, 'BAD_REQUEST', 'Malformed JSON body')
     return
   }
   if (type === 'entity.too.large') {
-    res.status(413).json({ error: { code: ERROR_CODES.PAYLOAD_TOO_LARGE, message: 'Request body too large' } })
+    sendErrorCode(res, 'PAYLOAD_TOO_LARGE', 'Request body too large')
     return
   }
 
