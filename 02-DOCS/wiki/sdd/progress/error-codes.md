@@ -129,3 +129,19 @@ slug: error-codes
 - controls: tests ✅ · build ✅ · security no aplica (tier 1) · traceability ✅ (AC-6 filas 23-32; ajeno = inexistente)
 - coverage: loansRoutes.ts 91,46 % · loanService.ts 100 %
 - lección: los pedidos a Qwen prohíben tests que escriban en `src/` o lancen procesos; Claude lo busca con `grep` antes de aplicar un parche
+
+## Cierre del PR 1 (rama `feat/error-codes-server`) — 2026-11-10
+- spec enlazada a la rama (`branch: feat/error-codes-server`, ok de Hernán) y `.gitattributes` para que las specs queden
+  con LF en disco (rsc lee mal los CRLF): `rsc spec gate` pasa sobre el archivo real (commit `ac7ef06`)
+- revisión triple de la rama entera contra `main` (HEAD `ac7ef06`):
+  - correctness: pass, 0 hallazgos (cada status igual que en `main` salvo D7 y D9; ningún error a mano fuera de `errors/`;
+    mensajes de desarrollo intactos)
+  - security: pass, 0 hallazgos (login, préstamos y rutas `/api` siguen indistinguibles donde deben; nada interno en
+    cuerpos ni logs; `orca.yaml` no corre fuera de la PC)
+  - tests: changes-needed — 115 mutantes, 100 detectados; 2 should-fix (borrar y pausar una herramienta inexistente sin
+    test de `TOOL_NOT_FOUND`) y 2 nits (`BAD_REQUEST` de categoría/estado solo por status; `headersSent` de
+    `errorHandler` sin test) → arreglados, solo tests (toolService.test.ts, errorCodes.test.ts). Los `BAD_REQUEST` de
+    "id inválido" en rutas quedan sin test: ningún pedido real llega a esa línea
+- controls: suite del server 29 archivos, 464/464; build desde la raíz y tests del cliente (181/181) verdes
+- backlog (preexistentes, aprobados por Hernán): email/contraseña no string → 500; carrera borrar cuenta / cambiar
+  contraseña; estado de préstamo `"constructor"` → 500; los tests del server no pasan por `tsc`
