@@ -115,12 +115,9 @@ describe('AC-14: every message is the text of its row in the spec', () => {
 
   it('maps every catalog code either to its own row or to row 37', () => {
     const mapped = new Set<string>([...Object.values(ROW_TO_CODE), ...ROW_37_CODES])
-    // The generic codes still in the catalog until task T009 removes them also show row 37
-    const pending = Object.keys(ERROR_CODES).filter((code) => !mapped.has(code))
+    const unmapped = Object.keys(ERROR_CODES).filter((code) => !mapped.has(code))
 
-    for (const code of pending) {
-      expect({ code, text: MESSAGES[code as ClientErrorCode] }).toEqual({ code, text: rows.get(37) })
-    }
+    expect(unmapped).toEqual([])
   })
 })
 

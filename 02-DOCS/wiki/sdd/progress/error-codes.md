@@ -163,3 +163,21 @@ slug: error-codes
 - controls: tests ✅ · build ✅ · lint ✅ (oxlint sin avisos en `errors/`) · security ✅ (nunca se lee el `message` del
   server) · traceability ✅ (AC-2, AC-3, AC-4 unit, AC-5, AC-9c, AC-14)
 - spec: `branch:` pasa a `feat/error-codes-client-base` (ok de Hernán)
+
+## T009 — 2026-11-11
+- status: complete. Hecha por Claude
+- red (guardia): con `origin.ts` y `rateLimit.ts` de antes del PR 1 (`git show 16e76de:…`) puestos en `src`,
+  `tests/errorGuard.test.ts` falla en esos dos archivos; restaurados (`git status` vacío) → verde
+- red (borrado): el test nuevo "el catálogo tiene exactamente los códigos del plan" falla con 42 claves contra 38 →
+  borrados `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT` del catálogo y del mapa del cliente, y las 5 subclases
+- green: server 30 archivos, 506/506; cliente 17 archivos, 285/285; `tsc -b` limpio en los dos; build desde la raíz verde;
+  `grep -rnE "ValidationError|NotFoundError|ConflictError|ForbiddenError|UnauthorizedError" server/src server/tests` → 0
+- files: server/tests/errorGuard.test.ts (nuevo), server/src/modules/errors/{AppError,errorCodes}.ts,
+  client/src/errors/{messages.ts,messages.test.ts}; tests del server con subclases o con porteros falsos que respondían
+  `UNAUTHORIZED` (ahora `SESSION_REQUIRED`)
+- risk: tier 1 — 1 revisor de contexto fresco
+- review: pass, 4 nits + 1 pregunta sobre huecos de la guardia → reforzada (prohíbe cualquier clave `error: {` y
+  `code:` con literal, también entre comillas, fuera de `errors/`; solo borra comentarios de línea completa; revisa
+  `.mts`, `.js` y `.tsx`); 6 casos nuevos en el test. Aceptado: fixtures del cliente con códigos viejos
+  (`App.test.tsx`, `editTool.test.tsx`, `toolPages.test.tsx`), que se reescriben con sus pantallas en el PR 3
+- controls: tests ✅ · build ✅ · lint ✅ (cliente) · security ✅ · traceability ✅ (AC-5b estática, AC-7, AC-8)

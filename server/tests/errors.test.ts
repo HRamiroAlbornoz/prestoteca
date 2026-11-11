@@ -7,14 +7,7 @@ import path from 'node:path'
 import type { Pool } from 'pg'
 import { createApp } from '../src/index.js'
 import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
-import {
-  AppError,
-  ConflictError,
-  ForbiddenError,
-  NotFoundError,
-  ValidationError,
-  sendError,
-} from '../src/modules/errors/AppError.js'
+import { AppError, sendError } from '../src/modules/errors/AppError.js'
 import { UserRepository } from '../src/modules/auth/userRepo.js'
 import { toolsRoutes } from '../src/modules/tools/toolsRoutes.js'
 import type { ToolService } from '../src/modules/tools/toolService.js'
@@ -52,18 +45,19 @@ describe('sendError', () => {
     vi.restoreAllMocks()
   })
 
+  // AC-7: the body is exactly { error: { code, message } }, with nothing else
   it.each([
-    [new ValidationError('Invalid category'), 400, 'BAD_REQUEST'],
-    [new ForbiddenError('You can only edit your own tools'), 403, 'FORBIDDEN'],
-    [new NotFoundError('Tool not found'), 404, 'NOT_FOUND'],
-    [new ConflictError('Cannot delete tool with active loans'), 409, 'CONFLICT'],
+    [new AppError('BAD_REQUEST', 'Invalid category'), 400, 'BAD_REQUEST'],
+    [new AppError('TOOL_NOT_OWNER', 'You can only edit your own tools'), 403, 'TOOL_NOT_OWNER'],
+    [new AppError('TOOL_NOT_FOUND', 'Tool not found'), 404, 'TOOL_NOT_FOUND'],
+    [new AppError('TOOL_HAS_ACTIVE_LOANS', 'Cannot delete tool with active loans'), 409, 'TOOL_HAS_ACTIVE_LOANS'],
   ])('answers an expected %s with its own status, code and message', (err, status, code) => {
     const res = fakeResponse()
 
-    sendError(res as unknown as express.Response, err as AppError, 'Fallback')
+    sendError(res as unknown as express.Response, err, 'Fallback')
 
     expect(res.statusCode).toBe(status)
-    expect(res.body).toEqual({ error: { code, message: (err as AppError).message } })
+    expect(res.body).toEqual({ error: { code, message: err.message } })
   })
 
   it('answers an unexpected error with a generic 500 and keeps the detail in the log only', () => {
@@ -198,13 +192,13 @@ describe('tools routes with typed errors', () => {
 
   it('returns 404 when editing a tool that does not exist', async () => {
     const app = appWith({
-      edit: vi.fn().mockRejectedValue(new NotFoundError('Tool not found')),
+      edit: vi.fn().mockRejectedValue(new AppError('TOOL_NOT_FOUND', 'Tool not found')),
     })
 
     const res = await request(app).patch('/api/tools/missing').send({ name: 'Taladro' })
 
     expect(res.status).toBe(404)
-    expect(res.body).toEqual({ error: { code: 'NOT_FOUND', message: 'Tool not found' } })
+    expect(res.body).toEqual({ error: { code: 'TOOL_NOT_FOUND', message: 'Tool not found' } })
   })
 })
 

@@ -80,12 +80,6 @@ export const MESSAGES: Record<ClientErrorCode, string> = {
   TOOL_EDIT_EMPTY: GENERIC,
   API_ROUTE_NOT_FOUND: GENERIC,
   INTERNAL_ERROR: GENERIC,
-
-  // --- Generic codes still in the server catalog; task T009 removes them from both sides ---
-  UNAUTHORIZED: GENERIC,
-  FORBIDDEN: GENERIC,
-  NOT_FOUND: GENERIC,
-  CONFLICT: GENERIC,
 }
 
 export function messageFor(code: ClientErrorCode): string {

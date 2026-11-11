@@ -59,13 +59,6 @@ export const ERROR_CODES = {
   TOOL_EDIT_EMPTY: { status: 404 }, // editing your own tool without sending any field
   API_ROUTE_NOT_FOUND: { status: 404 }, // an /api/... route that does not exist
   INTERNAL_ERROR: { status: 500 }, // anything unexpected: the detail goes to the server log only
-
-  // --- Generic codes still sent while the routes move to the specific ones ---
-  // Used by the old subclasses in AppError.ts. Removed in task T009, when nothing sends them.
-  UNAUTHORIZED: { status: 401 },
-  FORBIDDEN: { status: 403 },
-  NOT_FOUND: { status: 404 },
-  CONFLICT: { status: 409 },
 } as const satisfies Record<string, { status: number }>
 
 export type ServerErrorCode = keyof typeof ERROR_CODES

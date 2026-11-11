@@ -75,6 +75,10 @@ describe('error catalog (errorCodes.ts)', () => {
     expect(entry.status).toBe(status)
   })
 
+  it('has no code beyond the plan (the old generic codes are gone)', () => {
+    expect(Object.keys(ERROR_CODES).sort()).toEqual(Object.keys(EXPECTED_STATUS).sort())
+  })
+
   it('gives every code exactly one numeric HTTP error status', () => {
     for (const [code, entry] of Object.entries(ERROR_CODES)) {
       expect(Object.keys(entry), code).toEqual(['status'])
