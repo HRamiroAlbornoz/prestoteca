@@ -172,3 +172,8 @@ backup/**/*.dump
 # rsc local state (hooks, seals, logs) and managed skill links — machine-local
 .claude/skills/asdd
 .opencode/rsc/asdd
+
+# rsc local state (hooks, seals, logs) and managed skill links — machine-local
+.claude/skills/security-audit
+.opencode/rsc/security-audit
+.opencode/commands/security-audit.md
