@@ -270,3 +270,29 @@ slug: error-codes
 - coverage: PublishForm.tsx 100 %, ToolDetailPage.tsx 92,9 %
 - lección: Qwen no siguió las reglas nuevas del pedido ni la autorrevisión. Hernán decidió seguir delegando a Qwen
   para probar el modelo local; el pedido de T014 apunta a los patrones ya revisados y lista cada mutante
+
+## T014 — 2026-11-11
+- status: complete. Hecha por Qwen en 4 entregas (worktree `t014-loans`, base `2ed7279`), cerrada por Claude
+- 1.ª entrega: dos efectos que pedían el préstamo dos veces; un corte de conexión no mostraba nada; "Mis préstamos"
+  mostraba códigos crudos (`UNKNOWN_ERROR`) y no seguía la regla de dos pedidos; tests aflojados con esperas fijas
+  en vez de tests nuevos
+- 2.ª entrega: un 401 al cambiar el estado no llevaba al login; un 200 roto decía "sin conexión"; un test de red
+  copiado del de arriba; comentario borrado; 1 test nuevo en total
+- 3.ª entrega: código casi bien, pero inventó su propia lista C1-C20 (duplicando tests viejos y dando por bueno que
+  una carga cancelada muestre "sin conexión") → se le pegó la tabla del pedido tal cual
+- 4.ª entrega: aceptada con arreglos de Claude. 6 de 8 mutantes detectados; 3 huecos cerrados por Claude (C18 "no es
+  JSON" no hacía fallar `json()`; C20 no dejaba pendiente el segundo pedido; faltaba el test de 401 al cambiar el
+  estado). Qwen había borrado 13 tests de `LoanDetailPage` que ya existían (cobertura 79,4 % → 72,3 %) y comentado un
+  `afterAll`: Claude los restauró. C3, C9, C10 y C17 ahora piden el `returnTo` exacto
+- review del revisor (correctness, tier 1): 1 should-fix (L59: un 2xx roto al pedir el préstamo decía "sin conexión"
+  o llevaba a `/loans/undefined`) → arreglado con test; 1 nit (L60: la respuesta del cambio de estado se validaba
+  menos que la carga) → misma validación `isLoanShape` y test; 1 nit aceptado (L61: no se reinicia el estado si
+  cambia el `id` en la misma pantalla; igual que antes, como L57 y L58)
+- green: cliente 18 archivos, 415/415; `tsc -b` limpio; lint 0 advertencias
+- files: client/src/pages/RequestLoanPage.tsx, client/src/pages/LoanDetailPage.tsx, client/src/pages/MyLoansPage.tsx,
+  client/src/pages/requestLoan.test.tsx, client/src/pages/loanPages.test.tsx, client/src/pages/myLoans.test.tsx
+- risk: tier 1 — 1 revisor
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ (no se muestra texto del servidor) · traceability ✅ (C1-C20)
+- coverage: LoanDetailPage.tsx 83,5 %, MyLoansPage.tsx 91,7 %, RequestLoanPage.tsx 95,3 %
+- lección: Qwen no mandó `worker_done` en ninguna de las 4 entregas y borró tests ajenos aunque el pedido lo
+  prohíbe. Pegar la tabla del checklist en cada devolución y pedir los tests primero, con el ID en el nombre, sí ayudó
