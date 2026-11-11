@@ -202,3 +202,23 @@ slug: error-codes
 - review ronda 2 (correctness, solo los arreglos): pass + 2 nits → el aviso ya no parpadea mientras la sesión no se
   conoce (`!isLoading`, con test); guardia `currentUser` en "Salir" sin test: aceptado (casi equivalente)
 - controls: tests ✅ · build ✅ · lint ✅ · security ✅ · traceability ✅ (AC-11, AC-12, AC-13)
+- commit: `384d065` (aprobada por Hernán)
+
+## T012 — 2026-11-11
+- status: complete. Implementada por Qwen (worktree `t012-home`, base `8725147`: no necesita `useApiError`), revisada por Claude
+- review de Claude, 1.ª entrega: 3 errores que los tests no veían (resultados viejos junto al error; un 200 que no es
+  JSON mostraba "sin conexión"; un truco frágil `msg in MESSAGES`) → devueltos a Qwen y arreglados
+- review de Claude, 2.ª entrega: 3 de 4 mutantes propios detectados; agregado el test del error viejo que seguía
+  mientras carga la búsqueda nueva; 2 errores de `tsc -b` que Qwen no vio (corrió `tsc --noEmit`) arreglados
+- review del revisor: 1 should-fix (ningún test probaba que un pedido cancelado no toca la pantalla: borrar esa
+  guardia dejaba "Cargando" para siempre con todo verde) + 5 nits → test nuevo (la respuesta tardía no cambia nada),
+  validación completa de la página de herramientas (`total`, `page`, `pages`), la paginación ya no desaparece al
+  cargar, `fetchTools` pasa a ser una función común que usa la misma `requestKey`. Aceptados: C10 débil y el caso
+  A→B→A
+- green: cliente 18 archivos, 329/329; `tsc -b` limpio; **lint 0 advertencias en todo el cliente** (se fue la de
+  `HomePage`)
+- files: client/src/pages/HomePage.tsx, client/src/pages/homePage.test.tsx
+- risk: tier 1 — 1 revisor
+- controls: tests ✅ · build ✅ · lint ✅ · security no aplica · traceability ✅ (AC-5c, AC-1, AC-4)
+- coverage: HomePage.tsx ~96 %
+- lección para los pedidos: exigir `npx tsc -b` exacto (no `--noEmit`) y avisar que `ClientErrorCode` sale de `messages.ts`
