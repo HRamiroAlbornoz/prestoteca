@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LoanStatus } from '../components/LoanStatus'
+import { readApiError } from '../errors/apiError'
+import { useApiError } from '../errors/useApiError'
 
 interface Loan {
   id: string
@@ -19,6 +21,7 @@ interface Loan {
 export function LoanDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { currentUser } = useAuth()
+  const { handle } = useApiError()
   const [loan, setLoan] = useState<Loan | null>(null)
   const [toolName, setToolName] = useState<string>('')
   const [error, setError] = useState<string>('')
@@ -41,8 +44,8 @@ export function LoanDetailPage() {
             setToolName(tool.name)
           }
         } else {
-          const data = await res.json()
-          setError(data.error?.message || 'Préstamo no encontrado')
+          // SESSION_REQUIRED leads to the login (handle gives null); any other code, its text
+          setError(handle(await readApiError(res)) ?? '')
         }
       } catch {
         setError('Error de conexión. Intentá de nuevo.')
@@ -52,7 +55,7 @@ export function LoanDetailPage() {
     }
 
     fetchLoan()
-  }, [id])
+  }, [id, handle])
 
   const isOwner = loan?.owner_id === currentUser?.id
   const isBorrower = loan?.borrower_id === currentUser?.id

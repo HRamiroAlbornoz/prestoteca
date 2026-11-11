@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate, Link, useSearchParams } from 'react-router-dom'
+import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { fetchFailureCode, readApiError } from '../errors/apiError'
+import { messageFor } from '../errors/messages'
+import { useApiError } from '../errors/useApiError'
 
 interface LoginFormData {
   email: string
@@ -12,6 +15,12 @@ interface LoginFormData {
 function safeReturnTo(value: string | null): string {
   // Browsers read "/\" like "//", so it is rejected too
   if (!value || !value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return '/'
+  // Control characters (tab, newline…) are dropped by the URL parser, so "/<tab>/evil.com"
+  // would become "//evil.com". Any of them means the value was crafted.
+  for (const char of value) {
+    const code = char.charCodeAt(0)
+    if (code < 0x20 || code === 0x7f) return '/'
+  }
   return value
 }
 
@@ -21,15 +30,30 @@ export function LoginPage() {
     password: '',
   })
   const [error, setError] = useState<string>('')
+  // Once the person tries to log in, the "session ended" notice has done its job: it does not come back
+  const [attempted, setAttempted] = useState(false)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
-  const { refreshUser } = useAuth()
+  const location = useLocation()
+  const { currentUser, isLoading, refreshUser } = useAuth()
+  const { handle } = useApiError()
   const [searchParams] = useSearchParams()
   const returnTo = safeReturnTo(searchParams.get('returnTo'))
+
+  // Row 8, "your session ended": only when the app itself sent the person here (router state,
+  // which a crafted link cannot set) and nobody is logged in. "Not known yet" is not "nobody":
+  // while the session is still being asked for, nothing is shown. The error of a new attempt replaces it.
+  const sessionEnded =
+    (location.state as { notice?: unknown } | null)?.notice === 'SESSION_REQUIRED' &&
+    !isLoading &&
+    !currentUser &&
+    !attempted
+  const shownError = error || (sessionEnded ? messageFor('SESSION_REQUIRED') : '')
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setAttempted(true)
     setLoading(true)
 
     try {
@@ -42,13 +66,15 @@ export function LoginPage() {
       if (res.ok) {
         // The server set the httpOnly cookie; ask it who we are before entering a private page
         await refreshUser()
-        navigate(returnTo)
+        // replace: "back" after logging in does not return to the login
+        navigate(returnTo, { replace: true })
       } else {
-        const data = await res.json()
-        setError(data.error?.message || 'Login failed')
+        // A wrong email or password keeps the person here, with what they typed (AC-12)
+        setError(handle(await readApiError(res)) ?? '')
       }
-    } catch {
-      setError('Network error. Please try again.')
+    } catch (err) {
+      const code = fetchFailureCode(err)
+      if (code) setError(messageFor(code))
     } finally {
       setLoading(false)
     }
@@ -61,9 +87,9 @@ export function LoginPage() {
           Iniciar sesión
         </h1>
 
-        {error && (
+        {shownError && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
-            {error}
+            {shownError}
           </div>
         )}
 

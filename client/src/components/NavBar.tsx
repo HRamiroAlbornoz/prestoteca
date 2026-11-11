@@ -1,5 +1,7 @@
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { messageFor } from '../errors/messages'
 
 // Shared look of every item in the bar: at least 44px tall (touch target) and a visible keyboard focus
 const itemBase =
@@ -13,17 +15,26 @@ function navLinkClass({ isActive }: { isActive: boolean }) {
 }
 
 export function NavBar() {
-  const { currentUser, isLoading, logout } = useAuth()
+  const { currentUser, isLoading, logout, markSignedOut } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  // The location where "Salir" last failed. The router gives a new location object on every
+  // navigation (also on "back"), so the message shows only until the person moves: comparing
+  // the object, not its key, because "back" brings the old key again.
+  const [logoutFailedAt, setLogoutFailedAt] = useState<typeof location | null>(null)
 
   async function handleLogout() {
-    // Go home first: if we stayed on a private page, losing the session would send us to the login
-    navigate('/')
-    try {
-      await logout()
-    } catch {
-      // No connection: the app already forgot the user (logout() clears it in any case)
+    setLogoutFailedAt(null) // a new attempt removes the old message
+    const result = await logout()
+    if (result === 'failed') {
+      // The server did not close the session: the person is still logged in, and is told so (AC-13)
+      setLogoutFailedAt(location)
+      return
     }
+    // Go home and forget the user in the same event: both are drawn together, so a private
+    // page never sees "no user" first (which would send the person to the login)
+    navigate('/')
+    markSignedOut()
   }
 
   return (
@@ -64,6 +75,14 @@ export function NavBar() {
           </ul>
         )}
       </nav>
+      {/* Only while there is still a session to close: if it ended some other way, the message no longer applies */}
+      {currentUser && logoutFailedAt === location && (
+        <div className="max-w-5xl mx-auto px-4 pb-2">
+          <p className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-sm" role="alert">
+            {messageFor('LOGOUT_FAILED')}
+          </p>
+        </div>
+      )}
     </header>
   )
 }

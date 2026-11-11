@@ -249,7 +249,7 @@ describe('ToolDetailPage', () => {
     })
   })
 
-  it('shows the server error when pausing fails', async () => {
+  it('shows the Spanish message of the code when pausing fails, never the server text', async () => {
     mockFetch
       .mockResolvedValueOnce({
         ok: true,
@@ -257,7 +257,7 @@ describe('ToolDetailPage', () => {
       })
       .mockResolvedValueOnce({
         ok: false,
-        json: async () => ({ error: { code: 'FORBIDDEN', message: 'You can only pause your own tools' } }),
+        json: async () => ({ error: { code: 'TOOL_NOT_OWNER', message: 'You can only pause your own tools' } }),
       })
 
     renderPage('/tools/tool-1', { id: 'user-1', name: 'Owner User' })
@@ -269,8 +269,9 @@ describe('ToolDetailPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /pausar/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('You can only pause your own tools')
+      expect(screen.getByRole('alert')).toHaveTextContent('Solo podés modificar tus propias herramientas.') // row 21
     })
+    expect(screen.getByRole('alert')).not.toHaveTextContent('You can only pause')
   })
 
   it('calls DELETE /api/tools/:id on delete', async () => {

@@ -82,7 +82,8 @@ describe('App routes and session', () => {
     expect(window.location.pathname).toBe('/profile')
   })
 
-  it.each(['//evil.example', 'https://evil.example', '/\\evil.example'])(
+  // The tab and newline cases: the URL parser drops them, so "/<tab>/evil.example" would become "//evil.example"
+  it.each(['//evil.example', 'https://evil.example', '/\\evil.example', '/\t/evil.example', '/\n/evil.example'])(
     'after logging in with returnTo=%s, stays on this site',
     async (returnTo) => {
       renderAt(`/login?returnTo=${encodeURIComponent(returnTo)}`)

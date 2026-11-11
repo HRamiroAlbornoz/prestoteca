@@ -37,7 +37,12 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      {/* useTransitions={false}: every navigation is drawn right away, together with any other
+          change made in the same event. When a session ends, the move to the login and
+          "forget the user" are drawn at once, so PrivateRoute never sees the old page without
+          a user and never redirects on its own, losing the notice (plan error-codes, decision 3).
+          The app uses no lazy/Suspense, so nothing visible is lost. */}
+      <BrowserRouter useTransitions={false}>
         {/* Skip link: invisible until it gets keyboard focus; jumps over the bar to the page content */}
         <a
           href="#main"

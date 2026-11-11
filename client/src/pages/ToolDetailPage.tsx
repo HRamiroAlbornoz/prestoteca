@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import type { Tool } from '../components/ToolCard'
+import { readApiError } from '../errors/apiError'
+import { useApiError } from '../errors/useApiError'
 
 const categoryLabels: Record<string, string> = {
   'Herramientas eléctricas': 'Herramientas eléctricas',
@@ -22,6 +24,7 @@ export function ToolDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { currentUser } = useAuth()
   const navigate = useNavigate()
+  const { handle } = useApiError()
   const [tool, setTool] = useState<Tool | null>(null)
   const [error, setError] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -52,7 +55,8 @@ export function ToolDetailPage() {
 
   const handleRequest = () => {
     if (!currentUser) {
-      navigate(`/login?returnUrl=/tools/${id}`)
+      // returnTo is what the login reads (it used to be returnUrl, which the login ignored)
+      navigate(`/login?returnTo=${encodeURIComponent(`/tools/${id}`)}`)
       return
     }
     // TODO: Navigate to loan request form (T025)
@@ -78,9 +82,8 @@ export function ToolDetailPage() {
       if (res.ok) {
         setTool({ ...tool, is_paused: true })
       } else {
-        // Same pattern as delete: show the server's reason instead of failing silently
-        const data = await res.json()
-        setError(data.error?.message || 'Error al pausar la herramienta')
+        // SESSION_REQUIRED leads to the login (handle gives null); any other code, its text
+        setError(handle(await readApiError(res)) ?? '')
       }
     } catch {
       setError('Error al pausar la herramienta')
@@ -100,8 +103,7 @@ export function ToolDetailPage() {
       if (res.ok) {
         navigate('/')
       } else {
-        const data = await res.json()
-        setError(data.error?.message || 'Error al eliminar la herramienta')
+        setError(handle(await readApiError(res)) ?? '')
       }
     } catch {
       setError('Error de conexión. Intentá de nuevo.')
@@ -188,7 +190,7 @@ export function ToolDetailPage() {
 
           {!currentUser && (
             <Link
-              to={`/login?returnUrl=/tools/${tool.id}`}
+              to={`/login?returnTo=${encodeURIComponent(`/tools/${tool.id}`)}`}
               className="block w-full bg-violet-600 text-white py-3 px-4 rounded-md hover:bg-violet-700 font-medium text-center"
             >
               Iniciar sesión para pedir
