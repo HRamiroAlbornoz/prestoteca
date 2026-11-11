@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ToolCard, type Tool } from '../components/ToolCard'
+import { fetchFailureCode, readApiError } from '../errors/apiError'
+import { messageFor, type ClientErrorCode } from '../errors/messages'
 
 const CATEGORIES = [
   'Herramientas eléctricas',
@@ -27,16 +29,53 @@ interface PaginatedTools {
   pages: number
 }
 
+type ResultState = {
+  key: string
+  data?: PaginatedTools
+  code?: ClientErrorCode
+}
+
+// Asks for one page of tools. Never throws for an answer: a failed response or a 2xx whose
+// body is not a page of tools comes back as a code. Only fetch itself can throw (no connection,
+// or the request was cancelled).
+async function fetchTools(
+  query: string,
+  signal: AbortSignal,
+): Promise<{ data: PaginatedTools } | { code: ClientErrorCode }> {
+  const res = await fetch(`/api/tools?${query}`, { signal })
+  if (!res.ok) return { code: await readApiError(res) }
+
+  let data: unknown
+  try {
+    data = await res.json()
+  } catch {
+    return { code: 'TOOLS_LOAD_FAILED' } // not JSON
+  }
+  const page = data as Partial<PaginatedTools> | null
+  const isPage =
+    typeof page === 'object' &&
+    page !== null &&
+    Array.isArray(page.items) &&
+    typeof page.total === 'number' &&
+    typeof page.page === 'number' &&
+    typeof page.pages === 'number'
+  return isPage ? { data: page as PaginatedTools } : { code: 'TOOLS_LOAD_FAILED' }
+}
+
+function mapErrorCode(code: ClientErrorCode): ClientErrorCode {
+  switch (code) {
+    case 'NETWORK_ERROR':
+    case 'SEARCH_QUERY_TOO_LONG':
+    case 'RATE_LIMITED':
+      return code
+    default:
+      return 'TOOLS_LOAD_FAILED'
+  }
+}
+
 export function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [tools, setTools] = useState<Tool[]>([])
-  const [pagination, setPagination] = useState<PaginatedTools>({
-    items: [],
-    total: 0,
-    page: 1,
-    pages: 1,
-  })
-  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState<ResultState | null>(null)
 
   // Read filters from URL params
   const q = searchParams.get('q') ?? ''
@@ -44,31 +83,55 @@ export function HomePage() {
   const neighborhood = searchParams.get('neighborhood') ?? ''
   const page = parseInt(searchParams.get('page') ?? '1', 10) || 1
 
-  const fetchTools = useCallback(async (params: Record<string, string>) => {
-    setLoading(true)
-    try {
-      const query = new URLSearchParams(params)
-      const res = await fetch(`/api/tools?${query}`)
-      if (!res.ok) throw new Error('Failed to fetch tools')
-      const data: PaginatedTools = await res.json()
-      setTools(data.items)
-      setPagination(data)
-    } catch {
-      setTools([])
-      setPagination({ items: [], total: 0, page, pages: 1 })
-    } finally {
-      setLoading(false)
-    }
-  }, [page])
+  // The current filters as a query string. It is both what is asked to the server and the
+  // "name" of the answer: an answer counts only while its key is still the current one.
+  const requestKey = new URLSearchParams({
+    page: String(page),
+    ...(q && { q }),
+    ...(category && { category }),
+    ...(neighborhood && { neighborhood }),
+  }).toString()
 
-  // Initial load from URL params
+  // Derive loading from whether the latest result matches the current key
+  const isLoading = result?.key !== requestKey
+
+  // Fetch tools when filters change
   useEffect(() => {
-    const params: Record<string, string> = { page: String(page) }
-    if (q) params.q = q
-    if (category) params.category = category
-    if (neighborhood) params.neighborhood = neighborhood
-    fetchTools(params)
-  }, [page, q, category, neighborhood, fetchTools])
+    const controller = new AbortController()
+
+    const load = async () => {
+      let outcome: { data: PaginatedTools } | { code: ClientErrorCode }
+      try {
+        outcome = await fetchTools(requestKey, controller.signal)
+      } catch (err: unknown) {
+        // fetch itself failed: no connection, or this request was cancelled (null)
+        const code = fetchFailureCode(err)
+        if (code === null || controller.signal.aborted) return
+        setResult({ key: requestKey, code: mapErrorCode(code) })
+        return
+      }
+
+      // A newer request replaced this one: its answer must not touch the screen
+      if (controller.signal.aborted) return
+
+      setResult('code' in outcome ? { key: requestKey, code: mapErrorCode(outcome.code) } : { key: requestKey, data: outcome.data })
+    }
+
+    load()
+
+    return () => {
+      controller.abort()
+    }
+  }, [requestKey])
+
+  // Derive display values from result — only when this result is still current
+  const current = result?.key === requestKey ? result : null
+  const tools = current?.data?.items ?? []
+  // While a new page loads, the page buttons stay (from the last list): taking them away would
+  // drop the keyboard focus from the button just pressed. After an error there is no list, so none.
+  const pagination: PaginatedTools =
+    current?.data ?? (isLoading ? result?.data : undefined) ?? { items: [], total: 0, page, pages: 1 }
+  const errorMessage = current?.code ? messageFor(current.code) : null
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -208,13 +271,20 @@ export function HomePage() {
         )}
       </form>
 
+      {/* Error message */}
+      {errorMessage && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md" role="alert">
+          <p className="text-red-700">{errorMessage}</p>
+        </div>
+      )}
+
       {/* Results count */}
       <p className="text-sm text-gray-600 mb-4">
-        {loading ? 'Cargando...' : `${pagination.total} herramienta${pagination.total !== 1 ? 's' : ''} encontrada${pagination.total !== 1 ? 's' : ''}`}
+        {isLoading ? 'Cargando...' : `${pagination.total} herramienta${pagination.total !== 1 ? 's' : ''} encontrada${pagination.total !== 1 ? 's' : ''}`}
       </p>
 
       {/* Loading state */}
-      {loading && (
+      {isLoading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" role="status" aria-label="Cargando herramientas">
           {Array.from({ length: 6 }).map((_, i) => (
             <div
@@ -230,7 +300,7 @@ export function HomePage() {
       )}
 
       {/* Tools grid */}
-      {!loading && tools.length > 0 && (
+      {!isLoading && tools.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {tools.map((tool) => (
             <ToolCard key={tool.id} tool={tool} />
@@ -239,7 +309,7 @@ export function HomePage() {
       )}
 
       {/* Empty state */}
-      {!loading && tools.length === 0 && (
+      {!isLoading && tools.length === 0 && !errorMessage && (
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">
             No se encontraron herramientas
