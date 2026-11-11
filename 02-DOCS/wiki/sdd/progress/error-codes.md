@@ -145,3 +145,21 @@ slug: error-codes
 - controls: suite del server 29 archivos, 464/464; build desde la raíz y tests del cliente (181/181) verdes
 - backlog (preexistentes, aprobados por Hernán): email/contraseña no string → 500; carrera borrar cuenta / cambiar
   contraseña; estado de préstamo `"constructor"` → 500; los tests del server no pasan por `tsc`
+- resultado: PR #42 mergeado (`9434bd9`), deploy SUCCESS en producción y staging; humo: `/api/nope` sin sesión →
+  `SESSION_REQUIRED`, login sin `Origin` → `ORIGIN_NOT_ALLOWED`
+
+## T008 — 2026-11-11 (PR 2, rama `feat/error-codes-client-base`)
+- status: complete. Hecha por Claude
+- red: con stubs (`MESSAGES = {}`, funciones que devuelven el código equivocado) → cada test falla por su aserción; el
+  parser ya leía los textos de la spec (`expected undefined to be 'Tu sesión terminó…'`)
+- green: `cd client && npx vitest run src/errors` → 108/108; cliente completo 17 archivos, 289/289; `tsc -b` limpio;
+  `npm run build` desde la raíz verde (R1); el bundle no contiene valores del catálogo (`import type` borrado)
+- AC-5 visto fallar: sin la entrada `TOOL_PAUSED` fallan el test (`expected 'undefined' to be 'string'`, y la fila 23
+  de AC-14) **y** `tsc -b` (`TS2741: Property 'TOOL_PAUSED' is missing`); archivo restaurado byte a byte
+- files: client/src/errors/{messages,apiError}.ts y sus tests (nuevos)
+- risk: tier 1 — 1 revisor de contexto fresco
+- review: pass, 2 nits → lista de códigos propios del cliente escrita tres veces: arreglado (`CLIENT_ONLY_CODES` única,
+  el tipo sale de ella); el bucle de "códigos pendientes" queda vacío después de T009: aceptado, T009 lo borra
+- controls: tests ✅ · build ✅ · lint ✅ (oxlint sin avisos en `errors/`) · security ✅ (nunca se lee el `message` del
+  server) · traceability ✅ (AC-2, AC-3, AC-4 unit, AC-5, AC-9c, AC-14)
+- spec: `branch:` pasa a `feat/error-codes-client-base` (ok de Hernán)
