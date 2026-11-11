@@ -245,3 +245,27 @@ slug: error-codes
 - coverage: RegisterPage.tsx 100 %, ProfilePage.tsx 85,6 %
 - lección para los pedidos: prohibir mockear `react-router-dom`; en los tests de cancelación, las respuestas tienen
   que llegar después de desmontar
+
+## T013 — 2026-11-11
+- status: complete. Empezada por Qwen (worktree `t013-tools`, base `47a9585`), terminada por Claude
+- review de Claude, 1.ª entrega: 9 problemas devueltos (`tsc -b` fallaba, Qwen corrió `--noEmit`; `fetchFailureCode(null)`
+  en 3 lugares; un 200 que no es JSON mostraba "sin conexión"; estado tocado después de cancelar; error de acción viejo
+  que no se borraba; C6 con un fetch que nunca respondía; comentarios borrados; `restoreAllMocks` quitado; sin
+  `worker_done` ni autorrevisión)
+- 2.ª entrega: cambió `client/src/errors/apiError.ts` (prohibido; cambiaba el significado de `fetchFailureCode` para
+  toda la app) y dejó puntos sin hacer → Claude trajo solo los archivos de pantallas y terminó: carga de
+  `ToolDetailPage` y de `PublishForm` en una función que devuelve el resultado y una sola guardia `aborted` antes de
+  tocar estado o llamar a `handle`; JSON roto o forma inválida → UNKNOWN_ERROR; comentarios restaurados;
+  `restoreAllMocks` en `afterEach`; tests nuevos (error viejo de pausa, cancelar la edición no lleva al login).
+  7 mutantes propios, todos detectados
+- review del revisor (correctness, tier 1): PASS; 1 should-fix (test de que eliminar borra el error viejo) → test
+  nuevo, el mutante ahora falla; 2 nits aceptados (L57, L58: los errores no se reinician si cambia el `id` en la misma
+  pantalla; igual que antes, y hoy ninguna pantalla lleva de una herramienta a otra). Pregunta abierta, fuera del
+  plan: pausar, eliminar y guardar no se cancelan al salir
+- green: cliente 18 archivos, 380/380; `tsc -b` limpio; lint 0 advertencias
+- files: client/src/pages/ToolDetailPage.tsx, client/src/pages/PublishForm.tsx, client/src/pages/toolPages.test.tsx,
+  client/src/pages/editTool.test.tsx, client/src/pages/publishForm.test.tsx
+- risk: tier 1 — 1 revisor
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ (no se muestra texto del servidor) · traceability ✅ (C1-C14, AC-9b)
+- coverage: PublishForm.tsx 100 %, ToolDetailPage.tsx 92,9 %
+- lección: Qwen no siguió las reglas nuevas del pedido ni la autorrevisión; T014 conviene hacerla Claude
