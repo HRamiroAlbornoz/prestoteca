@@ -10,36 +10,24 @@ import {
   validateToolField,
   type ToolFormValues,
 } from '../utils/toolForm'
+import { readApiError, fetchFailureCode } from '../errors/apiError'
+import { useApiError } from '../errors/useApiError'
+import { messageFor, type ClientErrorCode } from '../errors/messages'
 
 type Field = keyof ToolFormValues
 type FieldErrors = Partial<Record<Field, string>>
 
 // Edit mode only: loading the tool that will be edited
-type LoadState = 'loading' | 'ready' | 'not-found' | 'error'
+type LoadState = 'loading' | 'ready' | 'error'
 // Sending the form
 type SubmitStatus = 'idle' | 'loading' | 'error' | 'success'
-
-// What the user reads when an edit cannot be saved. The server's own messages are technical and in English.
-function editErrorMessage(status: number): string {
-  if (status === 403) return 'Solo podés editar tus propias herramientas.'
-  if (status === 404) return 'Esta herramienta ya no existe.'
-  return 'No se pudieron guardar los cambios. Intentá de nuevo.'
-}
-
-async function publishErrorMessage(res: Response): Promise<string> {
-  try {
-    const data = await res.json()
-    return data.error?.message || 'Error al publicar la herramienta'
-  } catch {
-    return 'Error al publicar la herramienta'
-  }
-}
 
 // One form, two jobs: /publish creates a tool (POST); /tools/:id/edit changes an existing one (PATCH)
 export function PublishForm() {
   const { id: toolId } = useParams<{ id: string }>()
   const isEdit = toolId !== undefined
   const navigate = useNavigate()
+  const { handle } = useApiError()
 
   const [values, setValues] = useState<ToolFormValues>(EMPTY_TOOL_FORM)
   const [errors, setErrors] = useState<FieldErrors>({})
@@ -52,37 +40,44 @@ export function PublishForm() {
     if (!toolId) return
     const controller = new AbortController()
 
-    async function loadTool() {
+    // Ends in the values for the form, or an error code (null = the request was cancelled)
+    async function readTool(): Promise<{ values: ToolFormValues } | { code: ClientErrorCode | null }> {
       try {
         const res = await fetch(`/api/tools/${toolId}`, { signal: controller.signal })
-        if (res.status === 404) {
-          setLoadState('not-found')
-          return
-        }
-        if (!res.ok) {
-          setLoadState('error')
-          return
-        }
+        if (!res.ok) return { code: await readApiError(res) }
         // Never trust the shape of an answer: if it is not what the form needs, treat it as an error
-        const parsed = loadedToolSchema.safeParse(await res.json())
-        if (!parsed.success) {
-          setLoadState('error')
-          return
+        let body: unknown
+        try {
+          body = await res.json()
+        } catch {
+          return { code: controller.signal.aborted ? null : 'UNKNOWN_ERROR' }
         }
+        const parsed = loadedToolSchema.safeParse(body)
+        if (!parsed.success) return { code: 'UNKNOWN_ERROR' }
         const { name, description, category, condition } = parsed.data
-        setValues({ name, description, category, condition })
-        setLoadState('ready')
-      } catch {
-        // Leaving the page cancels the request on purpose; that is not an error to show
-        if (controller.signal.aborted) return
-        setLoadState('error')
+        return { values: { name, description, category, condition } }
+      } catch (err) {
+        // Leaving the page cancels the request on purpose: fetchFailureCode gives null, nothing to show
+        return { code: fetchFailureCode(err) }
       }
     }
 
-    loadTool()
+    readTool().then((result) => {
+      // The person left the page: this answer is old, touch nothing
+      if (controller.signal.aborted) return
+      if ('values' in result) {
+        setValues(result.values)
+        setLoadState('ready')
+        return
+      }
+      // SESSION_REQUIRED goes to the login (handle gives null); any other code, its text
+      if (result.code) setApiError(handle(result.code) ?? '')
+      setLoadState('error')
+    })
+
     // Cancel the request if the user leaves before it answers
     return () => controller.abort()
-  }, [toolId])
+  }, [toolId, handle])
 
   // While typing: only re-check a field that already shows an error, so the message goes away once it is fixed
   const handleChange = (field: Field) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -129,12 +124,16 @@ export function PublishForm() {
         return
       }
 
-      // On error, keep everything the user typed so they can fix it or retry
-      setApiError(isEdit ? editErrorMessage(res.status) : await publishErrorMessage(res))
-      setStatus('error')
-    } catch {
-      setApiError('Error de conexión. Intentá de nuevo.')
-      setStatus('error')
+      // On error, keep everything the user typed so they can fix it or retry.
+      // SESSION_REQUIRED goes to the login: handle gives null and there is nothing to show.
+      const message = handle(await readApiError(res))
+      setApiError(message ?? '')
+      setStatus(message ? 'error' : 'idle')
+    } catch (err) {
+      // null = cancelled: nothing to show
+      const code = fetchFailureCode(err)
+      setApiError(code ? messageFor(code) : '')
+      setStatus(code ? 'error' : 'idle')
     }
   }
 
@@ -160,12 +159,10 @@ export function PublishForm() {
           <p className="text-center text-gray-600" role="status">Cargando herramienta...</p>
         )}
 
-        {(loadState === 'not-found' || loadState === 'error') && (
+        {loadState === 'error' && (
           <div className="text-center">
             <p className="text-gray-700 mb-4" role="alert">
-              {loadState === 'not-found'
-                ? 'Esta herramienta no existe o fue eliminada.'
-                : 'No se pudo cargar la herramienta. Revisá tu conexión e intentá de nuevo.'}
+              {apiError}
             </p>
             <Link to="/" className="inline-block py-2 px-3 text-violet-600 hover:underline">
               Volver al inicio

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import type { Tool } from '../components/ToolCard'
-import { readApiError } from '../errors/apiError'
+import { readApiError, fetchFailureCode } from '../errors/apiError'
 import { useApiError } from '../errors/useApiError'
+import { messageFor, type ClientErrorCode } from '../errors/messages'
 
 const categoryLabels: Record<string, string> = {
   'Herramientas eléctricas': 'Herramientas eléctricas',
@@ -20,38 +21,63 @@ const conditionLabels: Record<string, string> = {
   usado: 'Usado',
 }
 
+// Never trust the shape of an answer: the page needs at least the tool's id and name.
+function isToolShape(data: unknown): data is Tool {
+  if (typeof data !== 'object' || data === null) return false
+  const candidate = data as { id?: unknown; name?: unknown }
+  return typeof candidate.id === 'string' && typeof candidate.name === 'string'
+}
+
+// How loading the tool ended: the tool, or an error code (null = the request was cancelled, nothing to show).
+type ToolLoad = { tool: Tool } | { code: ClientErrorCode | null }
+
+async function loadTool(id: string | undefined, signal: AbortSignal): Promise<ToolLoad> {
+  try {
+    const res = await fetch(`/api/tools/${id}`, {
+      signal,
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (!res.ok) return { code: await readApiError(res) }
+    try {
+      const data: unknown = await res.json()
+      return isToolShape(data) ? { tool: data } : { code: 'UNKNOWN_ERROR' }
+    } catch {
+      // A 2xx whose body is not JSON is a broken answer, not a lost connection
+      return { code: signal.aborted ? null : 'UNKNOWN_ERROR' }
+    }
+  } catch (err) {
+    return { code: fetchFailureCode(err) }
+  }
+}
+
 export function ToolDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { currentUser } = useAuth()
   const navigate = useNavigate()
   const { handle } = useApiError()
   const [tool, setTool] = useState<Tool | null>(null)
-  const [error, setError] = useState<string>('')
+  const [loadError, setLoadError] = useState<string>('')
+  const [actionError, setActionError] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchTool = async () => {
-      try {
-        const res = await fetch(`/api/tools/${id}`, {
-          headers: { 'Content-Type': 'application/json' },
-        })
+    const controller = new AbortController()
 
-        if (res.ok) {
-          const data = await res.json()
-          setTool(data)
-        } else {
-          const data = await res.json()
-          setError(data.error?.message || 'Tool not found')
-        }
-      } catch {
-        setError('Network error. Please try again.')
-      } finally {
-        setLoading(false)
+    loadTool(id, controller.signal).then((result) => {
+      // The person left the page (or opened another tool): this answer is old, touch nothing
+      if (controller.signal.aborted) return
+      if ('tool' in result) {
+        setTool(result.tool)
+      } else if (result.code) {
+        // SESSION_REQUIRED goes to the login (handle gives null); any other code, its text
+        setLoadError(handle(result.code) ?? '')
       }
-    }
+      setLoading(false)
+    })
 
-    fetchTool()
-  }, [id])
+    // Cancel the request if the person leaves before it answers
+    return () => controller.abort()
+  }, [id, handle])
 
   const handleRequest = () => {
     if (!currentUser) {
@@ -72,6 +98,7 @@ export function ToolDetailPage() {
 
   const handlePause = async () => {
     if (!tool) return
+    setActionError('')
     try {
       const res = await fetch(`/api/tools/${tool.id}`, {
         method: 'PATCH',
@@ -82,11 +109,12 @@ export function ToolDetailPage() {
       if (res.ok) {
         setTool({ ...tool, is_paused: true })
       } else {
-        // SESSION_REQUIRED leads to the login (handle gives null); any other code, its text
-        setError(handle(await readApiError(res)) ?? '')
+        // SESSION_REQUIRED leads to the login (handle gives null); any other code, its text above the tool
+        setActionError(handle(await readApiError(res)) ?? '')
       }
-    } catch {
-      setError('Error al pausar la herramienta')
+    } catch (err) {
+      const code = fetchFailureCode(err)
+      if (code) setActionError(messageFor(code))
     }
   }
 
@@ -94,6 +122,7 @@ export function ToolDetailPage() {
     if (!tool) return
     if (!confirm('¿Estás seguro de que querés eliminar esta herramienta?')) return
 
+    setActionError('')
     try {
       const res = await fetch(`/api/tools/${tool.id}`, {
         method: 'DELETE',
@@ -103,10 +132,11 @@ export function ToolDetailPage() {
       if (res.ok) {
         navigate('/')
       } else {
-        setError(handle(await readApiError(res)) ?? '')
+        setActionError(handle(await readApiError(res)) ?? '')
       }
-    } catch {
-      setError('Error de conexión. Intentá de nuevo.')
+    } catch (err) {
+      const code = fetchFailureCode(err)
+      if (code) setActionError(messageFor(code))
     }
   }
 
@@ -118,13 +148,13 @@ export function ToolDetailPage() {
     )
   }
 
-  if (error || !tool) {
+  if (loadError || !tool) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8 text-center">
-          {error && (
+          {loadError && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
-              {error}
+              {loadError}
             </div>
           )}
           <Link to="/" className="text-violet-600 hover:underline">
@@ -151,6 +181,12 @@ export function ToolDetailPage() {
         <Link to="/" className="text-violet-600 hover:underline mb-4 inline-block py-2 px-3">
           ← Volver al inicio
         </Link>
+
+        {actionError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
+            {actionError}
+          </div>
+        )}
 
         <div className="bg-white rounded-lg shadow-md p-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">{tool.name}</h1>
