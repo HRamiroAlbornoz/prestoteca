@@ -222,3 +222,26 @@ slug: error-codes
 - controls: tests ✅ · build ✅ · lint ✅ · security no aplica · traceability ✅ (AC-5c, AC-1, AC-4)
 - coverage: HomePage.tsx ~96 %
 - lección para los pedidos: exigir `npx tsc -b` exacto (no `--noEmit`) y avisar que `ClientErrorCode` sale de `messages.ts`
+
+## T011 — 2026-11-11
+- status: complete. Implementada por Qwen (worktree `t011-account`, base `a627e83`), revisada por Claude
+- review de Claude, 1.ª entrega: 5 problemas → devueltos a Qwen y arreglados: los tests reemplazaban `useNavigate`
+  por un mock (la navegación al login no se probaba de verdad); cambió los textos de las validaciones locales de
+  contraseña (el pedido decía que no se tocan); solo detectaba un 200 que no es JSON, no uno con otra forma; carga
+  duplicada con dos `AbortController` y la cancelación contada como "sin conexión"; terminó sin `worker_done`
+- review de Claude, 2.ª entrega: el código quedó bien; 3 huecos en los tests arreglados por Claude: C9 no probaba la
+  cancelación (los pedidos nunca respondían, borrar la guardia dejaba todo verde); el contador de `markSignedOut` no
+  se reiniciaba entre tests (C4 pasaba por el orden); faltaban los textos locales de largo y espacios y el caso con
+  SESSION_REQUIRED solo en el historial (C5b). 6 mutantes propios, todos detectados
+- review del revisor (correctness, tier 1): código sin defectos; 3 should-fix + 1 nit, todos de tests → tests nuevos
+  (forma del historial, `receivedLoans`/`madeLoans` faltantes, dos fallas distintas → gana herramientas, una sola
+  carga al volver a pintar); los 3 mutantes del revisor ahora fallan. Aceptado sin test: el error de carga no se
+  borra si el efecto vuelve a correr (hoy no puede pasar)
+- green: cliente 18 archivos, 360/360; `tsc -b` limpio; lint 0 advertencias
+- files: client/src/pages/RegisterPage.tsx, client/src/pages/ProfilePage.tsx, client/src/pages/authPages.test.tsx,
+  client/src/pages/profilePage.test.tsx
+- risk: tier 1 — 1 revisor
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ (no se muestra texto del servidor) · traceability ✅ (C1-C13)
+- coverage: RegisterPage.tsx 100 %, ProfilePage.tsx 85,6 %
+- lección para los pedidos: prohibir mockear `react-router-dom`; en los tests de cancelación, las respuestas tienen
+  que llegar después de desmontar
