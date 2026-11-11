@@ -268,4 +268,5 @@ slug: error-codes
 - risk: tier 1 — 1 revisor
 - controls: tests ✅ · build ✅ · lint ✅ · security ✅ (no se muestra texto del servidor) · traceability ✅ (C1-C14, AC-9b)
 - coverage: PublishForm.tsx 100 %, ToolDetailPage.tsx 92,9 %
-- lección: Qwen no siguió las reglas nuevas del pedido ni la autorrevisión; T014 conviene hacerla Claude
+- lección: Qwen no siguió las reglas nuevas del pedido ni la autorrevisión. Hernán decidió seguir delegando a Qwen
+  para probar el modelo local; el pedido de T014 apunta a los patrones ya revisados y lista cada mutante
