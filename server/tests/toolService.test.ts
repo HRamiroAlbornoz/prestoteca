@@ -212,6 +212,15 @@ describe('ToolService', () => {
       await service.delete(tool.id, 'owner-1')
       expect(mockRepo.softDelete).toHaveBeenCalledWith(tool.id)
     })
+
+    it('throws TOOL_NOT_FOUND 404 for a tool that does not exist, and deletes nothing', async () => {
+      await expect(service.delete('uuid-nonexistent', 'owner-1')).rejects.toMatchObject({
+        code: 'TOOL_NOT_FOUND',
+        status: 404,
+        message: 'Tool not found',
+      })
+      expect(mockRepo.softDelete).not.toHaveBeenCalled()
+    })
   })
 
   describe('pause', () => {
@@ -243,6 +252,37 @@ describe('ToolService', () => {
       await expect(
         service.pause(tool.id, 'owner-2'),
       ).rejects.toMatchObject({ code: 'TOOL_NOT_OWNER', status: 403 })
+    })
+
+    it('throws TOOL_NOT_FOUND 404 for a tool that does not exist, and pauses nothing', async () => {
+      await expect(service.pause('uuid-nonexistent', 'owner-1')).rejects.toMatchObject({
+        code: 'TOOL_NOT_FOUND',
+        status: 404,
+        message: 'Tool not found',
+      })
+      expect(mockRepo.pause).not.toHaveBeenCalled()
+    })
+  })
+
+  // Unknown category or condition: only a broken client sends them (the form offers a fixed
+  // list), so they get the generic BAD_REQUEST, never a specific field code
+  describe('fixed lists of category and condition', () => {
+    const valid = { name: 'Taladro', description: 'Desc', category: 'Herramientas eléctricas', condition: 'bueno', ownerId: 'owner-1' }
+
+    it.each([
+      ['an unknown category on publish', () => service.publish({ ...valid, category: 'Juguetes' }), 'Invalid category'],
+      ['an unknown condition on publish', () => service.publish({ ...valid, condition: 'roto' }), 'Invalid condition'],
+    ])('answers BAD_REQUEST 400 for %s', async (_case, run, message) => {
+      await expect(run()).rejects.toMatchObject({ code: 'BAD_REQUEST', status: 400, message })
+    })
+
+    it.each([
+      ['an unknown category', { category: 'Juguetes' }, 'Invalid category'],
+      ['an unknown condition', { condition: 'roto' }, 'Invalid condition'],
+    ])('answers BAD_REQUEST 400 for %s on edit', async (_case, updates, message) => {
+      const tool = await service.publish(valid)
+
+      await expect(service.edit(tool.id, 'owner-1', updates)).rejects.toMatchObject({ code: 'BAD_REQUEST', status: 400, message })
     })
   })
 

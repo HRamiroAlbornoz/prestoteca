@@ -3,7 +3,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type express from 'express'
 import { ERROR_CODES, type ServerErrorCode } from '../src/modules/errors/errorCodes.js'
-import { AppError, apiNotFound, sendError, sendErrorCode } from '../src/modules/errors/AppError.js'
+import { AppError, apiNotFound, errorHandler, sendError, sendErrorCode } from '../src/modules/errors/AppError.js'
 
 // The catalog the client relies on: every code below must exist with exactly this status
 // (plan error-codes §3.1). The status of each situation is the same as before this change.
@@ -158,6 +158,20 @@ describe('sendError with the new AppError', () => {
     expect(res.statusCode).toBe(500)
     expect(res.body).toEqual({ error: { code: 'INTERNAL_ERROR', message: 'Failed to list tools' } })
     expect(logSpy).toHaveBeenCalledWith(expect.any(String), dbError)
+  })
+})
+
+describe('errorHandler when the response already started', () => {
+  it('hands the error to Express and writes nothing (a second write would throw)', () => {
+    const res = { ...fakeResponse(), headersSent: true }
+    const statusSpy = vi.spyOn(res, 'status')
+    const next = vi.fn()
+    const err = new AppError('TOOL_NOT_FOUND', 'Tool not found')
+
+    errorHandler(err, {} as express.Request, res as unknown as express.Response, next)
+
+    expect(next).toHaveBeenCalledWith(err)
+    expect(statusSpy).not.toHaveBeenCalled()
   })
 })
 
