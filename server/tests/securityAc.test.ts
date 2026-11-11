@@ -61,7 +61,7 @@ function createMockApp() {
   app.use('/api/tools', (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } })
+      res.status(401).json({ error: { code: 'SESSION_REQUIRED', message: 'Authentication required' } })
       return
     }
     ;(req as any).userId = authHeader.replace('Bearer ', '')
@@ -110,6 +110,7 @@ describe('Security ACs', () => {
         .send({ name: 'Tool', description: 'Desc', category: 'Herramientas eléctricas', condition: 'bueno' })
 
       expect(res.status).toBe(403)
+      expect(res.body.error.code).toBe('ORIGIN_NOT_ALLOWED')
     })
 
     it('returns 403 on PATCH without Origin', async () => {
@@ -121,6 +122,7 @@ describe('Security ACs', () => {
         .send({ name: 'Updated' })
 
       expect(res.status).toBe(403)
+      expect(res.body.error.code).toBe('ORIGIN_NOT_ALLOWED')
     })
 
     it('returns 403 on DELETE without Origin', async () => {
@@ -131,6 +133,7 @@ describe('Security ACs', () => {
         .set('Authorization', 'Bearer user-1')
 
       expect(res.status).toBe(403)
+      expect(res.body.error.code).toBe('ORIGIN_NOT_ALLOWED')
     })
 
     it('allows POST with valid Origin', async () => {

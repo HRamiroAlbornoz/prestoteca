@@ -1,5 +1,5 @@
 import type { Pool } from 'pg'
-import { ConflictError } from '../errors/AppError.js'
+import { AppError } from '../errors/AppError.js'
 
 const UNIQUE_VIOLATION = '23505'
 
@@ -45,7 +45,7 @@ export class UserRepository {
     } catch (err: unknown) {
       // PostgreSQL rejects a repeated email with a unique_violation (23505)
       if (isUniqueViolation(err)) {
-        throw new ConflictError('Email already exists')
+        throw new AppError('EMAIL_TAKEN', 'Email already exists')
       }
       throw err
     } finally {

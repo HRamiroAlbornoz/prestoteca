@@ -1,6 +1,9 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import request from 'supertest'
 import express from 'express'
+import jwt from 'jsonwebtoken'
+import { existsSync } from 'node:fs'
+import path from 'node:path'
 import type { Pool } from 'pg'
 import { createApp } from '../src/index.js'
 import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
@@ -18,6 +21,14 @@ import type { ToolService } from '../src/modules/tools/toolService.js'
 import type { SearchService } from '../src/modules/search/searchService.js'
 
 const ALLOWED_ORIGIN = 'http://localhost:5173'
+
+// The auth middleware reads JWT_SECRET once, when its module loads, so it has to be set
+// before the imports run (vi.hoisted runs first). Same value the tests below put in env.
+const TEST_JWT_SECRET = vi.hoisted(() => {
+  const secret = 'a'.repeat(32)
+  process.env.JWT_SECRET = secret
+  return secret
+})
 
 describe('sendError', () => {
   // Minimal stand-in for an Express response: records what the handler sends
@@ -124,6 +135,53 @@ describe('error responses of the real app', () => {
     expect(res.status).toBe(413)
     expect(res.body).toEqual({ error: { code: 'PAYLOAD_TOO_LARGE', message: 'Request body too large' } })
   })
+
+  it('answers an /api route that does not exist with a JSON 404 API_ROUTE_NOT_FOUND', async () => {
+    const app = await createApp()
+    const token = jwt.sign({ id: 'user-1' }, TEST_JWT_SECRET)
+
+    const res = await request(app).get('/api/nope').set('Cookie', `token=${token}`)
+
+    expect(res.status).toBe(404)
+    expect(res.headers['content-type']).toMatch(/application\/json/)
+    expect(res.body).toEqual({ error: { code: 'API_ROUTE_NOT_FOUND', message: 'API route not found' } })
+  })
+
+  it('leaves the pages of the app to the SPA fallback (the JSON 404 is only for /api)', async () => {
+    const app = await createApp()
+
+    const res = await request(app).get('/tools/some-tool-id')
+
+    // The SPA fallback sends client-dist/index.html. When the client is not built here,
+    // sending it fails and errorHandler answers INTERNAL_ERROR: still the fallback's answer.
+    const clientIndex = path.join(__dirname, '..', 'client-dist', 'index.html')
+    if (existsSync(clientIndex)) {
+      expect(res.status).toBe(200)
+      expect(res.headers['content-type']).toMatch(/text\/html/)
+    } else {
+      expect(res.status).toBe(500)
+      expect(res.body).toEqual({ error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } })
+    }
+  })
+
+  it('keeps the automatic OPTIONS answer of /api/health (the JSON 404 never takes it)', async () => {
+    const app = await createApp()
+    const token = jwt.sign({ id: 'user-1' }, TEST_JWT_SECRET)
+
+    const res = await request(app).options('/api/health').set('Cookie', `token=${token}`)
+
+    expect(res.status).toBe(200)
+    expect(res.headers.allow).toMatch(/GET/)
+  })
+
+  it('asks for a session before saying an /api route does not exist', async () => {
+    const app = await createApp()
+
+    const res = await request(app).get('/api/nope')
+
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Authentication required' } })
+  })
 })
 
 describe('tools routes with typed errors', () => {
@@ -159,14 +217,14 @@ describe('UserRepository.create', () => {
     return { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool
   }
 
-  it('turns a duplicate-email violation from PostgreSQL into a 409 ConflictError', async () => {
+  it('turns a duplicate-email violation from PostgreSQL into a 409 EMAIL_TAKEN', async () => {
     // 23505 = unique_violation: what PostgreSQL really raises for a repeated email
     const repo = new UserRepository(poolWhoseInsertFails(Object.assign(new Error('duplicate key'), { code: '23505' })))
 
     const attempt = repo.create({ name: 'Ana', email: 'ana@example.com', password_hash: 'x', neighborhood: 'Centro' })
 
-    await expect(attempt).rejects.toBeInstanceOf(ConflictError)
-    await expect(attempt).rejects.toThrow('Email already exists')
+    await expect(attempt).rejects.toBeInstanceOf(AppError)
+    await expect(attempt).rejects.toMatchObject({ code: 'EMAIL_TAKEN', status: 409, message: 'Email already exists' })
   })
 
   it('lets any other database error through unchanged', async () => {

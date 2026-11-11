@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express'
+import { sendErrorCode } from '../errors/AppError.js'
 
 const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',')
 
@@ -14,12 +15,7 @@ export function originChecker(req: Request, res: Response, next: NextFunction): 
   const origin = req.headers.origin
 
   if (!origin || !ALLOWED_ORIGINS.includes(origin)) {
-    res.status(403).json({
-      error: {
-        code: 'UNAUTHORIZED',
-        message: 'Invalid origin',
-      },
-    })
+    sendErrorCode(res, 'ORIGIN_NOT_ALLOWED', 'Invalid origin')
     return
   }
 

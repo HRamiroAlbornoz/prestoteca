@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import type { UserRepository, CreateUserInput } from './userRepo.js'
-import { UnauthorizedError } from '../errors/AppError.js'
+import { AppError } from '../errors/AppError.js'
 
 const SALT_ROUNDS = 12
 
@@ -60,7 +60,7 @@ export class AuthService {
     const hashToCompare = user ? user.password_hash : await dummyHashPromise
     const valid = await bcrypt.compare(input.password, hashToCompare)
     if (!user || !valid) {
-      throw new UnauthorizedError(INVALID_CREDENTIALS)
+      throw new AppError('INVALID_CREDENTIALS', INVALID_CREDENTIALS)
     }
 
     const token = this.generateToken(user.id)

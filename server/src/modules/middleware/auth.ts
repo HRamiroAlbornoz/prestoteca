@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
+import { sendErrorCode } from '../errors/AppError.js'
 
 const JWT_SECRET = process.env.JWT_SECRET || ''
 
@@ -12,7 +13,7 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
   const token = cookies.token || req.headers.authorization?.replace('Bearer ', '')
 
   if (!token) {
-    res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } })
+    sendErrorCode(res, 'SESSION_REQUIRED', 'Authentication required')
     return
   }
 
@@ -21,6 +22,6 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
     req.userId = decoded.id
     next()
   } catch {
-    res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid or expired token' } })
+    sendErrorCode(res, 'SESSION_REQUIRED', 'Invalid or expired token')
   }
 }

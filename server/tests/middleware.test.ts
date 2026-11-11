@@ -13,6 +13,7 @@ describe('auth middleware', () => {
 
     const res = await request(app).get('/protected')
     expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Authentication required' } })
   })
 
   it('returns 401 when token is invalid', async () => {
@@ -20,8 +21,10 @@ describe('auth middleware', () => {
     app.use(authMiddleware)
     app.get('/protected', (_req, res) => res.json({ ok: true }))
 
-    const res = await request(app).get('/protected').set('Cookie', 'token=invalid.token.here')
+    // This app has no cookie parser, so the token goes in the header the middleware also reads
+    const res = await request(app).get('/protected').set('Authorization', 'Bearer invalid.token.here')
     expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Invalid or expired token' } })
   })
 })
 
@@ -40,6 +43,9 @@ describe('rate limiter middleware', () => {
     // 6th request should be rate limited
     const res = await request(app).post('/api')
     expect(res.status).toBe(429)
+    expect(res.body).toEqual({
+      error: { code: 'RATE_LIMITED', message: 'Too many requests. Please try again later.' },
+    })
   })
 })
 
@@ -51,6 +57,7 @@ describe('origin checker middleware', () => {
 
     const res = await request(app).post('/api')
     expect(res.status).toBe(403)
+    expect(res.body).toEqual({ error: { code: 'ORIGIN_NOT_ALLOWED', message: 'Invalid origin' } })
   })
 
   it('returns 403 on PATCH without Origin header', async () => {
@@ -60,6 +67,7 @@ describe('origin checker middleware', () => {
 
     const res = await request(app).patch('/api')
     expect(res.status).toBe(403)
+    expect(res.body).toEqual({ error: { code: 'ORIGIN_NOT_ALLOWED', message: 'Invalid origin' } })
   })
 
   it('returns 403 on DELETE without Origin header', async () => {
@@ -69,6 +77,7 @@ describe('origin checker middleware', () => {
 
     const res = await request(app).delete('/api')
     expect(res.status).toBe(403)
+    expect(res.body).toEqual({ error: { code: 'ORIGIN_NOT_ALLOWED', message: 'Invalid origin' } })
   })
 
   it('allows POST with valid Origin header', async () => {

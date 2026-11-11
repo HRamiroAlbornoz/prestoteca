@@ -106,6 +106,9 @@ describe('ToolService', () => {
       await expect(
         service.edit(tool.id, 'owner-2', { name: 'Hacked' }),
       ).rejects.toThrow('You can only edit your own tools')
+      await expect(
+        service.edit(tool.id, 'owner-2', { name: 'Hacked' }),
+      ).rejects.toMatchObject({ code: 'TOOL_NOT_OWNER', status: 403 })
     })
 
     it('throws 404 when tool not found', async () => {
@@ -113,6 +116,46 @@ describe('ToolService', () => {
       await expect(
         service.edit('uuid-nonexistent', 'owner-1', { name: 'X' }),
       ).rejects.toThrow('Tool not found')
+      await expect(
+        service.edit('uuid-nonexistent', 'owner-1', { name: 'X' }),
+      ).rejects.toMatchObject({ code: 'TOOL_NOT_FOUND', status: 404 })
+    })
+
+    // An empty edit is only "empty" once we know the tool exists and is yours
+    describe('with nothing to change', () => {
+      async function publishTaladro() {
+        return service.publish({
+          name: 'Taladro',
+          description: 'Desc',
+          category: 'Herramientas eléctricas',
+          condition: 'bueno',
+          ownerId: 'owner-1',
+        })
+      }
+
+      it('throws TOOL_EDIT_EMPTY 404 on your own tool and never calls repo.update', async () => {
+        const tool = await publishTaladro()
+
+        await expect(service.edit(tool.id, 'owner-1', {})).rejects.toMatchObject({
+          code: 'TOOL_EDIT_EMPTY',
+          status: 404,
+          message: 'Tool not found',
+        })
+        expect(mockRepo.update).not.toHaveBeenCalled()
+      })
+
+      it("still throws TOOL_NOT_OWNER 403 on someone else's tool", async () => {
+        const tool = await publishTaladro()
+
+        await expect(service.edit(tool.id, 'owner-2', {})).rejects.toMatchObject({ code: 'TOOL_NOT_OWNER', status: 403 })
+      })
+
+      it('still throws TOOL_NOT_FOUND 404 on a tool that does not exist', async () => {
+        await expect(service.edit('uuid-nonexistent', 'owner-1', {})).rejects.toMatchObject({
+          code: 'TOOL_NOT_FOUND',
+          status: 404,
+        })
+      })
     })
   })
 
@@ -132,6 +175,9 @@ describe('ToolService', () => {
       await expect(
         service.delete(tool.id, 'owner-1'),
       ).rejects.toThrow('Cannot delete tool with active loans')
+      await expect(
+        service.delete(tool.id, 'owner-1'),
+      ).rejects.toMatchObject({ code: 'TOOL_HAS_ACTIVE_LOANS', status: 409 })
     })
 
     it('throws 403 when user is not owner', async () => {
@@ -146,6 +192,9 @@ describe('ToolService', () => {
       await expect(
         service.delete(tool.id, 'owner-2'),
       ).rejects.toThrow('You can only delete your own tools')
+      await expect(
+        service.delete(tool.id, 'owner-2'),
+      ).rejects.toMatchObject({ code: 'TOOL_NOT_OWNER', status: 403 })
     })
 
     it('soft deletes when no active loans and user is owner', async () => {
@@ -162,6 +211,15 @@ describe('ToolService', () => {
 
       await service.delete(tool.id, 'owner-1')
       expect(mockRepo.softDelete).toHaveBeenCalledWith(tool.id)
+    })
+
+    it('throws TOOL_NOT_FOUND 404 for a tool that does not exist, and deletes nothing', async () => {
+      await expect(service.delete('uuid-nonexistent', 'owner-1')).rejects.toMatchObject({
+        code: 'TOOL_NOT_FOUND',
+        status: 404,
+        message: 'Tool not found',
+      })
+      expect(mockRepo.softDelete).not.toHaveBeenCalled()
     })
   })
 
@@ -191,6 +249,40 @@ describe('ToolService', () => {
       await expect(
         service.pause(tool.id, 'owner-2'),
       ).rejects.toThrow('You can only pause your own tools')
+      await expect(
+        service.pause(tool.id, 'owner-2'),
+      ).rejects.toMatchObject({ code: 'TOOL_NOT_OWNER', status: 403 })
+    })
+
+    it('throws TOOL_NOT_FOUND 404 for a tool that does not exist, and pauses nothing', async () => {
+      await expect(service.pause('uuid-nonexistent', 'owner-1')).rejects.toMatchObject({
+        code: 'TOOL_NOT_FOUND',
+        status: 404,
+        message: 'Tool not found',
+      })
+      expect(mockRepo.pause).not.toHaveBeenCalled()
+    })
+  })
+
+  // Unknown category or condition: only a broken client sends them (the form offers a fixed
+  // list), so they get the generic BAD_REQUEST, never a specific field code
+  describe('fixed lists of category and condition', () => {
+    const valid = { name: 'Taladro', description: 'Desc', category: 'Herramientas eléctricas', condition: 'bueno', ownerId: 'owner-1' }
+
+    it.each([
+      ['an unknown category on publish', () => service.publish({ ...valid, category: 'Juguetes' }), 'Invalid category'],
+      ['an unknown condition on publish', () => service.publish({ ...valid, condition: 'roto' }), 'Invalid condition'],
+    ])('answers BAD_REQUEST 400 for %s', async (_case, run, message) => {
+      await expect(run()).rejects.toMatchObject({ code: 'BAD_REQUEST', status: 400, message })
+    })
+
+    it.each([
+      ['an unknown category', { category: 'Juguetes' }, 'Invalid category'],
+      ['an unknown condition', { condition: 'roto' }, 'Invalid condition'],
+    ])('answers BAD_REQUEST 400 for %s on edit', async (_case, updates, message) => {
+      const tool = await service.publish(valid)
+
+      await expect(service.edit(tool.id, 'owner-1', updates)).rejects.toMatchObject({ code: 'BAD_REQUEST', status: 400, message })
     })
   })
 

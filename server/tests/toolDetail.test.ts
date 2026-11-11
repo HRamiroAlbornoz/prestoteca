@@ -121,5 +121,6 @@ describe('GET /api/tools/:id detail', () => {
       .set('Origin', 'http://localhost:5173')
 
     expect(res.status).toBe(404)
+    expect(res.body.error.code).toBe('TOOL_NOT_FOUND')
   })
 })

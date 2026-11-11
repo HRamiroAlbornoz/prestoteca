@@ -175,6 +175,15 @@ describe('ToolRepository', () => {
           ownerId: 'owner-1',
         }),
       ).rejects.toThrow('Name must be between 3 and 60 characters')
+      await expect(
+        repo.create({
+          name: 'Ab', // 2 chars
+          description: 'Desc',
+          category: 'Herramientas eléctricas',
+          condition: 'bueno',
+          ownerId: 'owner-1',
+        }),
+      ).rejects.toMatchObject({ code: 'TOOL_NAME_LENGTH', status: 400 })
     })
 
     it('validates name minimum length', async () => {
@@ -187,6 +196,15 @@ describe('ToolRepository', () => {
           ownerId: 'owner-1',
         }),
       ).rejects.toThrow('Name must be between 3 and 60 characters')
+      await expect(
+        repo.create({
+          name: '', // 0 chars
+          description: 'Desc',
+          category: 'Herramientas eléctricas',
+          condition: 'bueno',
+          ownerId: 'owner-1',
+        }),
+      ).rejects.toMatchObject({ code: 'TOOL_NAME_LENGTH', status: 400 })
     })
 
     it('validates description max length (500)', async () => {
@@ -199,6 +217,15 @@ describe('ToolRepository', () => {
           ownerId: 'owner-1',
         }),
       ).rejects.toThrow('Description must be at most 500 characters')
+      await expect(
+        repo.create({
+          name: 'Tool',
+          description: 'x'.repeat(501),
+          category: 'Herramientas eléctricas',
+          condition: 'bueno',
+          ownerId: 'owner-1',
+        }),
+      ).rejects.toMatchObject({ code: 'TOOL_DESCRIPTION_TOO_LONG', status: 400 })
     })
 
     it('validates category is in fixed list', async () => {
@@ -211,6 +238,15 @@ describe('ToolRepository', () => {
           ownerId: 'owner-1',
         }),
       ).rejects.toThrow('Invalid category')
+      await expect(
+        repo.create({
+          name: 'Tool',
+          description: 'Desc',
+          category: 'invalid-category',
+          condition: 'bueno',
+          ownerId: 'owner-1',
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST', status: 400 })
     })
 
     it('validates condition is nuevo/bueno/usado', async () => {
@@ -223,6 +259,15 @@ describe('ToolRepository', () => {
           ownerId: 'owner-1',
         }),
       ).rejects.toThrow('Invalid condition')
+      await expect(
+        repo.create({
+          name: 'Tool',
+          description: 'Desc',
+          category: 'Herramientas eléctricas',
+          condition: 'excelente',
+          ownerId: 'owner-1',
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST', status: 400 })
     })
   })
 
@@ -293,6 +338,39 @@ describe('ToolRepository', () => {
       }) as unknown as typeof mockPool.query
       const tool = await repo.update('uuid-nonexistent', { name: 'ValidName' })
       expect(tool).toBeNull()
+    })
+
+    // Editing validates each field again, with the same codes as creating
+    it.each([
+      ['a 2-character name', { name: 'Ab' }, 'TOOL_NAME_LENGTH', 'Name must be between 3 and 60 characters'],
+      ['a 61-character name', { name: 'A'.repeat(61) }, 'TOOL_NAME_LENGTH', 'Name must be between 3 and 60 characters'],
+      ['a 501-character description', { description: 'x'.repeat(501) }, 'TOOL_DESCRIPTION_TOO_LONG', 'Description must be at most 500 characters'],
+      ['an unknown category', { category: 'Juguetes' }, 'BAD_REQUEST', 'Invalid category'],
+      ['an unknown condition', { condition: 'roto' }, 'BAD_REQUEST', 'Invalid condition'],
+    ])('rejects %s with %s and writes nothing', async (_case, updates, code, message) => {
+      await expect(repo.update('uuid-1', updates)).rejects.toMatchObject({ code, status: 400, message })
+      expect(queries.some((q) => q.text.includes('UPDATE tools SET'))).toBe(false)
+    })
+
+    it('writes every valid field it gets, including is_paused', async () => {
+      await repo.update('uuid-1', {
+        name: 'Taladro nuevo',
+        description: 'Otro texto',
+        category: 'Herramientas eléctricas',
+        condition: 'bueno',
+        is_paused: true,
+      })
+
+      const update = queries.find((q) => q.text.includes('UPDATE tools SET'))
+      expect(update?.text).toMatch(/name = \$1, description = \$2, category = \$3, condition = \$4, is_paused = \$5/)
+      expect(update?.values).toEqual(['Taladro nuevo', 'Otro texto', 'Herramientas eléctricas', 'bueno', true, 'uuid-1'])
+    })
+
+    it('returns null without querying when there is nothing to update', async () => {
+      const tool = await repo.update('uuid-1', {})
+
+      expect(tool).toBeNull()
+      expect(queries.some((q) => q.text.includes('UPDATE tools SET'))).toBe(false)
     })
   })
 

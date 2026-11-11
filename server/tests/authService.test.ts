@@ -80,13 +80,16 @@ describe('AuthService', () => {
       await expect(
         service.login({ email: 'maria@example.com', password: 'wrongpassword' }),
       ).rejects.toThrow('Invalid credentials')
+      await expect(
+        service.login({ email: 'maria@example.com', password: 'wrongpassword' }),
+      ).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS', status: 401 })
     })
 
     it('throws the same "Invalid credentials" error on non-existent email', async () => {
       // Same error as a wrong password, so the response never reveals whether the email is registered
       await expect(
         service.login({ email: 'ghost@example.com', password: 'any' }),
-      ).rejects.toThrow('Invalid credentials')
+      ).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS', status: 401, message: 'Invalid credentials' })
     })
 
     it('still runs bcrypt with a cost-12 hash when the email does not exist', async () => {

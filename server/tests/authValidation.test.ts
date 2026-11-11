@@ -6,7 +6,7 @@ import { authRoutes } from '../src/modules/auth/authRoutes.js'
 import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import { authRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
-import { ConflictError } from '../src/modules/errors/AppError.js'
+import { AppError } from '../src/modules/errors/AppError.js'
 
 function createMockApp() {
   const usersByEmail = new Map<string, { id: string; name: string; email: string; password_hash: string; neighborhood: string }>()
@@ -19,7 +19,7 @@ function createMockApp() {
     create: vi.fn(async (input: { name: string; email: string; password_hash: string; neighborhood: string }) => {
       if (usersByEmail.has(input.email)) {
         // Same error the real UserRepository raises for a repeated email
-        throw new ConflictError('Email already exists')
+        throw new AppError('EMAIL_TAKEN', 'Email already exists')
       }
       const user = {
         id: `uuid-${nextId++}`,
@@ -49,13 +49,14 @@ describe('auth validation ACs', () => {
 
   describe('email length validation', () => {
     it('rejects register with email > 254 characters', async () => {
-      const longEmail = 'a'.repeat(250) + '@x.co' // 254 chars total
+      const longEmail = 'a'.repeat(250) + '@x.co' // 255 chars: one over the limit
 
       const res = await request(createMockApp().app)
         .post('/api/auth/register')
         .send({ name: 'Test', email: longEmail, password: 'password123', neighborhood: 'Centro' })
 
       expect(res.status).toBe(400)
+      expect(res.body).toEqual({ error: { code: 'REGISTER_EMAIL_TOO_LONG', message: 'Email demasiado largo' } })
     })
   })
 
@@ -73,6 +74,7 @@ describe('auth validation ACs', () => {
         .send({ name: 'Ana López', email: 'ANA@EXAMPLE.COM', password: 'ana45678', neighborhood: 'Norte' })
 
       expect(res.status).toBe(409)
+      expect(res.body.error.code).toBe('EMAIL_TAKEN')
     })
   })
 })

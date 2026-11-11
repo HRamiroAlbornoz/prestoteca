@@ -2,7 +2,7 @@ import type { Router } from 'express'
 import express from 'express'
 import type { LoanService } from './loanService.js'
 import type { AuthRequest } from '../middleware/auth.js'
-import { ConflictError, sendError } from '../errors/AppError.js'
+import { sendError, sendErrorCode, AppError } from '../errors/AppError.js'
 import { todayInAppTimeZone } from './appDate.js'
 
 type QueryFn = (text: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>
@@ -19,13 +19,13 @@ export function loansRoutes(
   router.post('/tools/:id/loans', async (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 
     const toolId = req.params.id
     if (typeof toolId !== 'string') {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Invalid tool ID' } })
+      sendErrorCode(res, 'BAD_REQUEST', 'Invalid tool ID')
       return
     }
 
@@ -37,24 +37,24 @@ export function loansRoutes(
     const trimmedNote = note?.trim()
 
     if (!trimmedStartDate || !trimmedEndDate) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing start or end date' } })
+      sendErrorCode(res, 'LOAN_DATES_MISSING', 'Missing start or end date')
       return
     }
 
     // Note max 300 characters (RF-08)
     if (trimmedNote && trimmedNote.length > 300) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The note must be at most 300 characters' } })
+      sendErrorCode(res, 'LOAN_NOTE_TOO_LONG', 'The note must be at most 300 characters')
       return
     }
 
     // Date validation: end >= start and start >= today in the app time zone (RF-08)
     const todayStr = getToday()
     if (trimmedStartDate < todayStr) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The start date cannot be in the past' } })
+      sendErrorCode(res, 'LOAN_START_IN_PAST', 'The start date cannot be in the past')
       return
     }
     if (trimmedEndDate < trimmedStartDate) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'The end date cannot be before the start date' } })
+      sendErrorCode(res, 'LOAN_END_BEFORE_START', 'The end date cannot be before the start date')
       return
     }
 
@@ -66,13 +66,13 @@ export function loansRoutes(
       )
       const rows = toolResult.rows as Array<{ owner_id: string; is_paused: boolean }>
       if (!rows[0]) {
-        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Tool not found' } })
+        sendErrorCode(res, 'TOOL_NOT_FOUND', 'Tool not found')
         return
       }
 
       // A paused tool accepts no new requests (spec: 409). It still exists, so this is not a 404.
       if (rows[0].is_paused) {
-        throw new ConflictError('La herramienta está pausada y no acepta pedidos')
+        throw new AppError('TOOL_PAUSED', 'La herramienta está pausada y no acepta pedidos')
       }
 
       const loan = await service.create({
@@ -93,13 +93,13 @@ export function loansRoutes(
   router.get('/loans/:id', async (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 
     const loanId = req.params.id
     if (typeof loanId !== 'string') {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Invalid loan ID' } })
+      sendErrorCode(res, 'BAD_REQUEST', 'Invalid loan ID')
       return
     }
 
@@ -115,20 +115,20 @@ export function loansRoutes(
   router.patch('/loans/:id/status', async (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 
     const loanId = req.params.id
     if (typeof loanId !== 'string') {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Invalid loan ID' } })
+      sendErrorCode(res, 'BAD_REQUEST', 'Invalid loan ID')
       return
     }
 
     const { status: newStatus } = req.body
 
     if (!newStatus) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing status' } })
+      sendErrorCode(res, 'BAD_REQUEST', 'Missing status')
       return
     }
 
@@ -144,14 +144,14 @@ export function loansRoutes(
   router.get('/loans', async (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 
     const { type } = req.query as Record<string, string>
 
     if (type !== 'pedidos' && type !== 'recibidos') {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing or invalid type (pedidos/recibidos)' } })
+      sendErrorCode(res, 'BAD_REQUEST', 'Missing or invalid type (pedidos/recibidos)')
       return
     }
 

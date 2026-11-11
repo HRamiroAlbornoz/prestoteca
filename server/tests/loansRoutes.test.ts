@@ -100,6 +100,59 @@ function createMockApp(getToday?: () => string) {
   return { app, loans, tools, mockRepo }
 }
 
+// Mounts loansRoutes WITHOUT the inline auth middleware, so the route's own
+// guard is exercised (the route checks req.userId itself).
+function createMockAppNoAuth(getToday?: () => string) {
+  const loans = new Map<string, any>()
+  const tools = new Map<string, { id: string; owner_id: string; is_paused?: boolean }>()
+
+  const query = vi.fn(async (text: string, values?: unknown[]) => {
+    if (text.includes('FROM tools WHERE id')) {
+      const toolId = values?.[0] as string
+      const tool = tools.get(toolId)
+      if (tool) {
+        const row = { owner_id: tool.owner_id, is_paused: tool.is_paused ?? false }
+        return { rows: [row], rowCount: 1 } as { rows: unknown[]; rowCount: number | null }
+      }
+      return { rows: [], rowCount: 0 } as { rows: unknown[]; rowCount: number | null }
+    }
+    return { rows: [], rowCount: 0 } as { rows: unknown[]; rowCount: number | null }
+  })
+
+  const mockRepo: Partial<LoanRepository> = {
+    create: vi.fn(async (input: any) => {
+      const id = `loan-uuid-${Date.now()}`
+      return {
+        id,
+        tool_id: input.toolId,
+        borrower_id: input.borrowerId,
+        owner_id: input.ownerId,
+        start_date: input.startDate,
+        end_date: input.endDate,
+        status: input.status,
+        note: input.note ?? null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+    }),
+    findById: vi.fn(async () => null),
+    findAllByTool: vi.fn(async () => []),
+    findAllByBorrower: vi.fn(async () => []),
+    findAllByOwner: vi.fn(async () => []),
+    updateStatus: vi.fn(async () => null),
+    hasActiveLoans: vi.fn(async () => false),
+    hasOverlappingDates: vi.fn(async () => false),
+  }
+
+  const service = new LoanService(mockRepo as LoanRepository, query)
+
+  const app = express()
+  app.use(express.json())
+  app.use('/api', loansRoutes(service, query, getToday))
+
+  return { app, loans, tools, mockRepo }
+}
+
 describe('loans routes', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -145,6 +198,22 @@ describe('loans routes', () => {
       expect(res.body.error.message).toMatch(/propia herramienta/)
     })
 
+    it('returns 400 { code: LOAN_DATES_MISSING } when start or end date is missing', async () => {
+      const { app, tools } = createMockApp()
+
+      tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1' })
+
+      const res = await request(app)
+        .post('/api/tools/tool-1/loans')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({ startDate: START_DATE })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('LOAN_DATES_MISSING')
+      expect(res.body.error.message).toBe('Missing start or end date')
+    })
+
     it('returns 404 when tool not found', async () => {
       const { app } = createMockApp()
 
@@ -158,6 +227,10 @@ describe('loans routes', () => {
         })
 
       expect(res.status).toBe(404)
+      expect(res.body.error).toEqual({
+        code: 'TOOL_NOT_FOUND',
+        message: 'Tool not found',
+      })
     })
 
     it('returns 409 when dates overlap', async () => {
@@ -176,6 +249,10 @@ describe('loans routes', () => {
         })
 
       expect(res.status).toBe(409)
+      expect(res.body.error).toEqual({
+        code: 'LOAN_DATES_OVERLAP',
+        message: 'La herramienta tiene un préstamo activo con fechas solapadas',
+      })
     })
 
     it('returns 409 when the tool is paused and creates no loan', async () => {
@@ -193,8 +270,7 @@ describe('loans routes', () => {
         })
 
       expect(res.status).toBe(409)
-      // The reason matters: a 409 for overlapping dates must not pass this test
-      expect(res.body.error.code).toBe('CONFLICT')
+      expect(res.body.error.code).toBe('TOOL_PAUSED')
       expect(res.body.error.message).toMatch(/pausada/)
       expect(mockRepo.create).not.toHaveBeenCalled()
     })
@@ -214,7 +290,10 @@ describe('loans routes', () => {
           .send({ startDate: '2030-01-09', endDate: '2030-01-12' })
 
         expect(res.status).toBe(400)
-        expect(res.body.error.message).toMatch(/past/)
+        expect(res.body.error).toEqual({
+          code: 'LOAN_START_IN_PAST',
+          message: 'The start date cannot be in the past',
+        })
         expect(mockRepo.create).not.toHaveBeenCalled()
       })
 
@@ -232,6 +311,60 @@ describe('loans routes', () => {
       })
     })
 
+    it('returns 400 { code: LOAN_END_BEFORE_START } when end date is before start date', async () => {
+      const { app, tools, mockRepo } = createMockApp()
+      tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1' })
+
+      const res = await request(app)
+        .post('/api/tools/tool-1/loans')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({ startDate: '2026-12-01', endDate: '2026-11-01' })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error).toEqual({
+        code: 'LOAN_END_BEFORE_START',
+        message: 'The end date cannot be before the start date',
+      })
+      expect(mockRepo.create).not.toHaveBeenCalled()
+    })
+
+    it('returns 400 { code: LOAN_NOTE_TOO_LONG } when note is 301 characters', async () => {
+      const { app, tools, mockRepo } = createMockApp()
+      tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1' })
+
+      const note301 = 'a'.repeat(301)
+
+      const res = await request(app)
+        .post('/api/tools/tool-1/loans')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({ startDate: START_DATE, endDate: END_DATE, note: note301 })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error).toEqual({
+        code: 'LOAN_NOTE_TOO_LONG',
+        message: 'The note must be at most 300 characters',
+      })
+      expect(mockRepo.create).not.toHaveBeenCalled()
+    })
+
+    it('returns 201 when note is exactly 300 characters', async () => {
+      const { app, tools } = createMockApp()
+      tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1' })
+
+      const note300 = 'a'.repeat(300)
+
+      const res = await request(app)
+        .post('/api/tools/tool-1/loans')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({ startDate: START_DATE, endDate: END_DATE, note: note300 })
+
+      expect(res.status).toBe(201)
+      expect(res.body.note).toBe(note300)
+    })
+
     it('returns 401 without auth', async () => {
       const { app } = createMockApp()
 
@@ -243,6 +376,42 @@ describe('loans routes', () => {
         })
 
       expect(res.status).toBe(401)
+    })
+
+    it('returns 401 { code: SESSION_REQUIRED } when the route guard fires (no auth middleware)', async () => {
+      const { app } = createMockAppNoAuth()
+
+      const res = await request(app)
+        .post('/api/tools/tool-1/loans')
+        .send({
+          startDate: START_DATE,
+          endDate: END_DATE,
+        })
+
+      expect(res.status).toBe(401)
+      expect(res.body.error.code).toBe('SESSION_REQUIRED')
+      expect(res.body.error.message).toBe('Not authenticated')
+    })
+
+    it.each([
+      ['POST /api/tools/:id/loans', '/api/tools/tool-1/loans', 'post', { startDate: START_DATE, endDate: END_DATE }],
+      ['GET /api/loans/:id', '/api/loans/loan-1', 'get', {}],
+      ['PATCH /api/loans/:id/status', '/api/loans/loan-1/status', 'patch', { status: 'aceptado' }],
+      ['GET /api/loans?type=pedidos', '/api/loans?type=pedidos', 'get', {}],
+    ])('returns 401 { code: SESSION_REQUIRED } — %s (no auth middleware)', async (_, path, method, body) => {
+      const { app } = createMockAppNoAuth()
+
+      let res
+      if (method === 'get') {
+        res = await request(app).get(path)
+      } else if (method === 'post') {
+        res = await request(app).post(path).send(body)
+      } else {
+        res = await request(app).patch(path).send(body)
+      }
+
+      expect(res.status).toBe(401)
+      expect(res.body.error).toEqual({ code: 'SESSION_REQUIRED', message: 'Not authenticated' })
     })
   })
 
@@ -295,6 +464,8 @@ describe('loans routes', () => {
         .set('Origin', 'http://localhost:5173')
 
       expect(res.status).toBe(404)
+      expect(res.body.error.code).toBe('LOAN_NOT_FOUND')
+      expect(res.body.error.message).toBe('Préstamo no encontrado')
     })
 
     it('returns 404 when loan not found', async () => {
@@ -306,6 +477,42 @@ describe('loans routes', () => {
         .set('Origin', 'http://localhost:5173')
 
       expect(res.status).toBe(404)
+      expect(res.body.error.code).toBe('LOAN_NOT_FOUND')
+      expect(res.body.error.message).toBe('Préstamo no encontrado')
+    })
+
+    it('stranger and non-existent loan return identical body (GET)', async () => {
+      const { app, loans } = createMockApp()
+
+      loans.set('loan-1', {
+        id: 'loan-1',
+        tool_id: 'tool-1',
+        borrower_id: 'user-2',
+        owner_id: 'user-1',
+        start_date: '2026-10-10',
+        end_date: '2026-10-20',
+        status: 'pendiente',
+        note: 'Necesito el taladro',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      const strangerRes = await request(app)
+        .get('/api/loans/loan-1')
+        .set('Authorization', 'Bearer user-99')
+        .set('Origin', 'http://localhost:5173')
+
+      const missingRes = await request(app)
+        .get('/api/loans/nonexistent')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+
+      expect(strangerRes.status).toBe(404)
+      expect(missingRes.status).toBe(404)
+      expect(strangerRes.body).toEqual(missingRes.body)
+      expect(strangerRes.body).toEqual({
+        error: { code: 'LOAN_NOT_FOUND', message: 'Préstamo no encontrado' },
+      })
     })
   })
 
@@ -359,6 +566,7 @@ describe('loans routes', () => {
         .send({ status: 'devuelto' })
 
       expect(res.status).toBe(409)
+      expect(res.body.error.code).toBe('LOAN_TRANSITION_INVALID')
     })
 
     it('returns 403 when the borrower tries to accept their own request', async () => {
@@ -384,7 +592,7 @@ describe('loans routes', () => {
         .send({ status: 'aceptado' })
 
       expect(res.status).toBe(403)
-      expect(res.body.error.code).toBe('FORBIDDEN')
+      expect(res.body.error.code).toBe('LOAN_TRANSITION_WRONG_ROLE')
       expect(loans.get('loan-1').status).toBe('pendiente')
     })
 
@@ -411,6 +619,56 @@ describe('loans routes', () => {
         .send({ status: 'aceptado' })
 
       expect(res.status).toBe(404)
+    })
+
+    it('stranger and non-existent loan return identical body (PATCH)', async () => {
+      const { app, loans } = createMockApp()
+
+      loans.set('loan-1', {
+        id: 'loan-1',
+        tool_id: 'tool-1',
+        borrower_id: 'user-2',
+        owner_id: 'user-1',
+        start_date: '2026-10-10',
+        end_date: '2026-10-20',
+        status: 'pendiente',
+        note: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      const strangerRes = await request(app)
+        .patch('/api/loans/loan-1/status')
+        .set('Authorization', 'Bearer user-99')
+        .set('Origin', 'http://localhost:5173')
+        .send({ status: 'aceptado' })
+
+      const missingRes = await request(app)
+        .patch('/api/loans/nonexistent/status')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({ status: 'aceptado' })
+
+      expect(strangerRes.status).toBe(404)
+      expect(missingRes.status).toBe(404)
+      expect(strangerRes.body).toEqual(missingRes.body)
+      expect(strangerRes.body).toEqual({
+        error: { code: 'LOAN_NOT_FOUND', message: 'Préstamo no encontrado' },
+      })
+    })
+
+    it('returns 400 { code: BAD_REQUEST } when status is missing in body', async () => {
+      const { app } = createMockApp()
+
+      const res = await request(app)
+        .patch('/api/loans/loan-1/status')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({})
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('BAD_REQUEST')
+      expect(res.body.error.message).toBe('Missing status')
     })
 
     it('returns 401 without auth', async () => {
@@ -478,6 +736,8 @@ describe('loans routes', () => {
         .set('Authorization', 'Bearer user-1')
 
       expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('BAD_REQUEST')
+      expect(res.body.error.message).toBe('Missing or invalid type (pedidos/recibidos)')
     })
 
     it('returns loans when type=pedidos (user is borrower)', async () => {
@@ -551,4 +811,5 @@ describe('loans routes', () => {
       expect(res.body).toEqual([])
     })
   })
+
 })

@@ -2,7 +2,7 @@ import type { Router } from 'express'
 import express from 'express'
 import type { UserRepository } from './userRepo.js'
 import { AuthService } from './authService.js'
-import { sendError } from '../errors/AppError.js'
+import { sendError, sendErrorCode } from '../errors/AppError.js'
 
 export function authRoutes(
   userRepo: UserRepository,
@@ -23,25 +23,25 @@ export function authRoutes(
     const trimmedNeighborhood = neighborhood?.trim()
 
     if (!trimmedName || !trimmedEmail || !trimmedPassword || !trimmedNeighborhood) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing required fields' } })
+      sendErrorCode(res, 'REGISTER_MISSING_FIELDS', 'Missing required fields')
       return
     }
 
     // Name validation: 2-50 characters
     if (trimmedName.length < 2 || trimmedName.length > 50) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'El nombre debe tener entre 2 y 50 caracteres' } })
+      sendErrorCode(res, 'REGISTER_NAME_LENGTH', 'El nombre debe tener entre 2 y 50 caracteres')
       return
     }
 
     // Password validation: 8-72 characters
     if (trimmedPassword.length < 8 || trimmedPassword.length > 72) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'La contraseña debe tener entre 8 y 72 caracteres' } })
+      sendErrorCode(res, 'REGISTER_PASSWORD_LENGTH', 'La contraseña debe tener entre 8 y 72 caracteres')
       return
     }
 
     // Email length validation (RFC 5321: max 254 chars)
     if (trimmedEmail.length > 254) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Email demasiado largo' } })
+      sendErrorCode(res, 'REGISTER_EMAIL_TOO_LONG', 'Email demasiado largo')
       return
     }
 
@@ -71,7 +71,7 @@ export function authRoutes(
     const trimmedPassword = password?.trim()
 
     if (!trimmedEmail || !trimmedPassword) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing required fields' } })
+      sendErrorCode(res, 'LOGIN_MISSING_FIELDS', 'Missing required fields')
       return
     }
 

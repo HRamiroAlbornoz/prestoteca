@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express'
+import { sendErrorCode } from '../errors/AppError.js'
 
 interface RateLimitEntry {
   count: number
@@ -61,12 +62,7 @@ function createRateLimiter(maxRequests: number) {
     entry.count++
 
     if (entry.count > maxRequests) {
-      res.status(429).json({
-        error: {
-          code: 'TOO_MANY_REQUESTS',
-          message: 'Too many requests. Please try again later.',
-        },
-      })
+      sendErrorCode(res, 'RATE_LIMITED', 'Too many requests. Please try again later.')
       return
     }
 

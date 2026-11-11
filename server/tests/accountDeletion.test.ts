@@ -6,7 +6,7 @@ import type { Pool } from 'pg'
 import { deleteAccount, DELETED_USER_NAME } from '../src/modules/me/accountDeletion.js'
 import { meAccountRoutes } from '../src/modules/me/meAccountRoutes.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
-import { ConflictError, NotFoundError } from '../src/modules/errors/AppError.js'
+import { AppError } from '../src/modules/errors/AppError.js'
 
 interface FakeUser { id: string; name: string; email: string; password_hash: string; deleted_at: string | null }
 interface FakeTool { id: string; owner_id: string; deleted_at: string | null }
@@ -114,13 +114,13 @@ describe('deleteAccount', () => {
   })
 
   it.each(['pendiente', 'aceptado', 'entregado', 'vencido'])(
-    'rejects with a ConflictError and changes nothing when the user has a %s loan',
+    'rejects with ACCOUNT_HAS_ACTIVE_LOANS and changes nothing when the user has a %s loan',
     async (status) => {
       const db = createFakePool()
       seed(db)
       db.loans.set('loan-1', { id: 'loan-1', owner_id: 'user-2', borrower_id: 'user-1', status })
 
-      await expect(deleteAccount(db.pool, 'user-1', 'new-random-hash')).rejects.toBeInstanceOf(ConflictError)
+      await expect(deleteAccount(db.pool, 'user-1', 'new-random-hash')).rejects.toMatchObject({ code: 'ACCOUNT_HAS_ACTIVE_LOANS', status: 409 })
 
       expect(db.users.get('user-1')!.name).toBe('Ana')
       expect(db.tools.get('tool-1')!.deleted_at).toBeNull()
@@ -142,12 +142,12 @@ describe('deleteAccount', () => {
     expect(db.client.release).toHaveBeenCalledTimes(1)
   })
 
-  it('rejects with a NotFoundError for an account that is already deleted', async () => {
+  it('rejects with ACCOUNT_NOT_FOUND for an account that is already deleted', async () => {
     const db = createFakePool()
     seed(db)
     db.users.get('user-1')!.deleted_at = 'earlier'
 
-    await expect(deleteAccount(db.pool, 'user-1', 'new-random-hash')).rejects.toBeInstanceOf(NotFoundError)
+    await expect(deleteAccount(db.pool, 'user-1', 'new-random-hash')).rejects.toMatchObject({ code: 'ACCOUNT_NOT_FOUND', status: 404 })
   })
 })
 
@@ -177,6 +177,7 @@ describe('DELETE /api/me/account', () => {
     const res = await request(appWith(db)).delete('/api/me/account')
 
     expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Not authenticated' } })
   })
 
   it('returns 204, clears the session cookie and stores a real unusable bcrypt hash', async () => {
@@ -201,7 +202,7 @@ describe('DELETE /api/me/account', () => {
     const res = await request(appWith(db, 'user-1')).delete('/api/me/account')
 
     expect(res.status).toBe(409)
-    expect(res.body.error.code).toBe('CONFLICT')
+    expect(res.body.error.code).toBe('ACCOUNT_HAS_ACTIVE_LOANS')
     expect(res.body.error.message).toMatch(/préstamos activos/)
     expect(res.headers['set-cookie']).toBeUndefined()
   })

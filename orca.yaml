@@ -1,0 +1,8 @@
+# Orca configuration for this repo (read by the Orca app, not by the project).
+# Every new Orca worktree starts without node_modules, so its tests cannot run.
+# `npm ci` installs exactly what package-lock.json lists: no new packages, no version changes.
+scripts:
+  setup: npm ci
+
+# Do not start the agent until `npm ci` has finished, so its first test run finds the dependencies.
+setupAgentStartupPolicy: wait-for-setup

@@ -106,6 +106,19 @@ describe('LoanService', () => {
         note: 'Necesito el taladro',
       }),
     ).rejects.toThrow('No puedes pedir tu propia herramienta')
+    await expect(
+      service.create({
+        toolId: 'tool-1',
+        userId: 'user-1',
+        ownerId: 'user-1',
+        startDate: '2026-10-10',
+        endDate: '2026-10-20',
+        note: 'Necesito el taladro',
+      }),
+    ).rejects.toMatchObject({
+      status: 400,
+      code: 'LOAN_OWN_TOOL',
+    })
   })
 
   it('rejects creating a loan with overlapping dates', async () => {
@@ -133,6 +146,19 @@ describe('LoanService', () => {
         note: 'Conflicto de fechas',
       }),
     ).rejects.toThrow(/solapada|overlap/i)
+    await expect(
+      service.create({
+        toolId: 'tool-1',
+        userId: 'user-3',
+        ownerId: 'user-1',
+        startDate: '2026-10-15',
+        endDate: '2026-10-25',
+        note: 'Conflicto de fechas',
+      }),
+    ).rejects.toMatchObject({
+      status: 409,
+      code: 'LOAN_DATES_OVERLAP',
+    })
   })
 
   it('creates a loan with status pendiente', async () => {
@@ -172,9 +198,32 @@ describe('LoanService', () => {
       updated_at: new Date().toISOString(),
     })
 
-    await expect(
-      service.transition('loan-1', 'devuelto', 'user-2'),
-    ).rejects.toThrow(/transición inválida|invalid.*transition/i)
+    await expect(service.transition('loan-1', 'devuelto', 'user-2')).rejects.toMatchObject({
+      status: 409,
+      code: 'LOAN_TRANSITION_INVALID',
+      message: expect.stringMatching(/transición inválida/i),
+    })
+  })
+
+  it('answers LOAN_NOT_FOUND when the loan vanishes between the check and the update', async () => {
+    mock.loans.set('loan-1', {
+      id: 'loan-1',
+      tool_id: 'tool-1',
+      borrower_id: 'user-2',
+      owner_id: 'user-1',
+      start_date: '2026-10-10',
+      end_date: '2026-10-20',
+      status: 'pendiente',
+      note: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    vi.mocked(mock.repo.updateStatus).mockResolvedValueOnce(null)
+
+    await expect(service.transition('loan-1', 'aceptado', 'user-1')).rejects.toMatchObject({
+      status: 404,
+      code: 'LOAN_NOT_FOUND',
+    })
   })
 
   describe('who may make each status change (MVP spec lines 64-66, 81, 137-142)', () => {
@@ -225,7 +274,7 @@ describe('LoanService', () => {
 
       await expect(service.transition('loan-1', to, BORROWER)).rejects.toMatchObject({
         status: 403,
-        code: 'FORBIDDEN',
+        code: 'LOAN_TRANSITION_WRONG_ROLE',
       })
       expect(mock.loans.get('loan-1').status).toBe(from)
       expect(mock.repo.updateStatus).not.toHaveBeenCalled()
@@ -346,12 +395,24 @@ describe('LoanService', () => {
     await expect(
       service.transition('loan-1', 'aceptado', 'user-99'),
     ).rejects.toThrow('Préstamo no encontrado')
+    await expect(
+      service.transition('loan-1', 'aceptado', 'user-99'),
+    ).rejects.toMatchObject({
+      status: 404,
+      code: 'LOAN_NOT_FOUND',
+    })
   })
 
   it('rejects transition for non-existent loan', async () => {
     await expect(
       service.transition('non-existent', 'aceptado', 'user-1'),
     ).rejects.toThrow(/no encontrado|not found/i)
+    await expect(
+      service.transition('non-existent', 'aceptado', 'user-1'),
+    ).rejects.toMatchObject({
+      status: 404,
+      code: 'LOAN_NOT_FOUND',
+    })
   })
 
   it('auto-vencido: entregado loan past end_date → vencido', async () => {

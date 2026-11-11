@@ -1,5 +1,5 @@
 import type { ToolRepository, PaginatedResult, Tool } from '../tools/toolRepo.js'
-import { ValidationError } from '../errors/AppError.js'
+import { AppError } from '../errors/AppError.js'
 
 export interface SearchInput {
   q?: string
@@ -16,12 +16,12 @@ export class SearchService {
     const page = input.page ?? 1
 
     if (page < 1) {
-      throw new ValidationError('Page must be >= 1')
+      throw new AppError('BAD_REQUEST', 'Page must be >= 1')
     }
 
     // RF-14: Search query max 60 characters
     if (input.q && input.q.length > 60) {
-      throw new ValidationError('Search query must be at most 60 characters')
+      throw new AppError('SEARCH_QUERY_TOO_LONG', 'Search query must be at most 60 characters')
     }
 
     const limit = input.limit ?? 12

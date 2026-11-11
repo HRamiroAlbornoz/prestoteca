@@ -3,7 +3,7 @@ import express from 'express'
 import type { ToolRepository } from '../tools/toolRepo.js'
 import type { LoanRepository } from '../loans/loanRepo.js'
 import type { AuthRequest } from '../middleware/auth.js'
-import { sendError } from '../errors/AppError.js'
+import { sendError, sendErrorCode } from '../errors/AppError.js'
 
 export function meRoutes(
   toolRepo: ToolRepository,
@@ -15,7 +15,7 @@ export function meRoutes(
   router.get('/me/tools', async (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 
@@ -39,7 +39,7 @@ export function meRoutes(
   router.get('/me/history', async (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 

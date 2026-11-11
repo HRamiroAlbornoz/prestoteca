@@ -5,7 +5,7 @@ import bcrypt from 'bcrypt'
 import type { Pool } from 'pg'
 import type { UserRepository } from '../auth/userRepo.js'
 import type { AuthRequest } from '../middleware/auth.js'
-import { sendError } from '../errors/AppError.js'
+import { sendError, sendErrorCode } from '../errors/AppError.js'
 import { deleteAccount } from './accountDeletion.js'
 
 const SALT_ROUNDS = 12
@@ -21,7 +21,7 @@ export function meAccountRoutes(
   router.get('/me', async (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 
@@ -29,7 +29,7 @@ export function meAccountRoutes(
       const user = await userRepo.findActiveById(userId)
       if (!user) {
         // A valid token for an account deleted after it was issued
-        res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+        sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
         return
       }
       res.status(200).json({ id: user.id, name: user.name })
@@ -42,38 +42,38 @@ export function meAccountRoutes(
   router.patch('/me/password', async (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 
     const { currentPassword, newPassword } = req.body
 
     if (!currentPassword || !newPassword) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Missing current or new password' } })
+      sendErrorCode(res, 'PASSWORD_CHANGE_MISSING_FIELDS', 'Missing current or new password')
       return
     }
 
     // Validate new password
     if (newPassword.length < 8 || newPassword.length > 72) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Password must be between 8 and 72 characters' } })
+      sendErrorCode(res, 'NEW_PASSWORD_LENGTH', 'Password must be between 8 and 72 characters')
       return
     }
 
     if (/^\s+$/.test(newPassword)) {
-      res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Password cannot be only spaces' } })
+      sendErrorCode(res, 'NEW_PASSWORD_BLANK', 'Password cannot be only spaces')
       return
     }
 
     try {
-      const user = await userRepo.findById(userId)
+      const user = await userRepo.findActiveById(userId)
       if (!user) {
-        res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } })
+        sendErrorCode(res, 'ACCOUNT_NOT_FOUND', 'User not found')
         return
       }
 
       const valid = await bcrypt.compare(currentPassword, user.password_hash)
       if (!valid) {
-        res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Current password is incorrect' } })
+        sendErrorCode(res, 'CURRENT_PASSWORD_INCORRECT', 'Current password is incorrect')
         return
       }
 
@@ -90,7 +90,7 @@ export function meAccountRoutes(
   router.delete('/me/account', async (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
     if (!userId) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } })
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
 
