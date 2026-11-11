@@ -181,3 +181,24 @@ slug: error-codes
   `.mts`, `.js` y `.tsx`); 6 casos nuevos en el test. Aceptado: fixtures del cliente con códigos viejos
   (`App.test.tsx`, `editTool.test.tsx`, `toolPages.test.tsx`), que se reescriben con sus pantallas en el PR 3
 - controls: tests ✅ · build ✅ · lint ✅ (cliente) · security ✅ · traceability ✅ (AC-5b estática, AC-7, AC-8)
+- resultado: PR #44 mergeado (`3fe39aa`), deploy SUCCESS en producción y staging
+
+## T010 — 2026-11-11 (PR 3, rama `feat/error-codes-screens`)
+- status: complete — pendiente de la aprobación de Hernán (tier 2). Hecha por Claude
+- alcance (decisión de Hernán, opción 1): además de la sesión, T010 conecta el código `SESSION_REQUIRED` en la carga de
+  `LoanDetailPage` y en pausar/eliminar de `ToolDetailPage`, para probar AC-11 con la app real; el resto de esas
+  pantallas lo migran T013 y T014. Regla de oxlint `allowExportNames: ["useAuth"]` (ok de Hernán)
+- red: `client/src/session.test.tsx` (nuevo, app real) → 12 de 15 fallan con el comportamiento de antes
+- green: cliente 18 archivos, 312/312; `tsc -b` limpio; lint sin avisos salvo el de `HomePage` (T012)
+- files: App.tsx (`useTransitions={false}`), contexts/AuthContext.tsx (`markSignedOut`, `logout()` que informa),
+  errors/useApiError.ts (nuevo), pages/LoginPage.tsx (aviso por state, mensajes en español, `replace`, filtro de
+  caracteres de control en `returnTo`), components/NavBar.tsx ("Salir" que falla), pages/LoanDetailPage.tsx,
+  pages/ToolDetailPage.tsx (`returnUrl` → `returnTo`), .oxlintrc.json; tests session, authContext, App, toolPages
+- risk: tier 2 (`session.test.tsx`, clase auth) — 3 refuters + aprobación humana
+- review ronda 1: correctness 1 should-fix (el aviso de "Salir" volvía con "atrás": se ataba a `location.key`) + 2 nits;
+  security pass + 1 nit preexistente (`/%09/evil.com` pasaba el filtro de `returnTo`); tests 4 should-fix + 1 nit
+  (tests que pasaban por otra razón: "atrás" sin destino, reintento de "Salir", eliminar, query string) → todo
+  arreglado; los 5 mutantes que sobrevivían ahora mueren. Aparcado a T014: la carga de préstamos sin `AbortController`
+- review ronda 2 (correctness, solo los arreglos): pass + 2 nits → el aviso ya no parpadea mientras la sesión no se
+  conoce (`!isLoading`, con test); guardia `currentUser` en "Salir" sin test: aceptado (casi equivalente)
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ · traceability ✅ (AC-11, AC-12, AC-13)
