@@ -84,7 +84,7 @@ function createMockApp(getToday?: () => string) {
   app.use('/api', (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication required' } })
+      res.status(401).json({ error: { code: 'SESSION_REQUIRED', message: 'Authentication required' } })
       return
     }
     ;(req as any).userId = authHeader.replace('Bearer ', '')

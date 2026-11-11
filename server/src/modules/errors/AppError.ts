@@ -19,38 +19,6 @@ export class AppError extends Error {
   }
 }
 
-// Old generic errors, kept only until every route sends a specific code (task T009
-// removes them). Each one is an AppError with the generic code it always had.
-export class ValidationError extends AppError {
-  constructor(message: string) {
-    super('BAD_REQUEST', message)
-  }
-}
-
-export class UnauthorizedError extends AppError {
-  constructor(message: string) {
-    super('UNAUTHORIZED', message)
-  }
-}
-
-export class ForbiddenError extends AppError {
-  constructor(message: string) {
-    super('FORBIDDEN', message)
-  }
-}
-
-export class NotFoundError extends AppError {
-  constructor(message: string) {
-    super('NOT_FOUND', message)
-  }
-}
-
-export class ConflictError extends AppError {
-  constructor(message: string) {
-    super('CONFLICT', message)
-  }
-}
-
 // The one place that writes an error body: { error: { code, message } }, with the status
 // of the code. Middlewares and route validations call it instead of res.status().json().
 export function sendErrorCode(res: express.Response, code: ServerErrorCode, devMessage: string): void {

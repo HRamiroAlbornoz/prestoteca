@@ -145,3 +145,39 @@ slug: error-codes
 - controls: suite del server 29 archivos, 464/464; build desde la raíz y tests del cliente (181/181) verdes
 - backlog (preexistentes, aprobados por Hernán): email/contraseña no string → 500; carrera borrar cuenta / cambiar
   contraseña; estado de préstamo `"constructor"` → 500; los tests del server no pasan por `tsc`
+- resultado: PR #42 mergeado (`9434bd9`), deploy SUCCESS en producción y staging; humo: `/api/nope` sin sesión →
+  `SESSION_REQUIRED`, login sin `Origin` → `ORIGIN_NOT_ALLOWED`
+
+## T008 — 2026-11-11 (PR 2, rama `feat/error-codes-client-base`)
+- status: complete. Hecha por Claude
+- red: con stubs (`MESSAGES = {}`, funciones que devuelven el código equivocado) → cada test falla por su aserción; el
+  parser ya leía los textos de la spec (`expected undefined to be 'Tu sesión terminó…'`)
+- green: `cd client && npx vitest run src/errors` → 108/108; cliente completo 17 archivos, 289/289; `tsc -b` limpio;
+  `npm run build` desde la raíz verde (R1); el bundle no contiene valores del catálogo (`import type` borrado)
+- AC-5 visto fallar: sin la entrada `TOOL_PAUSED` fallan el test (`expected 'undefined' to be 'string'`, y la fila 23
+  de AC-14) **y** `tsc -b` (`TS2741: Property 'TOOL_PAUSED' is missing`); archivo restaurado byte a byte
+- files: client/src/errors/{messages,apiError}.ts y sus tests (nuevos)
+- risk: tier 1 — 1 revisor de contexto fresco
+- review: pass, 2 nits → lista de códigos propios del cliente escrita tres veces: arreglado (`CLIENT_ONLY_CODES` única,
+  el tipo sale de ella); el bucle de "códigos pendientes" queda vacío después de T009: aceptado, T009 lo borra
+- controls: tests ✅ · build ✅ · lint ✅ (oxlint sin avisos en `errors/`) · security ✅ (nunca se lee el `message` del
+  server) · traceability ✅ (AC-2, AC-3, AC-4 unit, AC-5, AC-9c, AC-14)
+- spec: `branch:` pasa a `feat/error-codes-client-base` (ok de Hernán)
+
+## T009 — 2026-11-11
+- status: complete. Hecha por Claude
+- red (guardia): con `origin.ts` y `rateLimit.ts` de antes del PR 1 (`git show 16e76de:…`) puestos en `src`,
+  `tests/errorGuard.test.ts` falla en esos dos archivos; restaurados (`git status` vacío) → verde
+- red (borrado): el test nuevo "el catálogo tiene exactamente los códigos del plan" falla con 42 claves contra 38 →
+  borrados `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT` del catálogo y del mapa del cliente, y las 5 subclases
+- green: server 30 archivos, 506/506; cliente 17 archivos, 285/285; `tsc -b` limpio en los dos; build desde la raíz verde;
+  `grep -rnE "ValidationError|NotFoundError|ConflictError|ForbiddenError|UnauthorizedError" server/src server/tests` → 0
+- files: server/tests/errorGuard.test.ts (nuevo), server/src/modules/errors/{AppError,errorCodes}.ts,
+  client/src/errors/{messages.ts,messages.test.ts}; tests del server con subclases o con porteros falsos que respondían
+  `UNAUTHORIZED` (ahora `SESSION_REQUIRED`)
+- risk: tier 1 — 1 revisor de contexto fresco
+- review: pass, 4 nits + 1 pregunta sobre huecos de la guardia → reforzada (prohíbe cualquier clave `error: {` y
+  `code:` con literal, también entre comillas, fuera de `errors/`; solo borra comentarios de línea completa; revisa
+  `.mts`, `.js` y `.tsx`); 6 casos nuevos en el test. Aceptado: fixtures del cliente con códigos viejos
+  (`App.test.tsx`, `editTool.test.tsx`, `toolPages.test.tsx`), que se reescriben con sus pantallas en el PR 3
+- controls: tests ✅ · build ✅ · lint ✅ (cliente) · security ✅ · traceability ✅ (AC-5b estática, AC-7, AC-8)
