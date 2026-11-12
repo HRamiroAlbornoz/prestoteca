@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterAll } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { RequestLoanPage } from '../pages/RequestLoanPage'
+import { MESSAGES } from '../errors/messages'
 
 interface User {
   id: string
@@ -20,9 +21,24 @@ vi.mock('react-router-dom', async (importOriginal) => {
   }
 })
 
+// Mock AuthContext
+const mockUseAuthValue = {
+  currentUser: null as User | null,
+  isLoading: false,
+  login: vi.fn(),
+  logout: vi.fn(),
+  markSignedOut: vi.fn(() => { mockUseAuthValue.currentUser = null }),
+}
+vi.mock('../contexts/AuthContext', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useAuth: () => mockUseAuthValue,
+}))
+
+afterAll(() => {
+  vi.resetModules()
+})
+
 // Fix "today" so the tests never depend on the real calendar (fixed dates used to expire).
-// Every date below is relative to TODAY.
-// vi.hoisted: vi.mock runs before the rest of the file, so the dates must exist that early too.
 const { TODAY, YESTERDAY, START, END } = vi.hoisted(() => ({
   TODAY: '2030-01-10',
   YESTERDAY: '2030-01-09',
@@ -34,17 +50,6 @@ vi.mock('../utils/appDate', () => ({
   todayInAppTimeZone: () => TODAY,
 }))
 
-// Mock AuthContext
-const mockUseAuthValue = { currentUser: null as User | null, isLoading: false, login: vi.fn(), logout: vi.fn() }
-vi.mock('../contexts/AuthContext', () => ({
-  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useAuth: () => mockUseAuthValue,
-}))
-
-afterAll(() => {
-  vi.resetModules()
-})
-
 describe('RequestLoanPage', () => {
   let mockFetch: ReturnType<typeof vi.fn>
 
@@ -53,7 +58,7 @@ describe('RequestLoanPage', () => {
     globalThis.fetch = mockFetch as unknown as typeof fetch
     mockUseAuthValue.currentUser = null
     mockNavigate.mockClear()
-    vi.restoreAllMocks()
+    mockUseAuthValue.markSignedOut.mockClear()
   })
 
   const renderPage = (user: User | null = null) => {
@@ -68,6 +73,8 @@ describe('RequestLoanPage', () => {
   const getInputById = (id: string) => {
     return document.getElementById(id) as HTMLInputElement | HTMLTextAreaElement
   }
+
+  // ===== Basic rendering tests (unchanged) =====
 
   it('renders start date input', () => {
     renderPage({ id: 'user-2', name: 'Borrower' })
@@ -185,7 +192,6 @@ describe('RequestLoanPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
 
-    // The server (loansRoutes.ts) reads startDate and endDate: snake_case keys get a 400
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith('/api/tools/tool-1/loans', {
         method: 'POST',
@@ -220,10 +226,29 @@ describe('RequestLoanPage', () => {
     })
   })
 
-  it('shows server error message on failure', async () => {
+  it('does NOT render form when not logged in', () => {
+    renderPage(null)
+    expect(getInputById('startDate')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /solicitar/i })).not.toBeInTheDocument()
+  })
+
+  // ===== C1–C20 =====
+
+  // C1: request fails with each of 8 error codes — each exact MESSAGES[code] text in role="alert"
+  it.each([
+    ['TOOL_PAUSED', 409, MESSAGES.TOOL_PAUSED],
+    ['LOAN_DATES_MISSING', 400, MESSAGES.LOAN_DATES_MISSING],
+    ['LOAN_START_IN_PAST', 400, MESSAGES.LOAN_START_IN_PAST],
+    ['LOAN_END_BEFORE_START', 400, MESSAGES.LOAN_END_BEFORE_START],
+    ['LOAN_NOTE_TOO_LONG', 400, MESSAGES.LOAN_NOTE_TOO_LONG],
+    ['LOAN_OWN_TOOL', 400, MESSAGES.LOAN_OWN_TOOL],
+    ['LOAN_DATES_OVERLAP', 409, MESSAGES.LOAN_DATES_OVERLAP],
+    ['TOOL_NOT_FOUND', 404, MESSAGES.TOOL_NOT_FOUND],
+  ])('C1: %s (%d) shows exact message, hides English text, keeps dates', async (code, status, expectedMessage) => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
-      json: async () => ({ error: { message: 'Ya tenés un préstamo activo' } }),
+      status,
+      json: async () => ({ error: { code, message: 'English server text' } }),
     })
 
     renderPage({ id: 'user-2', name: 'Borrower' })
@@ -237,13 +262,108 @@ describe('RequestLoanPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent(expectedMessage)
+      expect(screen.queryByText('English server text')).not.toBeInTheDocument()
+      expect(startInput.value).toBe(START)
+      expect(endInput.value).toBe(END)
     })
   })
 
-  it('does NOT render form when not logged in', () => {
-    renderPage(null)
-    expect(getInputById('startDate')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /solicitar/i })).not.toBeInTheDocument()
+  // C2: fetch rejects → NETWORK_ERROR text
+  it('C2: fetch rejects shows NETWORK_ERROR text', async () => {
+    mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    renderPage({ id: 'user-2', name: 'Borrower' })
+
+    const startInput = getInputById('startDate') as HTMLInputElement
+    const endInput = getInputById('endDate') as HTMLInputElement
+
+    fireEvent.change(startInput, { target: { value: START } })
+    fireEvent.change(endInput, { target: { value: END } })
+
+    fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.NETWORK_ERROR)
+    })
+  })
+
+  // C3: 401 SESSION_REQUIRED → the login, with returnTo = the request page path.
+  // This file mocks useNavigate, so the navigation is read from mockNavigate.
+  it('C3: 401 SESSION_REQUIRED ends on /login with returnTo', async () => {
+    mockUseAuthValue.currentUser = { id: 'user-2', name: 'Borrower' }
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { code: 'SESSION_REQUIRED', message: 'Sesión requerida' } }),
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/tools/tool-1/request']}>
+        <Routes>
+          <Route path="/tools/:id/request" element={<RequestLoanPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const startInput = getInputById('startDate') as HTMLInputElement
+    const endInput = getInputById('endDate') as HTMLInputElement
+
+    fireEvent.change(startInput, { target: { value: START } })
+    fireEvent.change(endInput, { target: { value: END } })
+
+    fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
+
+    // handle('SESSION_REQUIRED') navigates to the login and forgets the user
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(
+        `/login?returnTo=${encodeURIComponent('/tools/tool-1/request')}`,
+        expect.objectContaining({ replace: true }),
+      )
+    })
+    expect(mockNavigate).toHaveBeenCalledTimes(1)
+    expect(mockUseAuthValue.markSignedOut).toHaveBeenCalledTimes(1)
+  })
+
+  // A 2xx that is broken is UNKNOWN_ERROR: never the network text, never /loans/undefined
+  it.each([
+    ['not JSON', async () => { throw new SyntaxError('Unexpected token <') }],
+    ['JSON without id', async () => ({ status: 'pendiente' })],
+  ])('request 2xx %s shows UNKNOWN_ERROR and does not navigate', async (_, jsonFn) => {
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 201, json: jsonFn })
+
+    renderPage({ id: 'user-2', name: 'Borrower' })
+    fireEvent.change(getInputById('startDate'), { target: { value: START } })
+    fireEvent.change(getInputById('endDate'), { target: { value: END } })
+    fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
+    expect(screen.queryByText(MESSAGES.NETWORK_ERROR)).not.toBeInTheDocument()
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  // C20: request fails, then a second one is slow (pending) → old error gone while it waits
+  it('C20: slow second request clears the old error', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({ error: { code: 'TOOL_PAUSED', message: 'Tool paused' } }),
+      })
+      // The second request never answers: the page stays waiting
+      .mockReturnValueOnce(new Promise(() => {}))
+
+    renderPage({ id: 'user-2', name: 'Borrower' })
+
+    fireEvent.change(getInputById('startDate'), { target: { value: START } })
+    fireEvent.change(getInputById('endDate'), { target: { value: END } })
+    fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(MESSAGES.TOOL_PAUSED)
+
+    fireEvent.click(screen.getByRole('button', { name: /solicitar/i }))
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
