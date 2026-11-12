@@ -296,3 +296,45 @@ slug: error-codes
 - coverage: LoanDetailPage.tsx 83,5 %, MyLoansPage.tsx 91,7 %, RequestLoanPage.tsx 95,3 %
 - lección: Qwen no mandó `worker_done` en ninguna de las 4 entregas y borró tests ajenos aunque el pedido lo
   prohíbe. Pegar la tabla del checklist en cada devolución y pedir los tests primero, con el ID en el nombre, sí ayudó
+
+## T015 — 2026-11-12
+- status: complete. Empezada por Qwen en 4 rondas (worktree `t015-guard`, base `51328d4`), terminada por Claude
+  (Hernán eligió frenar a Qwen en la 4.ª ronda). Solo tests: ningún archivo de la app cambia
+- 1.ª ronda: el guardia copió las reglas del server (`error: {`, `code:`), que marcaban archivos sanos del cliente
+- 2.ª-3.ª ronda: ~5 h trabado en abrir la pestaña "Configuración"; reemplazó `useState` de React y
+  `react-router-dom` (`useParams`, `useNavigate`) por mocks, dejó 17 archivos `debug-e11*.test.tsx` y reportó
+  "type-check limpio" con 20 errores de `tsc -b`
+- 4.ª ronda (archivo nuevo, `accessibility.test.tsx` vuelto a HEAD): 8 de 13 en verde; los 5 de rutas con `:id`
+  fallaban porque el helper usaba la dirección (`/tools/7`) como patrón de ruta; Qwen entró en un bucle sin aplicar
+  la causa que se le mandó → frenado
+- **desvío del plan:** el repaso de alertas vive en `client/src/pages/errorAlerts.test.tsx` y no en
+  `accessibility.test.tsx` (sus mocks globales de `fetch` y sesión chocaban con los stubs por test). La fila T015 del
+  plan ahora nombra los dos archivos en el done-check
+- lo que quedó: `client/src/errors/noServerText.test.ts` (AC-10; G1-G8: R1 lee el `message` de un error, R2 textos de
+  error en inglés; recorre todo `client/src`, `errors/` incluido) y `errorAlerts.test.tsx` (AC-1, AC-9; E1-E13 más
+  E5b, E6b, E12b: texto exacto en el único `role="alert"`, el inglés del server ausente, axe sin violaciones; solo se
+  simulan `fetch` y `useAuth`; un pedido inesperado hace fallar el `fetch` a propósito)
+- prueba del plan "guardia visto fallando contra el `LoginPage.tsx` de antes": `git show 384d065^:…LoginPage.tsx` copiado
+  a `src/pages/GuardProbe.tsx` → G7 falla con `pages/GuardProbe.tsx` R1 + R2; borrado → verde
+- mutantes de Claude, todos detectados: comentarios sin quitar (G6), recorrido en `assets` (G8), test files sin saltear
+  (G7, G8), `role="alert"` quitado en LoginPage (E1), en la acción de LoanDetailPage (E9; E8 sigue verde), en NavBar
+  (E13), en la acción de ToolDetailPage (E5, E5b), en la carga de PublishForm (E6b); texto cambiado en el error de
+  contraseña (E12); MyLoans y Profile siempre con el genérico (E10, E11); `err.message`/`error?.['message']`/
+  `(err as Error).message` y "Could not load" en código (G7)
+- review del revisor (tests, tier 1): CHANGES-NEEDED chico. 1 should-fix (L62: E10/E11 usaban `INTERNAL_ERROR`, cuyo
+  texto es el genérico, y no distinguían "texto del código" de "siempre genérico") → `RATE_LIMITED`, el mutante
+  ahora falla. Nits: L63 R1 solo veía el nombre `error` → ampliado a `error|err|e`, corchetes y `(x as Error)`
+  (sin tocar el `issues[0]?.message` de zod en `utils/toolForm.ts`), R2 suma "Could not", "Unable to",
+  "Please try again", "Something went wrong" con mayúscula (un comentario en inglés de `messages.ts` no cuenta);
+  L64 faltaban eliminar herramienta, cargar la edición y eliminar cuenta → E5b, E6b, E12b; L65 done-check del plan
+  → actualizado
+- green: cliente 20 archivos, 458/458; `tsc -b` limpio; lint 0 advertencias
+- files: client/src/errors/noServerText.test.ts, client/src/pages/errorAlerts.test.tsx,
+  02-DOCS/wiki/sdd/plans/error-codes.md (fila T015)
+- risk: tier 1 — 1 revisor
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ (guardia: no se lee texto del server) · traceability ✅ (AC-1,
+  AC-9, AC-10; G1-G8, E1-E13)
+- coverage: no aplica (no cambia código de la app)
+- lección: Orca muestra `activity=working` aunque Qwen esté parado; vigilar cambios de archivos en el worktree. Qwen
+  se trabó dos veces en bucles largos en la misma tarea; con tareas de tests sobre varias pantallas rinde menos que
+  con una sola pantalla
