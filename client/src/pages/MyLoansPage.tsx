@@ -70,6 +70,7 @@ export function MyLoansPage() {
   const [recibidos, setRecibidos] = useState<Loan[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -126,7 +127,7 @@ export function MyLoansPage() {
     return () => {
       controller.abort()
     }
-  }, [currentUser, handle])
+  }, [currentUser, handle, reloadKey])
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -137,10 +138,37 @@ export function MyLoansPage() {
     navigate(`/loans/${loanId}`)
   }
 
+  const handleRetry = () => {
+    setError('')
+    setLoading(true)
+    setReloadKey((key) => key + 1)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <p className="text-gray-600">Cargando...</p>
+      </div>
+    )
+  }
+
+  // Load error: only the error and a way to retry, never "0 loans"
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Mis préstamos</h1>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
+            {error}
+          </div>
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="min-h-11 px-6 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 focus:outline-hidden focus:ring-2 focus:ring-violet-500"
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
     )
   }
@@ -154,12 +182,6 @@ export function MyLoansPage() {
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Mis préstamos</h1>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
-            {error}
-          </div>
-        )}
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-4" role="tablist">

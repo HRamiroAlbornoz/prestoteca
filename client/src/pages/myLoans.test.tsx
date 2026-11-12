@@ -57,6 +57,235 @@ describe('MyLoansPage', () => {
 
   // ===== C1–C20 =====
 
+  // F1a: pedidos → 500 shows error and Reintentar button, no tabs
+  it('F1a: pedidos → 500 shows error and Reintentar button, no tabs', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+
+    renderPage()
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.INTERNAL_ERROR)
+    })
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    expect(screen.queryAllByRole('tab')).toHaveLength(0)
+    expect(screen.queryByText('No tenés préstamos solicitados')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Server English text/)).not.toBeInTheDocument()
+  })
+
+  // F1b: first load error, retry succeeds shows loan list
+  it('F1b: first load error, retry succeeds shows loan list', async () => {
+    // First load: pedidos → 500, recibidos → 200 []
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+
+    renderPage()
+
+    // Wait for the error and retry button
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    })
+
+    // Click retry
+    screen.getByRole('button', { name: 'Reintentar' }).click()
+
+    // Second load: pedidos → 200 [loan Taladro], recibidos → 200 []
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            id: 'loan-1',
+            tool_id: 'tool-1',
+            tool_name: 'Taladro',
+            borrower_id: 'user-1',
+            owner_id: 'user-2',
+            start_date: '2026-10-10',
+            end_date: '2026-10-20',
+            status: 'pendiente',
+            note: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+
+    await waitFor(() => {
+      expect(screen.getByText('Taladro')).toBeInTheDocument()
+    })
+    expect(screen.getByRole('tab', { name: 'Pedí (1)' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(mockFetch).toHaveBeenCalledTimes(4)
+  })
+
+  // F1c: error, retry → error again shows error and Reintentar again
+  it('F1c: error, retry → error again shows error and Reintentar again', async () => {
+    // First load
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+
+    renderPage()
+
+    // Wait for error and retry button
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    })
+
+    // Click retry
+    screen.getByRole('button', { name: 'Reintentar' }).click()
+
+    // Second load (retry)
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.INTERNAL_ERROR)
+    })
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    expect(screen.queryAllByRole('tab')).toHaveLength(0)
+    expect(mockFetch).toHaveBeenCalledTimes(4)
+  })
+
+  // F1d: error, retry → 401 ends on /login
+  it('F1d: error, retry → 401 ends on /login', async () => {
+    // First load
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+
+    renderPage()
+
+    // Wait for error and retry button
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    })
+
+    // Click retry
+    screen.getByRole('button', { name: 'Reintentar' }).click()
+
+    // Retry: both 401
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: { code: 'SESSION_REQUIRED', message: 'x' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: { code: 'SESSION_REQUIRED', message: 'x' } }),
+      })
+
+    await waitFor(() => {
+      expect(mockUseAuthValue.markSignedOut).toHaveBeenCalled()
+    }, { timeout: 3000 })
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith(
+        `/login?returnTo=${encodeURIComponent('/loans')}`,
+        expect.objectContaining({ replace: true }),
+      )
+    })
+    expect(mockNavigate).toHaveBeenCalledTimes(1)
+  })
+
+  // F1e: error, click retry → shows Cargando... before retry answers
+  it('F1e: error, click retry → shows Cargando... before retry answers', async () => {
+    // First load: pedidos → 500, recibidos → 200 []
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+
+    renderPage()
+
+    // Wait for error and retry button
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    })
+
+    // Set up pending promises for the retry calls
+    let resolveRetry1: () => void
+    let resolveRetry2: () => void
+    const pending1 = new Promise<Response>((resolve) => {
+      resolveRetry1 = () => resolve({ ok: true, status: 200, json: async () => [] } as unknown as Response)
+    })
+    const pending2 = new Promise<Response>((resolve) => {
+      resolveRetry2 = () => resolve({ ok: true, status: 200, json: async () => [] } as unknown as Response)
+    })
+
+    mockFetch
+      .mockResolvedValueOnce(pending1)
+      .mockResolvedValueOnce(pending2)
+
+    // Click retry
+    screen.getByRole('button', { name: 'Reintentar' }).click()
+
+    // Before the retry answers, check for Cargando... and no alert
+    await waitFor(() => {
+      expect(screen.getByText('Cargando...')).toBeInTheDocument()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    // Now resolve both pending promises
+    resolveRetry1!()
+    resolveRetry2!()
+
+    // After resolution, should show the normal empty state
+    await waitFor(() => {
+      expect(screen.queryByText('Cargando...')).not.toBeInTheDocument()
+      expect(screen.getByText('No tenés préstamos solicitados')).toBeInTheDocument()
+    })
+  })
+
   // C9: both lists 401 → ends on /login with returnTo=/loans; a single navigation
   it('C9: both lists 401 ends on /login with returnTo=/loans, single navigation', async () => {
     mockUseAuthValue.currentUser = { id: 'user-1', name: 'Test' }
