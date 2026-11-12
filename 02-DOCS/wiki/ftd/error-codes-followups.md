@@ -116,5 +116,10 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
 
 ## Next
 
-Commit de la ronda 2 de F1 (lo corre Hernán) y marcar F1 en el Checklist. Después: pedido de F2 (Perfil) para Qwen,
-preguntando antes de lanzarlo.
+**Pausa pedida por Hernán (2026-11-12).** F1 está commiteada (`5886274`, `9eb5e2a`) en el `main` local, sin
+subir: `main` va 4 commits por delante de `origin/main`. Al retomar: lanzar F2 (Perfil) a Qwen con el pedido ya
+escrito (`F2-brief.md` en el scratchpad de la sesión
+`C:\Users\hralb\AppData\Local\Temp\claude\eaf61a12bd7fa5c3\338e81f4-df5a-4e7f-a151-797a978a4385\scratchpad\`; si
+se borró, se rehace copiando el patrón de F1: una sola pestaña "Configuración" con el error, `shownTab`, tests
+F2a-F2h y 6 mutantes), preguntándole a Hernán antes. Después F3 (foco al cambiar de pantalla), y al final decidir
+cómo sube todo (push directo a `main` o PR).
