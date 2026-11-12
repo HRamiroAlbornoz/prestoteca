@@ -338,3 +338,24 @@ slug: error-codes
 - lección: Orca muestra `activity=working` aunque Qwen esté parado; vigilar cambios de archivos en el worktree. Qwen
   se trabó dos veces en bucles largos en la misma tarea; con tareas de tests sobre varias pantallas rinde menos que
   con una sola pantalla
+
+## T016 — 2026-11-12
+- status: complete. Dividida: Parte A (correr C1-C23 y la cobertura, solo lectura) a Qwen en el worktree
+  `t016-checks`, una sola ronda; Claude volvió a correr todo, hizo staging y escribió la verificación
+- Parte A: el reporte de Qwen coincide número por número con la corrida de Claude (server 506/506, client 458/458,
+  `tsc -b` limpio en los dos lados, build OK). Su único FAIL (C20, lint) era un error del pedido: oxlint 1.89 no
+  imprime nada cuando no hay problemas; `--max-warnings 0` → exit 0. Los 15 archivos "NOT IN TABLE" estaban al
+  100 % (la tabla de texto de vitest los esconde); confirmado con `coverage-summary.json`
+- Parte B (tests para archivos < 80 %): no hizo falta, 34/34 ≥ 80 % (el más bajo: `rateLimit.ts` 83,87 %)
+- staging: `railway up -s prestoteca -e staging` desde el worktree limpio → deploy `8236083b` SUCCESS (antes
+  `3ee20593`); producción sin tocar (`66adb1af`). Superposición 409, sesión terminada → login → vuelta, 429: respuestas
+  de la API y 4 capturas
+- files: 02-DOCS/wiki/sdd/verifications/error-codes-2026-11-12.md (+ carpeta de capturas), 02-DOCS/wiki/index.md
+- risk: — (sin código de la app)
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ (staging sin texto del server en pantalla) · traceability ✅
+  (todos los AC, tabla §4 de la verificación)
+- observaciones: foco en "Crear cuenta" tras la redirección al login; captura 2a con el enlace de la barra a medio
+  pintar. Ninguna bloquea
+- lección: Qwen rinde bien en tareas de solo correr y reportar: mandó `worker_done` por primera vez, no tocó nada
+  fuera del reporte y marcó "NOT IN TABLE" en vez de inventar números. Un done-check de un pedido tiene que probarse
+  antes de mandarlo (el de lint buscaba un texto que oxlint no imprime)
