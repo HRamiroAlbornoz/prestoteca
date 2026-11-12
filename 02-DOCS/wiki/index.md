@@ -21,6 +21,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Analysis | Prestoteca — Consistency Gate | [02-DOCS/wiki/sdd/analysis/prestoteca-mvp.md](./sdd/analysis/prestoteca-mvp.md) |
 | Analysis | error-codes — control cruzado (PASS 2026-11-03, 2.ª corrida) | [02-DOCS/wiki/sdd/analysis/error-codes.md](./sdd/analysis/error-codes.md) |
 | Progress | error-codes — avance de implement | [02-DOCS/wiki/sdd/progress/error-codes.md](./sdd/progress/error-codes.md) |
+| Review | error-codes — revisión de cierre PR 3 (APPROVE WITH NITS 2026-11-12, tier 2, panel de 3) | [02-DOCS/wiki/sdd/reviews/error-codes.md](./sdd/reviews/error-codes.md) |
 | Verification | error-codes — cierre T016 (PASS 2026-11-12: done-checks, cobertura 34/34 ≥ 80 %, staging) | [02-DOCS/wiki/sdd/verifications/error-codes-2026-11-12.md](./sdd/verifications/error-codes-2026-11-12.md) |
 | Verification | error-codes — línea base de cobertura (T017, 2026-11-03) | [02-DOCS/wiki/sdd/verifications/error-codes-coverage-baseline.md](./sdd/verifications/error-codes-coverage-baseline.md) |
 | Verification | db-backups — 2026-10-24 (FAIL: coverage not measured) | [02-DOCS/wiki/sdd/verifications/db-backups-2026-10-24.md](./sdd/verifications/db-backups-2026-10-24.md) |
