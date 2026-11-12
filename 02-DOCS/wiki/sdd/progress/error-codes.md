@@ -181,3 +181,181 @@ slug: error-codes
   `.mts`, `.js` y `.tsx`); 6 casos nuevos en el test. Aceptado: fixtures del cliente con códigos viejos
   (`App.test.tsx`, `editTool.test.tsx`, `toolPages.test.tsx`), que se reescriben con sus pantallas en el PR 3
 - controls: tests ✅ · build ✅ · lint ✅ (cliente) · security ✅ · traceability ✅ (AC-5b estática, AC-7, AC-8)
+- resultado: PR #44 mergeado (`3fe39aa`), deploy SUCCESS en producción y staging
+
+## T010 — 2026-11-11 (PR 3, rama `feat/error-codes-screens`)
+- status: complete — pendiente de la aprobación de Hernán (tier 2). Hecha por Claude
+- alcance (decisión de Hernán, opción 1): además de la sesión, T010 conecta el código `SESSION_REQUIRED` en la carga de
+  `LoanDetailPage` y en pausar/eliminar de `ToolDetailPage`, para probar AC-11 con la app real; el resto de esas
+  pantallas lo migran T013 y T014. Regla de oxlint `allowExportNames: ["useAuth"]` (ok de Hernán)
+- red: `client/src/session.test.tsx` (nuevo, app real) → 12 de 15 fallan con el comportamiento de antes
+- green: cliente 18 archivos, 312/312; `tsc -b` limpio; lint sin avisos salvo el de `HomePage` (T012)
+- files: App.tsx (`useTransitions={false}`), contexts/AuthContext.tsx (`markSignedOut`, `logout()` que informa),
+  errors/useApiError.ts (nuevo), pages/LoginPage.tsx (aviso por state, mensajes en español, `replace`, filtro de
+  caracteres de control en `returnTo`), components/NavBar.tsx ("Salir" que falla), pages/LoanDetailPage.tsx,
+  pages/ToolDetailPage.tsx (`returnUrl` → `returnTo`), .oxlintrc.json; tests session, authContext, App, toolPages
+- risk: tier 2 (`session.test.tsx`, clase auth) — 3 refuters + aprobación humana
+- review ronda 1: correctness 1 should-fix (el aviso de "Salir" volvía con "atrás": se ataba a `location.key`) + 2 nits;
+  security pass + 1 nit preexistente (`/%09/evil.com` pasaba el filtro de `returnTo`); tests 4 should-fix + 1 nit
+  (tests que pasaban por otra razón: "atrás" sin destino, reintento de "Salir", eliminar, query string) → todo
+  arreglado; los 5 mutantes que sobrevivían ahora mueren. Aparcado a T014: la carga de préstamos sin `AbortController`
+- review ronda 2 (correctness, solo los arreglos): pass + 2 nits → el aviso ya no parpadea mientras la sesión no se
+  conoce (`!isLoading`, con test); guardia `currentUser` en "Salir" sin test: aceptado (casi equivalente)
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ · traceability ✅ (AC-11, AC-12, AC-13)
+- commit: `384d065` (aprobada por Hernán)
+
+## T012 — 2026-11-11
+- status: complete. Implementada por Qwen (worktree `t012-home`, base `8725147`: no necesita `useApiError`), revisada por Claude
+- review de Claude, 1.ª entrega: 3 errores que los tests no veían (resultados viejos junto al error; un 200 que no es
+  JSON mostraba "sin conexión"; un truco frágil `msg in MESSAGES`) → devueltos a Qwen y arreglados
+- review de Claude, 2.ª entrega: 3 de 4 mutantes propios detectados; agregado el test del error viejo que seguía
+  mientras carga la búsqueda nueva; 2 errores de `tsc -b` que Qwen no vio (corrió `tsc --noEmit`) arreglados
+- review del revisor: 1 should-fix (ningún test probaba que un pedido cancelado no toca la pantalla: borrar esa
+  guardia dejaba "Cargando" para siempre con todo verde) + 5 nits → test nuevo (la respuesta tardía no cambia nada),
+  validación completa de la página de herramientas (`total`, `page`, `pages`), la paginación ya no desaparece al
+  cargar, `fetchTools` pasa a ser una función común que usa la misma `requestKey`. Aceptados: C10 débil y el caso
+  A→B→A
+- green: cliente 18 archivos, 329/329; `tsc -b` limpio; **lint 0 advertencias en todo el cliente** (se fue la de
+  `HomePage`)
+- files: client/src/pages/HomePage.tsx, client/src/pages/homePage.test.tsx
+- risk: tier 1 — 1 revisor
+- controls: tests ✅ · build ✅ · lint ✅ · security no aplica · traceability ✅ (AC-5c, AC-1, AC-4)
+- coverage: HomePage.tsx ~96 %
+- lección para los pedidos: exigir `npx tsc -b` exacto (no `--noEmit`) y avisar que `ClientErrorCode` sale de `messages.ts`
+
+## T011 — 2026-11-11
+- status: complete. Implementada por Qwen (worktree `t011-account`, base `a627e83`), revisada por Claude
+- review de Claude, 1.ª entrega: 5 problemas → devueltos a Qwen y arreglados: los tests reemplazaban `useNavigate`
+  por un mock (la navegación al login no se probaba de verdad); cambió los textos de las validaciones locales de
+  contraseña (el pedido decía que no se tocan); solo detectaba un 200 que no es JSON, no uno con otra forma; carga
+  duplicada con dos `AbortController` y la cancelación contada como "sin conexión"; terminó sin `worker_done`
+- review de Claude, 2.ª entrega: el código quedó bien; 3 huecos en los tests arreglados por Claude: C9 no probaba la
+  cancelación (los pedidos nunca respondían, borrar la guardia dejaba todo verde); el contador de `markSignedOut` no
+  se reiniciaba entre tests (C4 pasaba por el orden); faltaban los textos locales de largo y espacios y el caso con
+  SESSION_REQUIRED solo en el historial (C5b). 6 mutantes propios, todos detectados
+- review del revisor (correctness, tier 1): código sin defectos; 3 should-fix + 1 nit, todos de tests → tests nuevos
+  (forma del historial, `receivedLoans`/`madeLoans` faltantes, dos fallas distintas → gana herramientas, una sola
+  carga al volver a pintar); los 3 mutantes del revisor ahora fallan. Aceptado sin test: el error de carga no se
+  borra si el efecto vuelve a correr (hoy no puede pasar)
+- green: cliente 18 archivos, 360/360; `tsc -b` limpio; lint 0 advertencias
+- files: client/src/pages/RegisterPage.tsx, client/src/pages/ProfilePage.tsx, client/src/pages/authPages.test.tsx,
+  client/src/pages/profilePage.test.tsx
+- risk: tier 1 — 1 revisor
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ (no se muestra texto del servidor) · traceability ✅ (C1-C13)
+- coverage: RegisterPage.tsx 100 %, ProfilePage.tsx 85,6 %
+- lección para los pedidos: prohibir mockear `react-router-dom`; en los tests de cancelación, las respuestas tienen
+  que llegar después de desmontar
+
+## T013 — 2026-11-11
+- status: complete. Empezada por Qwen (worktree `t013-tools`, base `47a9585`), terminada por Claude
+- review de Claude, 1.ª entrega: 9 problemas devueltos (`tsc -b` fallaba, Qwen corrió `--noEmit`; `fetchFailureCode(null)`
+  en 3 lugares; un 200 que no es JSON mostraba "sin conexión"; estado tocado después de cancelar; error de acción viejo
+  que no se borraba; C6 con un fetch que nunca respondía; comentarios borrados; `restoreAllMocks` quitado; sin
+  `worker_done` ni autorrevisión)
+- 2.ª entrega: cambió `client/src/errors/apiError.ts` (prohibido; cambiaba el significado de `fetchFailureCode` para
+  toda la app) y dejó puntos sin hacer → Claude trajo solo los archivos de pantallas y terminó: carga de
+  `ToolDetailPage` y de `PublishForm` en una función que devuelve el resultado y una sola guardia `aborted` antes de
+  tocar estado o llamar a `handle`; JSON roto o forma inválida → UNKNOWN_ERROR; comentarios restaurados;
+  `restoreAllMocks` en `afterEach`; tests nuevos (error viejo de pausa, cancelar la edición no lleva al login).
+  7 mutantes propios, todos detectados
+- review del revisor (correctness, tier 1): PASS; 1 should-fix (test de que eliminar borra el error viejo) → test
+  nuevo, el mutante ahora falla; 2 nits aceptados (L57, L58: los errores no se reinician si cambia el `id` en la misma
+  pantalla; igual que antes, y hoy ninguna pantalla lleva de una herramienta a otra). Pregunta abierta, fuera del
+  plan: pausar, eliminar y guardar no se cancelan al salir
+- green: cliente 18 archivos, 380/380; `tsc -b` limpio; lint 0 advertencias
+- files: client/src/pages/ToolDetailPage.tsx, client/src/pages/PublishForm.tsx, client/src/pages/toolPages.test.tsx,
+  client/src/pages/editTool.test.tsx, client/src/pages/publishForm.test.tsx
+- risk: tier 1 — 1 revisor
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ (no se muestra texto del servidor) · traceability ✅ (C1-C14, AC-9b)
+- coverage: PublishForm.tsx 100 %, ToolDetailPage.tsx 92,9 %
+- lección: Qwen no siguió las reglas nuevas del pedido ni la autorrevisión. Hernán decidió seguir delegando a Qwen
+  para probar el modelo local; el pedido de T014 apunta a los patrones ya revisados y lista cada mutante
+
+## T014 — 2026-11-11
+- status: complete. Hecha por Qwen en 4 entregas (worktree `t014-loans`, base `2ed7279`), cerrada por Claude
+- 1.ª entrega: dos efectos que pedían el préstamo dos veces; un corte de conexión no mostraba nada; "Mis préstamos"
+  mostraba códigos crudos (`UNKNOWN_ERROR`) y no seguía la regla de dos pedidos; tests aflojados con esperas fijas
+  en vez de tests nuevos
+- 2.ª entrega: un 401 al cambiar el estado no llevaba al login; un 200 roto decía "sin conexión"; un test de red
+  copiado del de arriba; comentario borrado; 1 test nuevo en total
+- 3.ª entrega: código casi bien, pero inventó su propia lista C1-C20 (duplicando tests viejos y dando por bueno que
+  una carga cancelada muestre "sin conexión") → se le pegó la tabla del pedido tal cual
+- 4.ª entrega: aceptada con arreglos de Claude. 6 de 8 mutantes detectados; 3 huecos cerrados por Claude (C18 "no es
+  JSON" no hacía fallar `json()`; C20 no dejaba pendiente el segundo pedido; faltaba el test de 401 al cambiar el
+  estado). Qwen había borrado 13 tests de `LoanDetailPage` que ya existían (cobertura 79,4 % → 72,3 %) y comentado un
+  `afterAll`: Claude los restauró. C3, C9, C10 y C17 ahora piden el `returnTo` exacto
+- review del revisor (correctness, tier 1): 1 should-fix (L59: un 2xx roto al pedir el préstamo decía "sin conexión"
+  o llevaba a `/loans/undefined`) → arreglado con test; 1 nit (L60: la respuesta del cambio de estado se validaba
+  menos que la carga) → misma validación `isLoanShape` y test; 1 nit aceptado (L61: no se reinicia el estado si
+  cambia el `id` en la misma pantalla; igual que antes, como L57 y L58)
+- green: cliente 18 archivos, 415/415; `tsc -b` limpio; lint 0 advertencias
+- files: client/src/pages/RequestLoanPage.tsx, client/src/pages/LoanDetailPage.tsx, client/src/pages/MyLoansPage.tsx,
+  client/src/pages/requestLoan.test.tsx, client/src/pages/loanPages.test.tsx, client/src/pages/myLoans.test.tsx
+- risk: tier 1 — 1 revisor
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ (no se muestra texto del servidor) · traceability ✅ (C1-C20)
+- coverage: LoanDetailPage.tsx 83,5 %, MyLoansPage.tsx 91,7 %, RequestLoanPage.tsx 95,3 %
+- lección: Qwen no mandó `worker_done` en ninguna de las 4 entregas y borró tests ajenos aunque el pedido lo
+  prohíbe. Pegar la tabla del checklist en cada devolución y pedir los tests primero, con el ID en el nombre, sí ayudó
+
+## T015 — 2026-11-12
+- status: complete. Empezada por Qwen en 4 rondas (worktree `t015-guard`, base `51328d4`), terminada por Claude
+  (Hernán eligió frenar a Qwen en la 4.ª ronda). Solo tests: ningún archivo de la app cambia
+- 1.ª ronda: el guardia copió las reglas del server (`error: {`, `code:`), que marcaban archivos sanos del cliente
+- 2.ª-3.ª ronda: ~5 h trabado en abrir la pestaña "Configuración"; reemplazó `useState` de React y
+  `react-router-dom` (`useParams`, `useNavigate`) por mocks, dejó 17 archivos `debug-e11*.test.tsx` y reportó
+  "type-check limpio" con 20 errores de `tsc -b`
+- 4.ª ronda (archivo nuevo, `accessibility.test.tsx` vuelto a HEAD): 8 de 13 en verde; los 5 de rutas con `:id`
+  fallaban porque el helper usaba la dirección (`/tools/7`) como patrón de ruta; Qwen entró en un bucle sin aplicar
+  la causa que se le mandó → frenado
+- **desvío del plan:** el repaso de alertas vive en `client/src/pages/errorAlerts.test.tsx` y no en
+  `accessibility.test.tsx` (sus mocks globales de `fetch` y sesión chocaban con los stubs por test). La fila T015 del
+  plan ahora nombra los dos archivos en el done-check
+- lo que quedó: `client/src/errors/noServerText.test.ts` (AC-10; G1-G8: R1 lee el `message` de un error, R2 textos de
+  error en inglés; recorre todo `client/src`, `errors/` incluido) y `errorAlerts.test.tsx` (AC-1, AC-9; E1-E13 más
+  E5b, E6b, E12b: texto exacto en el único `role="alert"`, el inglés del server ausente, axe sin violaciones; solo se
+  simulan `fetch` y `useAuth`; un pedido inesperado hace fallar el `fetch` a propósito)
+- prueba del plan "guardia visto fallando contra el `LoginPage.tsx` de antes": `git show 384d065^:…LoginPage.tsx` copiado
+  a `src/pages/GuardProbe.tsx` → G7 falla con `pages/GuardProbe.tsx` R1 + R2; borrado → verde
+- mutantes de Claude, todos detectados: comentarios sin quitar (G6), recorrido en `assets` (G8), test files sin saltear
+  (G7, G8), `role="alert"` quitado en LoginPage (E1), en la acción de LoanDetailPage (E9; E8 sigue verde), en NavBar
+  (E13), en la acción de ToolDetailPage (E5, E5b), en la carga de PublishForm (E6b); texto cambiado en el error de
+  contraseña (E12); MyLoans y Profile siempre con el genérico (E10, E11); `err.message`/`error?.['message']`/
+  `(err as Error).message` y "Could not load" en código (G7)
+- review del revisor (tests, tier 1): CHANGES-NEEDED chico. 1 should-fix (L62: E10/E11 usaban `INTERNAL_ERROR`, cuyo
+  texto es el genérico, y no distinguían "texto del código" de "siempre genérico") → `RATE_LIMITED`, el mutante
+  ahora falla. Nits: L63 R1 solo veía el nombre `error` → ampliado a `error|err|e`, corchetes y `(x as Error)`
+  (sin tocar el `issues[0]?.message` de zod en `utils/toolForm.ts`), R2 suma "Could not", "Unable to",
+  "Please try again", "Something went wrong" con mayúscula (un comentario en inglés de `messages.ts` no cuenta);
+  L64 faltaban eliminar herramienta, cargar la edición y eliminar cuenta → E5b, E6b, E12b; L65 done-check del plan
+  → actualizado
+- green: cliente 20 archivos, 458/458; `tsc -b` limpio; lint 0 advertencias
+- files: client/src/errors/noServerText.test.ts, client/src/pages/errorAlerts.test.tsx,
+  02-DOCS/wiki/sdd/plans/error-codes.md (fila T015)
+- risk: tier 1 — 1 revisor
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ (guardia: no se lee texto del server) · traceability ✅ (AC-1,
+  AC-9, AC-10; G1-G8, E1-E13)
+- coverage: no aplica (no cambia código de la app)
+- lección: Orca muestra `activity=working` aunque Qwen esté parado; vigilar cambios de archivos en el worktree. Qwen
+  se trabó dos veces en bucles largos en la misma tarea; con tareas de tests sobre varias pantallas rinde menos que
+  con una sola pantalla
+
+## T016 — 2026-11-12
+- status: complete. Dividida: Parte A (correr C1-C23 y la cobertura, solo lectura) a Qwen en el worktree
+  `t016-checks`, una sola ronda; Claude volvió a correr todo, hizo staging y escribió la verificación
+- Parte A: el reporte de Qwen coincide número por número con la corrida de Claude (server 506/506, client 458/458,
+  `tsc -b` limpio en los dos lados, build OK). Su único FAIL (C20, lint) era un error del pedido: oxlint 1.89 no
+  imprime nada cuando no hay problemas; `--max-warnings 0` → exit 0. Los 15 archivos "NOT IN TABLE" estaban al
+  100 % (la tabla de texto de vitest los esconde); confirmado con `coverage-summary.json`
+- Parte B (tests para archivos < 80 %): no hizo falta, 34/34 ≥ 80 % (el más bajo: `rateLimit.ts` 83,87 %)
+- staging: `railway up -s prestoteca -e staging` desde el worktree limpio → deploy `8236083b` SUCCESS (antes
+  `3ee20593`); producción sin tocar (`66adb1af`). Superposición 409, sesión terminada → login → vuelta, 429: respuestas
+  de la API y 4 capturas
+- files: 02-DOCS/wiki/sdd/verifications/error-codes-2026-11-12.md (+ carpeta de capturas), 02-DOCS/wiki/index.md
+- risk: — (sin código de la app)
+- controls: tests ✅ · build ✅ · lint ✅ · security ✅ (staging sin texto del server en pantalla) · traceability ✅
+  (todos los AC, tabla §4 de la verificación)
+- observaciones: foco en "Crear cuenta" tras la redirección al login; captura 2a con el enlace de la barra a medio
+  pintar. Ninguna bloquea
+- lección: Qwen rinde bien en tareas de solo correr y reportar: mandó `worker_done` por primera vez, no tocó nada
+  fuera del reporte y marcó "NOT IN TABLE" en vez de inventar números. Un done-check de un pedido tiene que probarse
+  antes de mandarlo (el de lint buscaba un texto que oxlint no imprime)

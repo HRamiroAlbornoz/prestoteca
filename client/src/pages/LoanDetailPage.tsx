@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LoanStatus } from '../components/LoanStatus'
+import { readApiError, fetchFailureCode } from '../errors/apiError'
+import { useApiError } from '../errors/useApiError'
+import { type ClientErrorCode, messageFor } from '../errors/messages'
 
 interface Loan {
   id: string
@@ -16,43 +19,105 @@ interface Loan {
   updated_at: string
 }
 
+// Never trust the shape of an answer: the page needs the ids that decide who sees which button
+function isLoanShape(data: unknown): data is Loan {
+  if (typeof data !== 'object' || data === null) return false
+  const candidate = data as Partial<Record<keyof Loan, unknown>>
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.tool_id === 'string' &&
+    typeof candidate.owner_id === 'string' &&
+    typeof candidate.borrower_id === 'string' &&
+    typeof candidate.status === 'string'
+  )
+}
+
+// Module-level load function that never throws
+// Returns either { loan: Loan } or { code: ClientErrorCode | null }
+// TypeScript uses discriminated union to narrow types correctly
+type LoanLoadResult = { loan: Loan } | { code: ClientErrorCode | null }
+
+async function loadLoan(
+  id: string,
+  signal: AbortSignal
+): Promise<LoanLoadResult> {
+  try {
+    const res = await fetch(`/api/loans/${id}`, {
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+    })
+
+    if (!res.ok) {
+      const code = await readApiError(res)
+      return { code }
+    }
+
+    let data: unknown
+    try {
+      data = await res.json()
+    } catch {
+      // A 2xx whose body is not JSON is a broken answer, not a lost connection
+      return { code: signal.aborted ? null : 'UNKNOWN_ERROR' }
+    }
+
+    return isLoanShape(data) ? { loan: data } : { code: 'UNKNOWN_ERROR' }
+  } catch (err) {
+    return { code: fetchFailureCode(err) }
+  }
+}
+
+// Module-level tool name loader — never throws, keeps loan even if it fails
+async function loadToolName(toolId: string, signal: AbortSignal): Promise<string> {
+  try {
+    const res = await fetch(`/api/tools/${toolId}`, { signal })
+    if (res.ok) {
+      const tool = await res.json()
+      return typeof tool?.name === 'string' ? tool.name : ''
+    }
+    return ''
+  } catch {
+    return ''
+  }
+}
+
 export function LoanDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { currentUser } = useAuth()
+  const { handle } = useApiError()
   const [loan, setLoan] = useState<Loan | null>(null)
   const [toolName, setToolName] = useState<string>('')
   const [error, setError] = useState<string>('')
+  const [actionError, setActionError] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchLoan = async () => {
-      try {
-        const res = await fetch(`/api/loans/${id}`, {
-          headers: { 'Content-Type': 'application/json' },
-        })
+    const controller = new AbortController()
 
-        if (res.ok) {
-          const data: Loan = await res.json()
-          setLoan(data)
-          // Fetch tool name
-          const toolRes = await fetch(`/api/tools/${data.tool_id}`)
-          if (toolRes.ok) {
-            const tool = await toolRes.json()
-            setToolName(tool.name)
-          }
-        } else {
-          const data = await res.json()
-          setError(data.error?.message || 'Préstamo no encontrado')
+    loadLoan(id ?? '', controller.signal)
+      .then(result => {
+        if (controller.signal.aborted) return
+
+        if ('loan' in result) {
+          setError('')
+          setLoan(result.loan)
+
+          // Fetch tool name (optional, keep loan even if it fails)
+          loadToolName(result.loan.tool_id, controller.signal).then(
+            name => { if (!controller.signal.aborted) setToolName(name) },
+          )
+        } else if (result.code) {
+          setError(handle(result.code) ?? '')
+          setLoading(false)
+          return
         }
-      } catch {
-        setError('Error de conexión. Intentá de nuevo.')
-      } finally {
-        setLoading(false)
-      }
-    }
 
-    fetchLoan()
-  }, [id])
+        setLoading(false)
+      })
+
+    return () => {
+      controller.abort()
+    }
+  }, [id, handle])
 
   const isOwner = loan?.owner_id === currentUser?.id
   const isBorrower = loan?.borrower_id === currentUser?.id
@@ -60,6 +125,8 @@ export function LoanDetailPage() {
 
   const handleStatusChange = async (newStatus: string) => {
     if (!loan) return
+
+    setActionError('')
 
     try {
       const res = await fetch(`/api/loans/${loan.id}/status`, {
@@ -69,14 +136,28 @@ export function LoanDetailPage() {
       })
 
       if (res.ok) {
-        const updated = await res.json()
-        setLoan(updated)
+        let updated: unknown
+        try {
+          updated = await res.json()
+        } catch {
+          // A 2xx whose body is not JSON is a broken answer: keep the loan we have
+          setActionError(messageFor('UNKNOWN_ERROR'))
+          return
+        }
+
+        // Same check as the load, so a half answer never hides the buttons
+        if (isLoanShape(updated)) {
+          setLoan(updated)
+        } else {
+          setActionError(messageFor('UNKNOWN_ERROR'))
+        }
       } else {
-        const data = await res.json()
-        setError(data.error?.message || 'Error al cambiar el estado')
+        const code = await readApiError(res)
+        setActionError(handle(code) ?? '')
       }
-    } catch {
-      setError('Error de conexión. Intentá de nuevo.')
+    } catch (err) {
+      const code = fetchFailureCode(err)
+      if (code) setActionError(messageFor(code))
     }
   }
 
@@ -213,6 +294,12 @@ export function LoanDetailPage() {
             <h1 className="text-2xl font-bold text-gray-900">Préstamo</h1>
             <LoanStatus status={loan.status} />
           </div>
+
+          {actionError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
+              {actionError}
+            </div>
+          )}
 
           <div className="space-y-4">
             <div>

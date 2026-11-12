@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LoanStatus } from '../components/LoanStatus'
 import { ToolCard, type Tool } from '../components/ToolCard'
+import { useApiError } from '../errors/useApiError'
+import { readApiError, fetchFailureCode } from '../errors/apiError'
+import { messageFor, type ClientErrorCode } from '../errors/messages'
 
 interface Loan {
   id: string
@@ -26,6 +29,56 @@ interface ProfileData {
   madeLoans: Loan[]
 }
 
+// Result of a single load request: success with parsed data, or failure with a code.
+// code is null when the request was aborted (not a real error).
+type LoadResult =
+  | { status: 'ok'; data: unknown }
+  | { status: 'fail'; code: ClientErrorCode | null }
+
+// Shape validator for tools response.
+const isValidProfileData = (body: unknown): body is ProfileData =>
+  typeof body === 'object' &&
+  body !== null &&
+  Array.isArray((body as ProfileData).tools) &&
+  Array.isArray((body as ProfileData).receivedLoans) &&
+  Array.isArray((body as ProfileData).madeLoans)
+
+// Shape validator for history response.
+const isValidHistory = (body: unknown): body is Loan[] => Array.isArray(body)
+
+// Generic fetch helper — ONE per load, shared between tools and history.
+async function loadJson(
+  url: string,
+  signal: AbortSignal,
+  isValid: (body: unknown) => boolean,
+): Promise<LoadResult> {
+  try {
+    const res = await fetch(url, {
+      signal,
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (!res.ok) {
+      const code = await readApiError(res)
+      return { status: 'fail', code }
+    }
+    let data: unknown
+    try {
+      data = await res.json()
+    } catch {
+      return { status: 'fail', code: 'UNKNOWN_ERROR' }
+    }
+    if (!isValid(data)) {
+      return { status: 'fail', code: 'UNKNOWN_ERROR' }
+    }
+    return { status: 'ok', data }
+  } catch (err) {
+    if (signal.aborted) return { status: 'fail', code: null }
+    const code = fetchFailureCode(err)
+    if (code === null) return { status: 'fail', code: 'NETWORK_ERROR' }
+    return { status: 'fail', code }
+  }
+}
+
 export function ProfilePage() {
   const { currentUser } = useAuth()
   const navigate = useNavigate()
@@ -47,41 +100,71 @@ export function ProfilePage() {
   const [settingsSuccess, setSettingsSuccess] = useState('')
   const [deleting, setDeleting] = useState(false)
 
+  const { handle } = useApiError()
+
   useEffect(() => {
+    const controller = new AbortController()
+
     const fetchData = async () => {
       if (!currentUser) return
 
-      try {
-        const [profileRes, historyRes] = await Promise.all([
-          fetch('/api/me/tools', {
-            headers: { 'Content-Type': 'application/json' },
-          }),
-          fetch('/api/me/history', {
-            headers: { 'Content-Type': 'application/json' },
-          }),
-        ])
+      const [toolsResult, historyResult] = await Promise.allSettled([
+        loadJson('/api/me/tools', controller.signal, isValidProfileData),
+        loadJson('/api/me/history', controller.signal, isValidHistory),
+      ])
 
-        if (!profileRes.ok) {
-          setError('Error al cargar el perfil')
-          return
-        }
+      // First line after settle: cancellation → do nothing
+      if (controller.signal.aborted) return
 
-        const data: ProfileData = await profileRes.json()
-        setProfileData(data)
-
-        if (historyRes.ok) {
-          const historyData: Loan[] = await historyRes.json()
-          setHistory(historyData)
-        }
-      } catch {
-        setError('Error de conexión. Intentá de nuevo.')
-      } finally {
+      // Both should be fulfilled since loadJson catches all errors
+      if (toolsResult.status === 'rejected' || historyResult.status === 'rejected') {
+        setError(messageFor('UNKNOWN_ERROR'))
         setLoading(false)
+        return
       }
+
+      const toolsRes = toolsResult.value
+      const historyRes = historyResult.value
+
+      // Priority: if any gave SESSION_REQUIRED, it wins and handle is called only once
+      const toolsIsSession = toolsRes.status === 'fail' && toolsRes.code === 'SESSION_REQUIRED'
+      const historyIsSession = historyRes.status === 'fail' && historyRes.code === 'SESSION_REQUIRED'
+      if (toolsIsSession || historyIsSession) {
+        handle('SESSION_REQUIRED')
+        setLoading(false)
+        return
+      }
+
+      // Both failed → show the first failure (tools before history)
+      if (toolsRes.status === 'fail' && historyRes.status === 'fail') {
+        if (toolsRes.code !== null) setError(messageFor(toolsRes.code))
+        setLoading(false)
+        return
+      }
+
+      // Both succeeded
+      if (toolsRes.status === 'ok' && historyRes.status === 'ok') {
+        setProfileData(toolsRes.data as ProfileData)
+        setHistory(historyRes.data as Loan[])
+        setLoading(false)
+        return
+      }
+
+      // Partial load: one succeeded, one failed → show load error, not the part that loaded
+      if (toolsRes.status === 'fail' && toolsRes.code !== null) {
+        setError(messageFor(toolsRes.code))
+      } else if (historyRes.status === 'fail' && historyRes.code !== null) {
+        setError(messageFor(historyRes.code))
+      }
+      setLoading(false)
     }
 
     fetchData()
-  }, [currentUser])
+
+    return () => {
+      controller.abort()
+    }
+  }, [currentUser, handle])
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -121,11 +204,11 @@ export function ProfilePage() {
         setNewPassword('')
         setConfirmPassword('')
       } else {
-        const data = await res.json()
-        setSettingsError(data.error?.message || 'Error al cambiar la contraseña')
+        setSettingsError(handle(await readApiError(res)) ?? '')
       }
-    } catch {
-      setSettingsError('Error de conexión. Intentá de nuevo.')
+    } catch (err) {
+      const code = fetchFailureCode(err)
+      if (code) setSettingsError(messageFor(code))
     }
   }
 
@@ -141,15 +224,14 @@ export function ProfilePage() {
       })
 
       if (res.ok) {
-        // Clear auth and redirect to home
         localStorage.removeItem('token')
         window.location.href = '/'
       } else {
-        const data = await res.json()
-        setSettingsError(data.error?.message || 'Error al eliminar la cuenta')
+        setSettingsError(handle(await readApiError(res)) ?? '')
       }
-    } catch {
-      setSettingsError('Error de conexión. Intentá de nuevo.')
+    } catch (err) {
+      const code = fetchFailureCode(err)
+      if (code) setSettingsError(messageFor(code))
     } finally {
       setDeleting(false)
     }

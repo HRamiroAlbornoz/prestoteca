@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LoanStatus } from '../components/LoanStatus'
+import { readApiError, fetchFailureCode } from '../errors/apiError'
+import { useApiError } from '../errors/useApiError'
+import { type ClientErrorCode } from '../errors/messages'
 
 interface Loan {
   id: string
@@ -19,9 +22,49 @@ interface Loan {
 
 type TabType = 'pedidos' | 'recibidos'
 
+// Result of a single load request: success with parsed data, or failure with a code.
+type LoadResult =
+  | { status: 'ok'; data: unknown }
+  | { status: 'fail'; code: ClientErrorCode | null }
+
+// Shape validator for loans response.
+const isValidLoans = (body: unknown): body is Loan[] => Array.isArray(body)
+
+// Generic fetch helper — ONE per load, shared between pedidos and recibidos.
+async function loadJson(
+  url: string,
+  signal: AbortSignal,
+  isValid: (body: unknown) => boolean,
+): Promise<LoadResult> {
+  try {
+    const res = await fetch(url, {
+      signal,
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (!res.ok) {
+      const code = await readApiError(res)
+      return { status: 'fail', code }
+    }
+    let data: unknown
+    try {
+      data = await res.json()
+    } catch {
+      return { status: 'fail', code: 'UNKNOWN_ERROR' }
+    }
+    if (!isValid(data)) {
+      return { status: 'fail', code: 'UNKNOWN_ERROR' }
+    }
+    return { status: 'ok', data }
+  } catch (err) {
+    if (signal.aborted) return { status: 'fail', code: null }
+    return { status: 'fail', code: fetchFailureCode(err) }
+  }
+}
+
 export function MyLoansPage() {
   const { currentUser } = useAuth()
   const navigate = useNavigate()
+  const { handle } = useApiError()
   const [activeTab, setActiveTab] = useState<TabType>('pedidos')
   const [pedidos, setPedidos] = useState<Loan[]>([])
   const [recibidos, setRecibidos] = useState<Loan[]>([])
@@ -29,38 +72,61 @@ export function MyLoansPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchLoans = async () => {
+    const controller = new AbortController()
+
+    const fetchData = async () => {
       if (!currentUser) return
 
-      try {
-        const [pedidosRes, recibidosRes] = await Promise.all([
-          fetch('/api/loans?type=pedidos', {
-            headers: { 'Content-Type': 'application/json' },
-          }),
-          fetch('/api/loans?type=recibidos', {
-            headers: { 'Content-Type': 'application/json' },
-          }),
-        ])
+      const [pedidosResult, recibidosResult] = await Promise.allSettled([
+        loadJson('/api/loans?type=pedidos', controller.signal, isValidLoans),
+        loadJson('/api/loans?type=recibidos', controller.signal, isValidLoans),
+      ])
 
-        if (!pedidosRes.ok || !recibidosRes.ok) {
-          setError('Error al cargar los préstamos')
-          return
-        }
+      // First line after settle: cancellation → do nothing
+      if (controller.signal.aborted) return
 
-        const pedidosData: Loan[] = await pedidosRes.json()
-        const recibidosData: Loan[] = await recibidosRes.json()
+      // loadJson never rejects, so both results are always fulfilled
+      if (pedidosResult.status !== 'fulfilled' || recibidosResult.status !== 'fulfilled') return
 
-        setPedidos(pedidosData)
-        setRecibidos(recibidosData)
-      } catch {
-        setError('Error de conexión. Intentá de nuevo.')
-      } finally {
+      const pedidosRes = pedidosResult.value
+      const recibidosRes = recibidosResult.value
+
+      // Priority: if any gave SESSION_REQUIRED, it wins and handle is called only once
+      const pedidosIsSession = pedidosRes.status === 'fail' && pedidosRes.code === 'SESSION_REQUIRED'
+      const recibidosIsSession = recibidosRes.status === 'fail' && recibidosRes.code === 'SESSION_REQUIRED'
+      if (pedidosIsSession || recibidosIsSession) {
+        handle('SESSION_REQUIRED')
         setLoading(false)
+        return
+      }
+
+      // Any failure → show the first failure in list order (pedidos before recibidos)
+      if (pedidosRes.status === 'fail' && pedidosRes.code !== null) {
+        setError(handle(pedidosRes.code) ?? '')
+        setLoading(false)
+        return
+      }
+      if (recibidosRes.status === 'fail' && recibidosRes.code !== null) {
+        setError(handle(recibidosRes.code) ?? '')
+        setLoading(false)
+        return
+      }
+
+      // Both succeeded
+      if (pedidosRes.status === 'ok' && recibidosRes.status === 'ok') {
+        setPedidos(pedidosRes.data as Loan[])
+        setRecibidos(recibidosRes.data as Loan[])
+        setLoading(false)
+        return
       }
     }
 
-    fetchLoans()
-  }, [currentUser])
+    fetchData()
+
+    return () => {
+      controller.abort()
+    }
+  }, [currentUser, handle])
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)

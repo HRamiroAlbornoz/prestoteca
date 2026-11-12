@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { todayInAppTimeZone } from '../utils/appDate'
+import { readApiError } from '../errors/apiError'
+import { fetchFailureCode } from '../errors/apiError'
+import { messageFor } from '../errors/messages'
+import { useApiError } from '../errors/useApiError'
 
 export function RequestLoanPage() {
   // Computed on every render, so a tab left open past midnight still gets the right day
@@ -9,6 +13,7 @@ export function RequestLoanPage() {
   const { id } = useParams<{ id: string }>()
   const { currentUser } = useAuth()
   const navigate = useNavigate()
+  const { handle } = useApiError()
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [note, setNote] = useState('')
@@ -41,14 +46,27 @@ export function RequestLoanPage() {
       })
 
       if (res.ok) {
-        const data = await res.json()
-        navigate(`/loans/${data.id}`)
+        let data: unknown
+        try {
+          data = await res.json()
+        } catch {
+          // A 2xx whose body is not JSON is a broken answer, not a lost connection
+          setError(messageFor('UNKNOWN_ERROR'))
+          return
+        }
+        const loanId = typeof data === 'object' && data !== null ? (data as { id?: unknown }).id : undefined
+        if (typeof loanId === 'string') {
+          navigate(`/loans/${loanId}`)
+        } else {
+          // Never go to /loans/undefined
+          setError(messageFor('UNKNOWN_ERROR'))
+        }
       } else {
-        const data = await res.json()
-        setError(data.error?.message || 'Error al solicitar el préstamo')
+        setError(handle(await readApiError(res)) ?? '')
       }
-    } catch {
-      setError('Error de conexión. Intentá de nuevo.')
+    } catch (err) {
+      const code = fetchFailureCode(err)
+      if (code) setError(messageFor(code))
     } finally {
       setSubmitting(false)
     }

@@ -1,7 +1,27 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { PublishForm } from './PublishForm'
+
+// LocationProbe: reads useLocation() and renders the path so tests can assert
+// real navigation without mocking useNavigate (brief, hard rule 4).
+function LocationProbe() {
+  const location = useLocation()
+  return <div data-testid="login-page">{location.pathname + location.search}</div>
+}
+
+// Mock AuthContext — markSignedOut is needed because useApiError calls it
+const mockUseAuthValue = {
+  currentUser: null as { id: string; name: string } | null,
+  isLoading: false,
+  login: vi.fn(),
+  logout: vi.fn(),
+  markSignedOut: vi.fn(),
+}
+vi.mock('../contexts/AuthContext', () => ({
+  AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useAuth: () => mockUseAuthValue,
+}))
 
 const TOOL_CATEGORIES = [
   'Herramientas eléctricas',
@@ -20,6 +40,12 @@ describe('PublishForm', () => {
   beforeEach(() => {
     mockFetch = vi.fn()
     vi.spyOn(globalThis, 'fetch').mockImplementation(mockFetch as unknown as typeof fetch)
+    mockUseAuthValue.currentUser = null
+    mockUseAuthValue.markSignedOut.mockClear()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('renders all form fields', () => {
@@ -232,6 +258,7 @@ describe('PublishForm', () => {
     expect(name).not.toHaveAttribute('aria-invalid')
   })
 
+  // Updated: now checks exact UNKNOWN_ERROR text
   it('displays error on failed API call', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
@@ -259,7 +286,180 @@ describe('PublishForm', () => {
     fireEvent.click(screen.getByRole('button', { name: /publicar/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('Algo salió mal. Intentá de nuevo en un momento.')
     })
+  })
+
+  // C12: publish submit 400 TOOL_NAME_LENGTH, TOOL_DESCRIPTION_TOO_LONG, TOOL_MISSING_FIELDS
+  it('C12: publish submit 400 TOOL_NAME_LENGTH, TOOL_DESCRIPTION_TOO_LONG, TOOL_MISSING_FIELDS → exact texts; values stay', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: { code: 'TOOL_MISSING_FIELDS', message: 'Missing fields' },
+      }),
+    })
+
+    render(
+      <MemoryRouter>
+        <PublishForm />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/nombre/i), {
+      target: { value: 'Taladro Bosch' },
+    })
+    fireEvent.change(screen.getByLabelText(/descripción/i), {
+      target: { value: 'Descripción válida' },
+    })
+    fireEvent.change(screen.getByLabelText(/categoría/i), {
+      target: { value: 'Herramientas eléctricas' },
+    })
+    fireEvent.change(screen.getByLabelText(/estado/i), {
+      target: { value: 'bueno' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /publicar/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Completá todos los campos.')
+    })
+    expect(screen.getByLabelText(/nombre/i)).toHaveValue('Taladro Bosch')
+    expect(screen.getByLabelText(/descripción/i)).toHaveValue('Descripción válida')
+  })
+
+  // C12b: TOOL_NAME_LENGTH
+  it('C12b: publish submit 400 TOOL_NAME_LENGTH → exact text; value stays', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: { code: 'TOOL_NAME_LENGTH', message: 'Name too long' },
+      }),
+    })
+
+    render(
+      <MemoryRouter>
+        <PublishForm />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/nombre/i), {
+      target: { value: 'Taladro Bosch' },
+    })
+    fireEvent.change(screen.getByLabelText(/descripción/i), {
+      target: { value: 'Descripción válida' },
+    })
+    fireEvent.change(screen.getByLabelText(/categoría/i), {
+      target: { value: 'Herramientas eléctricas' },
+    })
+    fireEvent.change(screen.getByLabelText(/estado/i), {
+      target: { value: 'bueno' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /publicar/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('El nombre tiene que tener entre 3 y 60 caracteres.')
+    })
+  })
+
+  // C12c: TOOL_DESCRIPTION_TOO_LONG
+  it('C12c: publish submit 400 TOOL_DESCRIPTION_TOO_LONG → exact text; value stays', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: { code: 'TOOL_DESCRIPTION_TOO_LONG', message: 'Description too long' },
+      }),
+    })
+
+    render(
+      <MemoryRouter>
+        <PublishForm />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/nombre/i), {
+      target: { value: 'Taladro Bosch' },
+    })
+    fireEvent.change(screen.getByLabelText(/descripción/i), {
+      target: { value: 'Descripción válida' },
+    })
+    fireEvent.change(screen.getByLabelText(/categoría/i), {
+      target: { value: 'Herramientas eléctricas' },
+    })
+    fireEvent.change(screen.getByLabelText(/estado/i), {
+      target: { value: 'bueno' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /publicar/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('La descripción puede tener hasta 500 caracteres.')
+    })
+  })
+
+  // C13: publish submit fetch rejects
+  it('C13: publish submit fetch rejects → NETWORK_ERROR text', async () => {
+    mockFetch.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+
+    render(
+      <MemoryRouter>
+        <PublishForm />
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/nombre/i), {
+      target: { value: 'Taladro Bosch' },
+    })
+    fireEvent.change(screen.getByLabelText(/descripción/i), {
+      target: { value: 'Descripción válida' },
+    })
+    fireEvent.change(screen.getByLabelText(/categoría/i), {
+      target: { value: 'Herramientas eléctricas' },
+    })
+    fireEvent.change(screen.getByLabelText(/estado/i), {
+      target: { value: 'bueno' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /publicar/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('No hay conexión con el servidor. Revisá tu internet e intentá de nuevo.')
+    })
+  })
+
+  // C14: submit 401 SESSION_REQUIRED → ends on /login with returnTo
+  it('C14: publish submit 401 SESSION_REQUIRED → ends on /login with returnTo=/publish', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { code: 'SESSION_REQUIRED', message: 'Invalid token' } }),
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/publish']}>
+        <Routes>
+          <Route path="/publish" element={<PublishForm />} />
+          <Route path="*" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText(/nombre/i), {
+      target: { value: 'Taladro Bosch' },
+    })
+    fireEvent.change(screen.getByLabelText(/descripción/i), {
+      target: { value: 'Descripción válida' },
+    })
+    fireEvent.change(screen.getByLabelText(/categoría/i), {
+      target: { value: 'Herramientas eléctricas' },
+    })
+    fireEvent.change(screen.getByLabelText(/estado/i), {
+      target: { value: 'bueno' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /publicar/i }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('login-page')).toHaveTextContent('/login?returnTo=%2Fpublish')
+    })
+    expect(mockUseAuthValue.markSignedOut).toHaveBeenCalledTimes(1)
   })
 })

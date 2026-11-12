@@ -18,7 +18,13 @@ interface AuthContextValue {
   isLoading: boolean
   // Asks the server again who is logged in (after login or register). Resolves with the user, or null.
   refreshUser: () => Promise<AuthUser | null>
-  logout: () => Promise<void>
+  // Forgets the user without asking the server: the server already said the session is over
+  // (SESSION_REQUIRED). Whoever calls it decides what happens on screen first.
+  markSignedOut: () => void
+  // Asks the server to close the session. Says whether it did; it does NOT forget the user:
+  // the caller decides the order (navigate first, then markSignedOut). 'failed' = no
+  // connection or the server refused it (e.g. 429 for too many requests).
+  logout: () => Promise<'closed' | 'failed'>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -60,17 +66,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const logout = useCallback(async () => {
+  const markSignedOut = useCallback(() => {
+    setCurrentUser(null)
+  }, [])
+
+  const logout = useCallback(async (): Promise<'closed' | 'failed'> => {
     try {
       // Only the server can clear an httpOnly cookie
-      await fetch('/api/auth/logout', { method: 'POST' })
-    } finally {
-      setCurrentUser(null)
+      const res = await fetch('/api/auth/logout', { method: 'POST' })
+      return res.ok ? 'closed' : 'failed'
+    } catch {
+      return 'failed'
     }
   }, [])
 
   return (
-    <AuthContext.Provider value={{ currentUser, isLoading, refreshUser, logout }}>
+    <AuthContext.Provider value={{ currentUser, isLoading, refreshUser, markSignedOut, logout }}>
       {children}
     </AuthContext.Provider>
   )

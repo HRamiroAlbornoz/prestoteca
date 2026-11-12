@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useApiError } from '../errors/useApiError'
+import { readApiError, fetchFailureCode } from '../errors/apiError'
+import { messageFor } from '../errors/messages'
 
 interface RegisterFormData {
   name: string
@@ -31,6 +34,7 @@ export function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const { refreshUser } = useAuth()
+  const { handle } = useApiError()
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -49,11 +53,11 @@ export function RegisterPage() {
         await refreshUser()
         navigate('/')
       } else {
-        const data = await res.json()
-        setError(data.error?.message || 'Registration failed')
+        setError(handle(await readApiError(res)) ?? '')
       }
-    } catch {
-      setError('Network error. Please try again.')
+    } catch (err) {
+      const code = fetchFailureCode(err)
+      if (code) setError(messageFor(code))
     } finally {
       setLoading(false)
     }
