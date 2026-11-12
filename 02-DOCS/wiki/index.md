@@ -44,6 +44,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Barra de navegación | done | [02-DOCS/wiki/ftd/navigation.md](./ftd/navigation.md) |
 | Editar una herramienta | done | [02-DOCS/wiki/ftd/edit-tool.md](./ftd/edit-tool.md) |
 | "Mis préstamos" muestra el nombre de la herramienta | done | [02-DOCS/wiki/ftd/loan-tool-name.md](./ftd/loan-tool-name.md) |
+| Seguimientos de error-codes: error de carga con Reintentar y foco al cambiar de pantalla | in-progress | [02-DOCS/wiki/ftd/error-codes-followups.md](./ftd/error-codes-followups.md) |
 
 ## Product docs
 
