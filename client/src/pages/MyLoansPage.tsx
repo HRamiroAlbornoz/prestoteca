@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LoanStatus } from '../components/LoanStatus'
@@ -71,6 +71,10 @@ export function MyLoansPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
+  // The retry button, to give it the focus back when a retry fails again
+  const retryButtonRef = useRef<HTMLButtonElement>(null)
+  // True only between a click on "Reintentar" and the next error view: the first load never moves the focus
+  const retriedRef = useRef(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -96,8 +100,8 @@ export function MyLoansPage() {
       const pedidosIsSession = pedidosRes.status === 'fail' && pedidosRes.code === 'SESSION_REQUIRED'
       const recibidosIsSession = recibidosRes.status === 'fail' && recibidosRes.code === 'SESSION_REQUIRED'
       if (pedidosIsSession || recibidosIsSession) {
+        // Stay on "Cargando..." until the login replaces this page: never flash "0 loans"
         handle('SESSION_REQUIRED')
-        setLoading(false)
         return
       }
 
@@ -139,15 +143,24 @@ export function MyLoansPage() {
   }
 
   const handleRetry = () => {
+    retriedRef.current = true
     setError('')
     setLoading(true)
     setReloadKey((key) => key + 1)
   }
 
+  // After a retry that failed again, put the focus back on "Reintentar"
+  useEffect(() => {
+    if (!loading && error && retriedRef.current) {
+      retriedRef.current = false
+      retryButtonRef.current?.focus()
+    }
+  }, [loading, error])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-600">Cargando...</p>
+        <p className="text-gray-600" role="status">Cargando...</p>
       </div>
     )
   }
@@ -162,6 +175,7 @@ export function MyLoansPage() {
             {error}
           </div>
           <button
+            ref={retryButtonRef}
             type="button"
             onClick={handleRetry}
             className="min-h-11 px-6 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 focus:outline-hidden focus:ring-2 focus:ring-violet-500"

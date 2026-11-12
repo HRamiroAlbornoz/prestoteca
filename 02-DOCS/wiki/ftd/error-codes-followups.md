@@ -47,7 +47,7 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
 
 ## Checklist
 
-- [ ] **F1 — Mis préstamos con error de carga.** Tests en `myLoans.test.tsx`:
+- [x] **F1 — Mis préstamos con error de carga.** (Hecho: ver Evidence, rondas 1 y 2; más F1e-F1i.) Tests en `myLoans.test.tsx`:
   - F1a: un listado da 500 → se ve el único `role="alert"` con el texto de `INTERNAL_ERROR` y un botón
     "Reintentar"; no hay `role="tab"` ni "No tenés préstamos solicitados".
   - F1b: "Reintentar" con el server ya bien → se ven los dos listados con sus contadores reales y no queda el error.
@@ -93,7 +93,28 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   foco se pierde al reintentar y "Cargando..." no se anuncia), L70 (nit: destello de "0 préstamos" con
   `SESSION_REQUIRED`), L71 (pregunta: clics fuera de `act` en F1c/F1d). Los tres van a la ronda 2.
 
+### F1 — ronda 2 (2026-11-12)
+
+- **Hecho por:** Qwen, en el worktree `f1-round2` (base `5886274`), en una sola entrega con `worker_done`. Tocó solo
+  sus 2 archivos y no borró ningún `it(`. Por su cuenta, movió el clic de F1b-F1e para después de preparar las
+  respuestas del reintento (antes andaba de casualidad, por el orden en que corre todo).
+- **Cambios:** L69, el foco vuelve a "Reintentar" solo después de un reintento que falla (`retryButtonRef`,
+  `retriedRef` y un `useEffect` antes de los `return`), y "Cargando..." lleva `role="status"`; L70, con
+  `SESSION_REQUIRED` la pantalla queda en "Cargando..." hasta el login; L71, `fireEvent.click`, y F1c espera los 4
+  pedidos. Tests nuevos: F1f-F1i.
+- **Rojo (Claude):** los tests contra la pantalla de la ronda 1 → fallan F1f, F1h, F1i (F1g pasa antes y después,
+  como se esperaba).
+- **Mutantes (Claude), todos detectados y verificados como aplicados:** sin `.focus()` → F1f; foco también en la
+  primera carga → F1g; sin `role="status"` → F1h; `setLoading(false)` de vuelta con `SESSION_REQUIRED` → F1i.
+- **Controles:** cliente 20 archivos, **467/467**; `tsc -b` exit 0; lint exit 0.
+- **Revisión ronda 2 (1 revisor, solo el diff nuevo):** L69, L70 y L71 verificados → `fixed`. Nuevos: L72 (nit:
+  `retriedRef` queda en `true` si el reintento sale bien; un error posterior por cambio de usuario o de dirección
+  daría el foco a "Reintentar") → `intentional`, porque en ese caso el foco igual se perdería y "Reintentar" es un
+  buen lugar; L73 (pregunta: una recarga por cambio de usuario o de dirección no muestra "Cargando...") →
+  `irrelevant`, porque ya pasaba antes de F1.
+- **Staging:** no aplica para F1 (no se puede forzar un error de carga sin tocar el server); alcanzan los tests.
+
 ## Next
 
-F1 ronda 2 en Qwen (worktree `f1-round2`, base `5886274`): L69, L70, L71 y los tests F1f-F1i. Después: rojo,
-mutantes, controles y revisor; luego F2 (Perfil).
+Commit de la ronda 2 de F1 (lo corre Hernán) y marcar F1 en el Checklist. Después: pedido de F2 (Perfil) para Qwen,
+preguntando antes de lanzarlo.
