@@ -76,8 +76,24 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
 
 ## Evidence
 
-(vacío)
+### F1 — ronda 1 (2026-11-12, commit `5886274`)
+
+- **Hecho por:** Qwen, en el worktree `f1-myloans-retry` (base `ee048f0`). Tocó solo sus 2 archivos, no borró ningún
+  `it(` y mandó `worker_done`. Escribió la pantalla antes que los tests (el pedido pedía al revés), así que Claude
+  comprobó el rojo por su cuenta.
+- **Rojo (Claude):** F1a-F1e contra el `MyLoansPage.tsx` de `ee048f0` → 5 fallan, 19 pasan.
+- **Mutantes (Claude), todos detectados:** sin `reloadKey` en las dependencias → 4 tests fallan; sin
+  `setError('')` → F1b, F1e; sin `setLoading(true)` → F1e; pestañas junto al error → F1a-F1e. (La primera pasada
+  de M3/M4 no se aplicó por los CRLF del archivo; se repitió contando las coincidencias.)
+- **Test viejo que chocaba:** `accessibility.test.tsx` "tabs have ARIA roles" pasaba con la pantalla en error (el
+  `fetch` del archivo nunca daba listas válidas). Qwen lo reportó sin tocarlo, como pedía el pedido; Claude lo
+  ajustó para que simule dos listas vacías válidas.
+- **Controles en `main`:** cliente 20 archivos, **463/463**; `tsc -b` exit 0; lint exit 0.
+- **Riesgo:** `rsc risk` → tier 1, 1 revisor de contexto fresco. Ronda 1: 0 bloqueantes; L69 (para corregir: el
+  foco se pierde al reintentar y "Cargando..." no se anuncia), L70 (nit: destello de "0 préstamos" con
+  `SESSION_REQUIRED`), L71 (pregunta: clics fuera de `act` en F1c/F1d). Los tres van a la ronda 2.
 
 ## Next
 
-Armar el pedido de F1 (Mis préstamos) para Qwen y preguntarle a Hernán antes de lanzarlo.
+F1 ronda 2 en Qwen (worktree `f1-round2`, base `5886274`): L69, L70, L71 y los tests F1f-F1i. Después: rojo,
+mutantes, controles y revisor; luego F2 (Perfil).
