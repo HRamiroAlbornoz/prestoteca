@@ -37,6 +37,10 @@ en un 500 `INTERNAL_ERROR` («algo salió mal») en vez de un error claro, y el 
     `LOAN_DATES_MISSING`; `note`, opcional → `BAD_REQUEST`).
   - Esto amplía lo anotado en el backlog (solo registro y login, más el PATCH de herramientas): es el mismo bug en
     cada ruta, con el mismo arreglo.
+- **(a') Pedido sin body** (sumado por Hernán el 2026-11-13, a partir de Q1 del panel de A1). Sin body o con
+  `text/plain`, Express 5 deja `req.body` en `undefined`, y `const { … } = req.body` explota → 500. Cada ruta que lee
+  el body pasa a leer `req.body ?? {}`, así cae en el 400 de «faltan datos» que ya tiene. Va en la tarea de cada
+  ruta: auth en A1 (ronda 2); herramientas y pedir préstamo en A2; estado del préstamo en C.
 - **(b)** `userRepo.updatePassword` y `userRepo.findByEmail` filtran `AND deleted_at IS NULL`. `updatePassword`
   devuelve si cambió una fila; si no cambió ninguna, la ruta responde `ACCOUNT_NOT_FOUND`, como ya hace cuando la
   cuenta no está al empezar.
@@ -63,12 +67,20 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
   - A1c: login con `email` y con `password` como número → 400 `LOGIN_MISSING_FIELDS`.
   - A1d: cambio de contraseña con `currentPassword` y con `newPassword` como número → 400
     `PASSWORD_CHANGE_MISSING_FIELDS`, y no se llamó a `updatePassword`.
+  - Ronda 2 (del panel): A1e, registro con cada uno de los 4 campos como lista y como objeto (T-N1); A1f, login con
+    `email` y `password` como lista y como objeto (T-N3); A1g, cambio de contraseña con cada campo como lista y como
+    objeto (T-N2); A1h, registro, login y cambio de contraseña sin body y con `text/plain` → el 400 de faltan datos
+    de cada ruta (Q1).
   - Prueba: los tests nuevos fallan hoy (500) y pasan después; suite del servidor en verde.
 - [ ] **A2 — Tipo incorrecto en herramientas y préstamos.** Tests en `toolsRoutes.test.ts` y `loansRoutes.test.ts`:
   - A2a: publicar con `name` o `description` como número → 400 `TOOL_MISSING_FIELDS`.
   - A2b: editar con `name` o `description` como número → 400 `BAD_REQUEST`, y no se llamó a `service.edit`.
   - A2c: pedir préstamo con `startDate` o `endDate` como número → 400 `LOAN_DATES_MISSING`.
   - A2d: pedir préstamo con `note` como número → 400 `BAD_REQUEST`.
+  - A2e: publicar, editar y pedir préstamo sin body y con `text/plain` → el 400 de cada ruta (publicar
+    `TOOL_MISSING_FIELDS`, pedir préstamo `LOAN_DATES_MISSING`; editar sin campos, el mismo resultado que hoy da un
+    body `{}`).
+  - Cada caso de tipo incorrecto, también con lista y con objeto, no solo con número (lección del panel de A1).
   - Prueba: los tests nuevos fallan hoy y pasan después; suite del servidor en verde.
 - [ ] **B — Contraseña en una cuenta borrada.** Tests en `userRepo.test.ts` y `meAccountRoutes.test.ts`:
   - B1: el SQL de `updatePassword` y el de `findByEmail` incluyen `deleted_at IS NULL`.
@@ -81,6 +93,7 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
   - C1: `transition` con `constructor`, `toString` y `__proto__` → `LOAN_TRANSITION_INVALID` y no se llamó a
     `updateStatus`.
   - C2: la ruta con `status` como lista (`["aceptado"]`), número u objeto → 400 `BAD_REQUEST`.
+  - C3: la ruta sin body y con `text/plain` → 400 `BAD_REQUEST` (`Missing status`).
   - Prueba: C1 y C2 fallan hoy y pasan después; suite del servidor en verde.
 - [ ] **Controles:** en `server/`, `npx vitest run`, `npx tsc -p .` y el lint que tenga, en verde; `rsc risk` del diff
   y la revisión que pida.
@@ -127,8 +140,9 @@ script de lint.
 ## Next
 
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
-que faltan (T-N1 a T-N3). Falta que Hernán decida si Q1 (pedido sin body) entra a este FTD, y si la ronda 2
-(T-N1 a T-N3, más Q1 si entra) la hace Qwen o Claude. Antes: A1 lanzado a Qwen el 2026-11-13 (Orca run `run_5512b0b13d6d`, dispatch `ctx_ff5b6d6aeaf4`, task
+que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
+y la ronda 2 de A1 (A1e-A1h) la hace Qwen. Siguiente: lanzar la ronda 2 al mismo worker, con `orca orchestration
+send`, cuando Hernán diga que sí. Antes: A1 lanzado a Qwen el 2026-11-13 (Orca run `run_5512b0b13d6d`, dispatch `ctx_ff5b6d6aeaf4`, task
 `task_75a389e45a04`, worktree `C:/Users/hralb/orca/workspaces/prestoteca/a1-auth-types`, base `927ccf6`; pedido en
 el scratchpad de la sesión, `A1-brief.md`). Cuando entregue: correr los checks, comparar los `it(` contra HEAD,
 probar los mutantes M1-M3, `rsc risk` y la revisión que pida.
