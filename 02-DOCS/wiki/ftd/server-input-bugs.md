@@ -88,10 +88,15 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
     préstamo `LOAN_DATES_MISSING`, editar 404 `TOOL_EDIT_EMPTY` (lo mismo que hoy da un body `{}`) (6 filas).
   - Prueba: los tests nuevos fallan hoy y pasan después; suite del servidor en verde.
 - [ ] **B — Contraseña en una cuenta borrada.** Tests en `userRepo.test.ts` y `meAccountRoutes.test.ts`:
-  - B1: el SQL de `updatePassword` y el de `findByEmail` incluyen `deleted_at IS NULL`.
-  - B2: `updatePassword` sobre una cuenta ya borrada no cambia nada y devuelve `false`.
-  - B3: la cuenta se borra entre la lectura y la escritura → la ruta responde 404 `ACCOUNT_NOT_FOUND`, no 204.
-  - B4: login con el correo anonimizado de una cuenta borrada → 401, igual que un correo desconocido.
+  - B1a/B1b: el SQL de `findByEmail` incluye `deleted_at IS NULL`; sin filas (lo que responde Postgres para una
+    cuenta borrada) devuelve `null`, así que el login da el mismo 401 que un correo desconocido.
+  - B2a/B2b: el SQL de `updatePassword` incluye `deleted_at IS NULL`; devuelve `true` si cambió una fila y `false`
+    si no (cuenta borrada).
+  - B3: la cuenta se borra entre la lectura y la escritura → la ruta responde 404 `ACCOUNT_NOT_FOUND`, no 204, y la
+    contraseña guardada no cambia.
+  - B4: el cambio normal sigue dando 204 y guarda la contraseña nueva.
+  - Cambio permitido en un helper de test: el `updatePassword` falso de `meAccountRoutes.test.ts` pasa a respetar
+    `deleted_at` y a devolver `true`/`false`, como el real.
   - Prueba: los tests nuevos fallan hoy y pasan después; suite del servidor en verde.
 - [ ] **C — Estado de préstamo con nombre heredado o que no es texto.** Tests en `loanService.test.ts` y
   `loansRoutes.test.ts`:
@@ -234,8 +239,9 @@ y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 commiteado en `main` como `9342d
 staging. Worktree `a1-auth-types` y su rama `HRamiroAlbornoz/a1-auth-types` borrados (el worktree era idéntico a
 `9342dd8`). **Pedido de A2 armado (2026-11-13):** `A2-brief.md` en el scratchpad de la sesión, 38 filas (A2a-A2g) y 8
 mutantes (M1-M8), base `9342dd8`. **A2 commiteado en `main` como `4b266ab` (2026-11-13), sin push.** Worktree `a2-tools-loans` y su rama borrados
-(el worktree era idéntico a `4b266ab`). Siguiente: armar el pedido de B (contraseña en una cuenta borrada), base
-`4b266ab`, y preguntarle a Hernán antes de lanzarlo. Historial: **A2 lanzado a Qwen el
+(el worktree era idéntico a `4b266ab`). **Pedido de B armado (2026-11-13):** `B-brief.md` en el
+scratchpad de la sesión, 6 tests (B1a-B4) y 5 mutantes (M1-M5), base `4b266ab`. Siguiente: lanzarlo a Qwen en el
+worktree nuevo `b-deleted-account` cuando Hernán diga que sí. Historial: **A2 lanzado a Qwen el
 2026-11-13** (run `run_5512b0b13d6d`,
 dispatch `ctx_6d0651668cfa`, task `task_46f8efbf91b4`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/a2-tools-loans`, base `9342dd8`). Cuando entregue: copiar `src/` antes de
