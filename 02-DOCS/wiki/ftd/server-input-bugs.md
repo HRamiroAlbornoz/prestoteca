@@ -107,15 +107,28 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
   vueltos a `?.trim()` → falla su fila de A1a (con `email`, también las 2 de A1b); login `email` y `password` → su
   fila de A1c; sin `typeof currentPassword` y sin `typeof newPassword` → su fila de A1d.
 - **Controles en el worktree:** servidor 30 archivos, **516/516**; `npx tsc -b` exit 0.
-- **Riesgo:** `rsc risk` → **tier 2** (clase `auth`, por `authRoutes.ts`): 3 revisores y aprobación de Hernán. Panel
-  en curso.
+- **Riesgo:** `rsc risk` → **tier 2** (clase `auth`, por `authRoutes.ts`): 3 revisores y aprobación de Hernán.
+- **Panel de 3 (2026-11-13):**
+  - Seguridad, APPROVE: ningún dato que no es texto llega a `bcrypt`, a SQL ni a la búsqueda de la cuenta. El 400
+    sale antes de buscar la cuenta, así que no revela si existe. El límite de pedidos lo sigue contando.
+  - Corrección, APPROVE WITH NITS: `true`, `false`, `0`, `NaN`, `null`, listas, objetos y textos largos dan 400, y
+    lo que andaba sigue igual.
+  - Tests, APPROVE WITH NITS: no se borró ni se aflojó ningún test. Sobreviven 3 mutantes de «solo rechaza
+    números», porque las filas de lista y objeto cubren solo `email` del registro: T-N1, A1b para los 4 campos;
+    T-N2, A1d con una lista; T-N3, login con lista y objeto.
+  - **Seguridad y corrección encontraron, cada uno por su lado, el mismo caso vecino (Q1):** un pedido **sin body**
+    o con `text/plain` deja `req.body` en `undefined` en Express 5, y `const { … } = req.body` explota → 500.
+    Claude lo reprodujo con el Express del servidor: sin body → `undefined`, `text/plain` → `undefined`, JSON →
+    objeto. Ya pasaba antes de A1. También lo tienen las rutas de A2 y C, que hacen el mismo `= req.body`.
 
 **Base medida (2026-11-13, `927ccf6`):** servidor 30 archivos, **506/506**; `npx tsc -b` exit 0. El servidor no tiene
 script de lint.
 
 ## Next
 
-A1 lanzado a Qwen el 2026-11-13 (Orca run `run_5512b0b13d6d`, dispatch `ctx_ff5b6d6aeaf4`, task
+**Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
+que faltan (T-N1 a T-N3). Falta que Hernán decida si Q1 (pedido sin body) entra a este FTD, y si la ronda 2
+(T-N1 a T-N3, más Q1 si entra) la hace Qwen o Claude. Antes: A1 lanzado a Qwen el 2026-11-13 (Orca run `run_5512b0b13d6d`, dispatch `ctx_ff5b6d6aeaf4`, task
 `task_75a389e45a04`, worktree `C:/Users/hralb/orca/workspaces/prestoteca/a1-auth-types`, base `927ccf6`; pedido en
 el scratchpad de la sesión, `A1-brief.md`). Cuando entregue: correr los checks, comparar los `it(` contra HEAD,
 probar los mutantes M1-M3, `rsc risk` y la revisión que pida.
