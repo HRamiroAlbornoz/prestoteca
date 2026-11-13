@@ -133,10 +133,17 @@ export function loansRoutes(
       return
     }
 
-    const { status: newStatus } = req.body
+    // Express 5 leaves req.body undefined when there is no JSON body
+    const { status: newStatus } = req.body ?? {}
 
     if (!newStatus) {
       sendErrorCode(res, 'BAD_REQUEST', 'Missing status')
+      return
+    }
+
+    // A status must be text: a list like ["aceptado"] would otherwise be read as "aceptado"
+    if (typeof newStatus !== 'string') {
+      sendErrorCode(res, 'BAD_REQUEST', 'Status must be text')
       return
     }
 

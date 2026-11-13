@@ -205,6 +205,61 @@ describe('LoanService', () => {
     })
   })
 
+  // C1 — built-in Object property names must not be accepted as status transitions
+  it.each<[string]>([
+    ['constructor'],
+    ['toString'],
+    ['hasOwnProperty'],
+    ['__proto__'],
+  ])('C1 rejects built-in name "%s" as a status transition', async (name) => {
+    mock.loans.set('loan-1', {
+      id: 'loan-1',
+      tool_id: 'tool-1',
+      borrower_id: 'user-2',
+      owner_id: 'user-1',
+      start_date: '2026-10-10',
+      end_date: '2026-10-20',
+      status: 'pendiente',
+      note: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+
+    await expect(service.transition('loan-1', name, 'user-1')).rejects.toMatchObject({
+      status: 409,
+      code: 'LOAN_TRANSITION_INVALID',
+    })
+    expect(mock.repo.updateStatus).not.toHaveBeenCalled()
+  })
+
+  // C6 — the CURRENT status is also looked up only in the table's own keys (review nit C-N2).
+  // The database never stores these statuses; the pairs are chosen so that, without the outer
+  // Object.hasOwn, the lookup would find something: Object.prototype.constructor (a function → 500)
+  // or Object.name (the text "Object" → 403 instead of 409).
+  it.each<[string, string]>([
+    ['__proto__', 'constructor'],
+    ['constructor', 'name'],
+  ])('C6 rejects a change from a stored status "%s" to "%s" with 409', async (storedStatus, newStatus) => {
+    mock.loans.set('loan-1', {
+      id: 'loan-1',
+      tool_id: 'tool-1',
+      borrower_id: 'user-2',
+      owner_id: 'user-1',
+      start_date: '2026-10-10',
+      end_date: '2026-10-20',
+      status: storedStatus,
+      note: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+
+    await expect(service.transition('loan-1', newStatus, 'user-1')).rejects.toMatchObject({
+      status: 409,
+      code: 'LOAN_TRANSITION_INVALID',
+    })
+    expect(mock.repo.updateStatus).not.toHaveBeenCalled()
+  })
+
   it('answers LOAN_NOT_FOUND when the loan vanishes between the check and the update', async () => {
     mock.loans.set('loan-1', {
       id: 'loan-1',

@@ -95,7 +95,9 @@ export class LoanService {
     }
 
     // Validate transition: first whether the change exists at all, then whether this person may make it
-    const allowedRoles = TRANSITIONS[loan.status]?.[newStatus]
+    // Object.hasOwn: only the changes written in the table count, never inherited names like "constructor"
+    const fromCurrent = Object.hasOwn(TRANSITIONS, loan.status) ? TRANSITIONS[loan.status] : undefined
+    const allowedRoles = fromCurrent && Object.hasOwn(fromCurrent, newStatus) ? fromCurrent[newStatus] : undefined
     if (!allowedRoles) {
       throw new AppError(
         'LOAN_TRANSITION_INVALID',

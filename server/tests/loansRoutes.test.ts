@@ -671,6 +671,138 @@ describe('loans routes', () => {
       expect(res.body.error.message).toBe('Missing status')
     })
 
+    // C2 — non-string status values must be rejected with 400
+    it.each<[number | string[] | object | boolean]>([
+      [5],
+      [['aceptado']],
+      [{}],
+      [true],
+    ])('C2 returns 400 BAD_REQUEST when status is %j', async (wrongValue) => {
+      const { app, loans, mockRepo } = createMockApp()
+
+      loans.set('loan-1', {
+        id: 'loan-1',
+        tool_id: 'tool-1',
+        borrower_id: 'user-2',
+        owner_id: 'user-1',
+        start_date: '2026-10-10',
+        end_date: '2026-10-20',
+        status: 'pendiente',
+        note: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      const res = await request(app)
+        .patch('/api/loans/loan-1/status')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({ status: wrongValue })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('BAD_REQUEST')
+      expect(res.body.error.message).toBe('Status must be text')
+      expect(mockRepo.updateStatus).not.toHaveBeenCalled()
+      expect(loans.get('loan-1').status).toBe('pendiente')
+    })
+
+    // C5 — an empty value keeps answering "Missing status", as before: the "is it text?" check
+    // runs only after the "is it missing?" check (review nit C-N1)
+    it.each<[number | boolean | string | null]>([
+      [0],
+      [false],
+      [''],
+      [null],
+    ])('C5 returns 400 Missing status when status is %j', async (emptyValue) => {
+      const { app, loans, mockRepo } = createMockApp()
+
+      loans.set('loan-1', {
+        id: 'loan-1',
+        tool_id: 'tool-1',
+        borrower_id: 'user-2',
+        owner_id: 'user-1',
+        start_date: '2026-10-10',
+        end_date: '2026-10-20',
+        status: 'pendiente',
+        note: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      const res = await request(app)
+        .patch('/api/loans/loan-1/status')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({ status: emptyValue })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('BAD_REQUEST')
+      expect(res.body.error.message).toBe('Missing status')
+      expect(mockRepo.updateStatus).not.toHaveBeenCalled()
+    })
+
+    // C3 — no body and text/plain must answer 400 Missing status
+    it.each<[string, string]>([
+      ['no body', 'no_body'],
+      ['text/plain', 'text_plain'],
+    ])('C3 returns 400 BAD_REQUEST — PATCH with %s', async (_, mode) => {
+      const { app, loans, mockRepo } = createMockApp()
+
+      loans.set('loan-1', {
+        id: 'loan-1',
+        tool_id: 'tool-1',
+        borrower_id: 'user-2',
+        owner_id: 'user-1',
+        start_date: '2026-10-10',
+        end_date: '2026-10-20',
+        status: 'pendiente',
+        note: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      const base = request(app)
+        .patch('/api/loans/loan-1/status')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+      const res = mode === 'no_body'
+        ? await base
+        : await base.set('Content-Type', 'text/plain').send('hola')
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('BAD_REQUEST')
+      expect(res.body.error.message).toBe('Missing status')
+      expect(mockRepo.updateStatus).not.toHaveBeenCalled()
+    })
+
+    // C4 — end-to-end: { status: 'constructor' } must return 409 LOAN_TRANSITION_INVALID
+    it('C4 returns 409 LOAN_TRANSITION_INVALID when status is the string "constructor"', async () => {
+      const { app, loans } = createMockApp()
+
+      loans.set('loan-1', {
+        id: 'loan-1',
+        tool_id: 'tool-1',
+        borrower_id: 'user-2',
+        owner_id: 'user-1',
+        start_date: '2026-10-10',
+        end_date: '2026-10-20',
+        status: 'pendiente',
+        note: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      const res = await request(app)
+        .patch('/api/loans/loan-1/status')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({ status: 'constructor' })
+
+      expect(res.status).toBe(409)
+      expect(res.body.error.code).toBe('LOAN_TRANSITION_INVALID')
+      expect(loans.get('loan-1').status).toBe('pendiente')
+    })
+
     it('returns 401 without auth', async () => {
       const { app } = createMockApp()
 
