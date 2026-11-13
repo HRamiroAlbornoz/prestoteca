@@ -116,7 +116,11 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
 
 ## Next
 
-**Pausa pedida por Hernán (2026-11-12).** F1 está commiteada (`5886274`, `9eb5e2a`) en el `main` local, sin
+**F2 lanzada a Qwen (2026-11-12)** con el OK de Hernán: worktree `f2-profile-retry`, dispatch `ctx_48cc10e48b2d`,
+pedido `F2-brief.md` (copiado al scratchpad de la sesión `19b6ee5a-…`). Al recibir `worker_done`: rojo, `it(`
+contra HEAD, grep de `writeFileSync|execSync|spawnSync`, los 6 mutantes, controles y `rsc risk`.
+
+**Pausa anterior pedida por Hernán (2026-11-12).** F1 está commiteada (`5886274`, `9eb5e2a`) en el `main` local, sin
 subir: `main` va 4 commits por delante de `origin/main`. Al retomar: lanzar F2 (Perfil) a Qwen con el pedido ya
 escrito (`F2-brief.md` en el scratchpad de la sesión
 `C:\Users\hralb\AppData\Local\Temp\claude\eaf61a12bd7fa5c3\338e81f4-df5a-4e7f-a151-797a978a4385\scratchpad\`; si
