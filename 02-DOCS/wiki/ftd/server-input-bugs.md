@@ -206,7 +206,17 @@ script de lint.
 - **Controles en el worktree:** servidor 30 archivos, **578/578**; `npx tsc -b` exit 0.
 - **Riesgo:** `rsc risk` → tier 2, pero solo porque compara contra `origin/main` y arrastra `authRoutes.ts` de A1
   (sin push, ya aprobado). Los archivos de A2 son clase `default` → tier 1: **1 revisor** de contexto fresco, en
-  curso. Hernán confirmó el 2026-11-13 que para A2 alcanza con un revisor. El panel de 3 sobre todo lo que se suba va antes del push.
+  curso. Hernán confirmó el 2026-11-13 que para A2 alcanza con un revisor.
+- **Revisor (2026-11-13), APPROVE WITH NITS, 0 bloqueantes:** lo válido se comporta igual (`''`, espacios,
+  `note: ''`, `note: null`, PATCH solo con `category`); un desconocido que manda `{name: 5}` recibe el mismo 400 que
+  el dueño, así que no se entera de nada; el límite de 10 kb no cambia. Sobreviven 3 mutantes suyos: (A2-N1) el
+  chequeo de `description` salteado al pausar, porque A2c prueba solo `name`; (A2-N2) `description` de publicar
+  sin recortar, porque ningún test mira el recorte; (A2-N3) el chequeo de la nota movido después de las fechas,
+  porque ningún test fija ese orden (y ninguna regla lo pide). Pregunta (A2-Q1): ningún test fija que un
+  desconocido reciba 400 y no 403 con un tipo incorrecto.
+- **Bug viejo encontrado, fuera de alcance:** `PATCH` con `{name: '   '}` se acepta y guarda un nombre vacío,
+  porque editar no valida largo ni vacío (publicar sí pide 3-60 caracteres). Ya pasaba antes de A2. Candidato
+  para el backlog, junto con el ítem 6. El panel de 3 sobre todo lo que se suba va antes del push.
 
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
