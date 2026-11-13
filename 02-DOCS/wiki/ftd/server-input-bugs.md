@@ -87,7 +87,7 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
   - A2g: publicar, editar y pedir préstamo sin body y con `text/plain` → publicar `TOOL_MISSING_FIELDS`, pedir
     préstamo `LOAN_DATES_MISSING`, editar 404 `TOOL_EDIT_EMPTY` (lo mismo que hoy da un body `{}`) (6 filas).
   - Prueba: los tests nuevos fallan hoy y pasan después; suite del servidor en verde.
-- [x] **B — Contraseña en una cuenta borrada.** (Hecho y pasado a `main`, esperando el commit de Hernán: ver
+- [x] **B — Contraseña en una cuenta borrada.** (Hecho, commit `01ed430` en `main`, sin push: ver
   Evidence, B; 587/587, rojo observado, 8 mutantes de Claude detectados, panel de 3, tier 2 aprobado por Hernán.)
   Tests en `userRepo.test.ts` y `meAccountRoutes.test.ts`:
   - B1a/B1b: el SQL de `findByEmail` incluye `deleted_at IS NULL`; sin filas (lo que responde Postgres para una
@@ -102,10 +102,13 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
   - Prueba: los tests nuevos fallan hoy y pasan después; suite del servidor en verde.
 - [ ] **C — Estado de préstamo con nombre heredado o que no es texto.** Tests en `loanService.test.ts` y
   `loansRoutes.test.ts`:
-  - C1: `transition` con `constructor`, `toString` y `__proto__` → `LOAN_TRANSITION_INVALID` y no se llamó a
-    `updateStatus`.
-  - C2: la ruta con `status` como lista (`["aceptado"]`), número u objeto → 400 `BAD_REQUEST`.
-  - C3: la ruta sin body y con `text/plain` → 400 `BAD_REQUEST` (`Missing status`).
+  - C1: `transition` con `constructor`, `toString`, `hasOwnProperty` y `__proto__` → 409
+    `LOAN_TRANSITION_INVALID` y no se llamó a `updateStatus` (4 filas).
+  - C2: la ruta con `status` como `5`, `['aceptado']`, `{}` o `true` → 400 `BAD_REQUEST` (`Status must be text`),
+    el préstamo no cambia (4 filas). **Peor que lo anotado:** hoy `['aceptado']` da **200**, porque JavaScript
+    convierte la lista en el texto `"aceptado"`, la tabla lo encuentra y se guarda una lista como estado.
+  - C3: la ruta sin body y con `text/plain` → 400 `BAD_REQUEST` (`Missing status`) (2 filas).
+  - C4: la ruta con `{ status: 'constructor' }` → 409 `LOAN_TRANSITION_INVALID`, de punta a punta (1 fila).
   - Prueba: C1 y C2 fallan hoy y pasan después; suite del servidor en verde.
 - [ ] **Controles:** en `server/`, `npx vitest run`, `npx tsc -p .` y el lint que tenga, en verde; `rsc risk` del diff
   y la revisión que pida.
@@ -293,8 +296,10 @@ y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 commiteado en `main` como `9342d
 staging. Worktree `a1-auth-types` y su rama `HRamiroAlbornoz/a1-auth-types` borrados (el worktree era idéntico a
 `9342dd8`). **Pedido de A2 armado (2026-11-13):** `A2-brief.md` en el scratchpad de la sesión, 38 filas (A2a-A2g) y 8
 mutantes (M1-M8), base `9342dd8`. **A2 commiteado en `main` como `4b266ab` (2026-11-13), sin push.** Worktree `a2-tools-loans` y su rama borrados
-(el worktree era idéntico a `4b266ab`). **B pasado a `main` sin commit (2026-11-13).** Siguiente: Hernán commitea B; después se borra el worktree
-`b-deleted-account` y se arma el pedido de C. Historial: **pedido de B armado (2026-11-13):** `B-brief.md` en el
+(el worktree era idéntico a `4b266ab`). **B commiteado en `main` como `01ed430` (2026-11-13), sin push.** Worktree `b-deleted-account` y su rama borrados
+(el worktree era idéntico a `01ed430`). **Pedido de C armado (2026-11-13):** `C-brief.md` en el scratchpad de
+la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. Siguiente: lanzarlo a Qwen en el worktree nuevo
+`c-loan-status` cuando Hernán diga que sí. Historial: **pedido de B armado (2026-11-13):** `B-brief.md` en el
 scratchpad de la sesión, 6 tests (B1a-B4) y 5 mutantes (M1-M5), base `4b266ab`. **B lanzado a Qwen el 2026-11-13** (run
 `run_5512b0b13d6d`, dispatch `ctx_a218a89a8cb4`, task `task_0ea86c5765d9`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/b-deleted-account`, base `4b266ab`). Cuando entregue: copiar `src/` antes
