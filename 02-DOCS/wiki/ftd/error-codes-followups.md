@@ -2,7 +2,10 @@
 author: HRamiroAlbornoz
 branch: feat/error-codes-followups
 spec: error-codes
-status: in-progress
+status: done
+merged: 2026-11-13
+merged_by: HRamiroAlbornoz
+pr: #46
 ---
 # Seguimientos de error-codes: error de carga con Reintentar y foco al cambiar de pantalla
 
@@ -176,10 +179,12 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   scroll queda en 0, la barra se ve y el foco está en `<main>`; "atrás" y la búsqueda siguen bien. Hernán aprobó el
   arreglo al correr el commit `979f386`; panel registrado en `979f386`, `RSC_BRANCH_CHECK_PASS`.
 
-## Next
+### Merge y producción (2026-11-13)
 
-F1, F2 (`ba52d01`) y F3 (`78f24f9`) commiteadas en el `main` local; los worktrees `f2-profile-retry` y
-`f3-route-focus` y sus ramas, borrados. Queda: decidir cómo sube todo (push directo a `main` o PR; F3 es tier 2, así que `rsc risk` pide una spec vinculada a la
-rama que pase `npx @ericrisco/rsc spec gate` antes del push o PR); y con F1-F3 en staging, la prueba a mano del
-foco (barra, "atrás", redirección al login) con captura, donde se decide F3-1 (`preventScroll`). F1, F2 y F3 siguen
-sin subir.
+- PR #46, squash, `641c2d2` en `main`; rama `feat/error-codes-followups` borrada en GitHub y en local. El `main`
+  local se igualó con `git reset --hard origin/main` (sus commits sueltos ya estaban en el squash).
+- Producción: deploy `2e617430` SUCCESS (antes `beeb34e0`); `GET /api/health` → 200 con la base conectada; sirve
+  `assets/index-fm9BFuB_.js`, el mismo archivo verificado en staging.
+
+## Next
+Fusionado en main el 2026-11-13 (641c2d2).
