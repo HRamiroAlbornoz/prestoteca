@@ -1,0 +1,31 @@
+uid=1_0 RootWebArea "client" url="https://prestoteca-staging.up.railway.app/register"
+  uid=1_1 link "Saltar al contenido" url="https://prestoteca-staging.up.railway.app/register#main"
+  uid=1_3 banner
+    uid=1_4 navigation "Navegación principal"
+      uid=1_5 link "Prestoteca" url="https://prestoteca-staging.up.railway.app/"
+      uid=1_7 link "Iniciar sesión" url="https://prestoteca-staging.up.railway.app/login"
+      uid=1_9 link "Crear cuenta" url="https://prestoteca-staging.up.railway.app/register"
+  uid=1_11 main focusable focused
+    uid=2_0 heading "Crear cuenta" level="1"
+    uid=2_1 form
+      uid=2_2 "Nombre completo"
+      uid=2_3 textbox "Nombre completo" required
+      uid=2_4 "Email"
+      uid=2_5 textbox "Email" required
+      uid=2_6 "Contraseña"
+      uid=2_7 textbox "Contraseña" required
+      uid=2_8 "Barrio"
+      uid=2_9 combobox "Barrio" expandable haspopup="menu" invalid="true" value="Seleccioná un barrio"
+        uid=2_10 option "Seleccioná un barrio" selected
+        uid=2_11 option "Centro"
+        uid=2_12 option "Barrio Norte"
+        uid=2_13 option "Barrio Sur"
+        uid=2_14 option "Ciudadela"
+        uid=2_15 option "Villa Luján"
+        uid=2_16 option "Barrio Jardín"
+        uid=2_17 option "Villa 9 de Julio"
+        uid=2_18 option "Yerba Buena"
+      uid=2_19 button "Registrarse"
+    uid=2_20 "¿Ya tenés cuenta?"
+    uid=2_21 " "
+    uid=2_22 link "Iniciar sesión" url="https://prestoteca-staging.up.railway.app/login"

@@ -1,0 +1,47 @@
+---
+type: verification
+title: Verificación en staging — seguimientos de error-codes (F1-F3)
+description: Prueba a mano del foco al cambiar de pantalla (F3) en staging, con capturas, para el PR #46.
+tags: [sdd, verification, staging, a11y, focus]
+timestamp: 2026-11-13T03:40:00Z
+topic: sdd
+slug: error-codes-followups
+---
+
+# Verificación en staging — seguimientos de error-codes (F1-F3)
+
+Para el PR #46 (`feat/error-codes-followups`, `b9421ef`). Seguimiento:
+[error-codes-followups](../../ftd/error-codes-followups.md).
+
+## Deploy
+
+- `railway up -s prestoteca -e staging --ci` desde el checkout limpio de la rama en `b9421ef`, sin cambiar la fuente
+  del servicio.
+- Staging: `2e440c28` → **`c8422f16`** (SUCCESS). Producción sigue en `beeb34e0`, sin tocar.
+- `GET /api/health` → `200 {"status":"ok","db":"connected"}`. El HTML sirve `assets/index-CR9Ydp8Y.js`, el mismo
+  archivo del build del deploy.
+- La rama no toca el server ni trae migraciones.
+- Dato de prueba creado: usuario "Prueba F3", `f3-1794538000@example.com`, barrio Centro.
+
+## Foco al cambiar de pantalla (F3)
+
+Chrome (DevTools MCP), contexto aislado, ventana de 390 px de ancho.
+
+| Caso | Resultado | Evidencia |
+| --- | --- | --- |
+| Abrir `/profile` sin sesión → redirige a `/login?returnTo=%2Fprofile` | foco en `MAIN#main` (caso borde aceptado) | script |
+| Clic en "Crear cuenta" de la barra → `/register` | foco en `<main>` (`main focusable focused`); antes de F3 se quedaba en el enlace | `1-nav-click-register.png`, `.txt` |
+| Registro correcto → la app va a `/` | foco en `<main>` | snapshot |
+| Escribir "tal" en la búsqueda → `?q=t`, `?q=ta`, `?q=tal` | foco sigue en `INPUT#search-input`, valor "tal" | `2-search-keeps-focus.png` |
+| Clic en "Mis préstamos" → `/loans` | foco en `<main>` | `3-nav-click-loans.png` |
+| "Atrás" desde `/loans` con el inicio bajado a 266 px | vuelve a `/`, scroll devuelto a **266**, foco en `<main>` | script (12 muestras) |
+| Sesión cerrada en el server (`POST /api/auth/logout` → 204, `GET /api/me` → 401) con la app todavía logueada → clic en "Perfil" | `/login?returnTo=%2Fprofile`, foco en `<main>`, `role="alert"` = "Tu sesión terminó. Iniciá sesión para continuar." | `4-session-ended-login.png`, `.txt` |
+
+## F3-1: scroll — hallazgo
+
+- **Al volver atrás no pasa.** El navegador devuelve el scroll (266 px) y `.focus()` no lo pisa, porque `<main>`
+  siempre se ve al menos en parte.
+- **Al ir hacia adelante sí.** En `/login` (pantalla de 844 px, página de 897 px) el foco bajó la página **53 px**, el
+  alto de la barra: `<main>` mide lo mismo que la pantalla (`min-h-screen`) y Chrome lo trae entero a la vista. La
+  barra de navegación queda fuera de la pantalla (`navBottom: -1`), como se ve en `4-session-ended-login.png`.
+- **Con `focus({ preventScroll: true })`**, en la misma página: el foco queda en `<main>` y el scroll queda en 0.
