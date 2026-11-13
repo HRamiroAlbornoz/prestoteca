@@ -73,15 +73,17 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
     objeto (T-N2); A1h, registro, login y cambio de contraseña sin body y con `text/plain` → el 400 de faltan datos
     de cada ruta (Q1).
   - Prueba: los tests nuevos fallan hoy (500) y pasan después; suite del servidor en verde.
-- [ ] **A2 — Tipo incorrecto en herramientas y préstamos.** Tests en `toolsRoutes.test.ts` y `loansRoutes.test.ts`:
-  - A2a: publicar con `name` o `description` como número → 400 `TOOL_MISSING_FIELDS`.
-  - A2b: editar con `name` o `description` como número → 400 `BAD_REQUEST`, y no se llamó a `service.edit`.
-  - A2c: pedir préstamo con `startDate` o `endDate` como número → 400 `LOAN_DATES_MISSING`.
-  - A2d: pedir préstamo con `note` como número → 400 `BAD_REQUEST`.
-  - A2e: publicar, editar y pedir préstamo sin body y con `text/plain` → el 400 de cada ruta (publicar
-    `TOOL_MISSING_FIELDS`, pedir préstamo `LOAN_DATES_MISSING`; editar sin campos, el mismo resultado que hoy da un
-    body `{}`).
-  - Cada caso de tipo incorrecto, también con lista y con objeto, no solo con número (lección del panel de A1).
+- [ ] **A2 — Tipo incorrecto en herramientas y préstamos.** Tests en `toolsRoutes.test.ts` y `loansRoutes.test.ts`.
+  Cada tipo incorrecto se prueba con los 4 valores `5`, `['x']`, `{}` y `true` (lección de los paneles de A1):
+  - A2a: publicar con `name` o `description` de tipo incorrecto → 400 `TOOL_MISSING_FIELDS`, no se crea nada (8 filas).
+  - A2b: editar con `name` o `description` de tipo incorrecto o `null` → 400 `BAD_REQUEST`, la herramienta no
+    cambia (10 filas).
+  - A2c: editar con `name` de tipo incorrecto y `is_paused: true` → 400 y la herramienta no queda pausada.
+  - A2d: pedir préstamo con `startDate` o `endDate` de tipo incorrecto → 400 `LOAN_DATES_MISSING`, no se crea (8 filas).
+  - A2e: pedir préstamo con `note` de tipo incorrecto → 400 `BAD_REQUEST`, no se crea (4 filas).
+  - A2f: pedir préstamo con `note: null` → 201, como hoy (`null` sigue siendo «sin nota»).
+  - A2g: publicar, editar y pedir préstamo sin body y con `text/plain` → publicar `TOOL_MISSING_FIELDS`, pedir
+    préstamo `LOAN_DATES_MISSING`, editar 404 `TOOL_EDIT_EMPTY` (lo mismo que hoy da un body `{}`) (6 filas).
   - Prueba: los tests nuevos fallan hoy y pasan después; suite del servidor en verde.
 - [ ] **B — Contraseña en una cuenta borrada.** Tests en `userRepo.test.ts` y `meAccountRoutes.test.ts`:
   - B1: el SQL de `updatePassword` y el de `findByEmail` incluyen `deleted_at IS NULL`.
@@ -187,8 +189,9 @@ script de lint.
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
 y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 commiteado en `main` como `9342dd8` (2026-11-13), sin push:** se sube cuando A2, B y C estén y se pruebe en
 staging. Worktree `a1-auth-types` y su rama `HRamiroAlbornoz/a1-auth-types` borrados (el worktree era idéntico a
-`9342dd8`). Siguiente: armar el pedido de A2 (herramientas y pedir préstamo, con el caso sin body y cada tipo
-incorrecto como número, lista, objeto y booleano), base `9342dd8`, y preguntarle a Hernán antes de lanzarlo. Historial: **ronda 2 lanzada el 2026-11-13** al mismo worktree (dispatch
+`9342dd8`). **Pedido de A2 armado (2026-11-13):** `A2-brief.md` en el scratchpad de la sesión, 38 filas (A2a-A2g) y 8
+mutantes (M1-M8), base `9342dd8`. Siguiente: lanzarlo a Qwen en el worktree nuevo `a2-tools-loans` cuando Hernán
+diga que sí. Historial: **ronda 2 lanzada el 2026-11-13** al mismo worktree (dispatch
 `ctx_2f570a81b730`, task `task_22d2f11580da`, mismo run; pedido `A1-round2.md` en el scratchpad de la sesión).
 Cuando entregue: comparar los `it(` contra el diff de la ronda 1 (`A1-qwen.diff` en el scratchpad), rojo de A1h,
 mutantes M4-M7 deshechos desde una copia (nunca `git checkout`), suite y `tsc -b`. Antes: A1 lanzado a Qwen el 2026-11-13 (Orca run `run_5512b0b13d6d`, dispatch `ctx_ff5b6d6aeaf4`, task
