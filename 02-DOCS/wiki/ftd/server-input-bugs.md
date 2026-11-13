@@ -333,9 +333,13 @@ staging. Worktree `a1-auth-types` y su rama `HRamiroAlbornoz/a1-auth-types` borr
 mutantes (M1-M8), base `9342dd8`. **A2 commiteado en `main` como `4b266ab` (2026-11-13), sin push.** Worktree `a2-tools-loans` y su rama borrados
 (el worktree era idéntico a `4b266ab`). **B commiteado en `main` como `01ed430` (2026-11-13), sin push.** Worktree `b-deleted-account` y su rama borrados
 (el worktree era idéntico a `01ed430`). **Pedido de C armado (2026-11-13):** `C-brief.md` en el scratchpad de
-la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. **C pasado a `main` sin commit (2026-11-13).** Siguiente: Hernán commitea C; se borra el worktree
-`c-loan-status`; después el cierre del FTD: panel de 3 sobre todo lo que se sube (`origin/main..main`), prueba en
-staging (casos con `curl` y las dos consultas de B contra el Postgres real) y push. Historial: **C lanzado a Qwen el
+la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. **Las 4 tareas commiteadas en `main`, sin push (2026-11-13):** A1 `9342dd8`, A2 `4b266ab`, B `01ed430`, C
+`c061115` (604/604). Worktree `c-loan-status` y su rama borrados (era idéntico a `c061115`). Nota: en `main` el
+control de rsc (`.rsc/asdd-gate.mjs`, línea 345) no pide spec ni panel registrado. Igual va el panel de 3, como se
+acordó. **Cierre, en orden:** (1) panel de 3 sobre el código de `origin/main..main`; (2) staging con
+`railway up -e staging` (con el OK de Hernán): casos con `curl` y, para B, crear una cuenta, borrarla y correr las
+dos consultas contra el Postgres de staging dentro de una transacción con `ROLLBACK`; (3) push de Hernán, deploy de
+producción y smoke test (`/api/health`). Historial: **C lanzado a Qwen el
 2026-11-13** (run `run_5512b0b13d6d`,
 dispatch `ctx_99eb80ccd266`, task `task_9ba0c9088d02`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/c-loan-status`, base `01ed430`). Cuando entregue: copiar `src/` antes de
