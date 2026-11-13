@@ -46,9 +46,12 @@ export function meAccountRoutes(
       return
     }
 
-    const { currentPassword, newPassword } = req.body
+    // Express 5 leaves req.body undefined when there is no JSON body
+    const { currentPassword, newPassword } = req.body ?? {}
 
-    if (!currentPassword || !newPassword) {
+    // typeof guard: non-string values (number, array, object) are treated as missing.
+    // This route does not trim the passwords; the guard only checks their type.
+    if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || !currentPassword || !newPassword) {
       sendErrorCode(res, 'PASSWORD_CHANGE_MISSING_FIELDS', 'Missing current or new password')
       return
     }

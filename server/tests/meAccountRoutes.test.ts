@@ -168,6 +168,110 @@ describe('meAccountRoutes', () => {
       expect(res.body.error.code).toBe('PASSWORD_CHANGE_MISSING_FIELDS')
     })
 
+    // A1d — non-string fields (number) must answer 400 PASSWORD_CHANGE_MISSING_FIELDS
+    it.each([
+      ['currentPassword as number', { currentPassword: 12345678, newPassword: 'newpassword123' }],
+      ['newPassword as number', { currentPassword: 'old123', newPassword: 12345678 }],
+    ])('A1d returns 400 PASSWORD_CHANGE_MISSING_FIELDS when %s', async (_case, body) => {
+      const { app, usersById } = createMockApp()
+      usersById.set('user-1', {
+        id: 'user-1',
+        name: 'Ana',
+        email: 'ana@example.com',
+        password_hash: 'hashed_old',
+        neighborhood: 'Centro',
+        created_at: '2026-10-01',
+      })
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send(body)
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('PASSWORD_CHANGE_MISSING_FIELDS')
+      // Nothing was written: the stored password is still the old one
+      expect(usersById.get('user-1')?.password_hash).toBe('hashed_old')
+    })
+
+    // A1g — non-string fields (array, object) must answer 400 PASSWORD_CHANGE_MISSING_FIELDS
+    it.each([
+      ['currentPassword as array', { currentPassword: ['old123'], newPassword: 'newpassword123' }],
+      ['currentPassword as object', { currentPassword: {}, newPassword: 'newpassword123' }],
+      ['newPassword as array', { currentPassword: 'old123', newPassword: ['newpassword123'] }],
+      ['newPassword as object', { currentPassword: 'old123', newPassword: {} }],
+    ])('A1g returns 400 PASSWORD_CHANGE_MISSING_FIELDS when %s', async (_case, body) => {
+      const { app, usersById } = createMockApp()
+      usersById.set('user-1', {
+        id: 'user-1',
+        name: 'Ana',
+        email: 'ana@example.com',
+        password_hash: 'hashed_old',
+        neighborhood: 'Centro',
+        created_at: '2026-10-01',
+      })
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send(body)
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('PASSWORD_CHANGE_MISSING_FIELDS')
+      expect(usersById.get('user-1')?.password_hash).toBe('hashed_old')
+    })
+
+    // A1i — an empty string is still missing (panel nit T2-N1)
+    it.each([
+      ['currentPassword empty', { currentPassword: '', newPassword: 'newpassword123' }],
+      ['newPassword empty', { currentPassword: 'old123', newPassword: '' }],
+    ])('A1i returns 400 PASSWORD_CHANGE_MISSING_FIELDS when %s', async (_case, body) => {
+      const { app, usersById } = createMockApp()
+      usersById.set('user-1', {
+        id: 'user-1',
+        name: 'Ana',
+        email: 'ana@example.com',
+        password_hash: 'hashed_old',
+        neighborhood: 'Centro',
+        created_at: '2026-10-01',
+      })
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send(body)
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('PASSWORD_CHANGE_MISSING_FIELDS')
+      expect(usersById.get('user-1')?.password_hash).toBe('hashed_old')
+    })
+
+    // A1h — no body and text/plain on PATCH /me/password
+    // plainText undefined = the request has no body at all
+    it.each<[string, string | undefined]>([
+      ['no body', undefined],
+      ['text/plain', 'hola'],
+    ])('A1h returns 400 PASSWORD_CHANGE_MISSING_FIELDS for %s', async (_case, plainText) => {
+      const { app, usersById } = createMockApp()
+      usersById.set('user-1', {
+        id: 'user-1',
+        name: 'Ana',
+        email: 'ana@example.com',
+        password_hash: 'hashed_old',
+        neighborhood: 'Centro',
+        created_at: '2026-10-01',
+      })
+
+      const base = request(app).patch('/api/me/password').set('Authorization', 'Bearer user-1')
+      const res = plainText === undefined
+        ? await base
+        : await base.set('Content-Type', 'text/plain').send(plainText)
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('PASSWORD_CHANGE_MISSING_FIELDS')
+      expect(usersById.get('user-1')?.password_hash).toBe('hashed_old')
+    })
+
     it('returns 400 on short password', async () => {
       const { app } = createMockApp()
 

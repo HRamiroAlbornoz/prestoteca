@@ -14,13 +14,15 @@ export function authRoutes(
 
   // POST /api/auth/register
   router.post('/register', async (req, res) => {
-    const { name, email, password, neighborhood } = req.body
+    // Express 5 leaves req.body undefined when there is no JSON body
+    const { name, email, password, neighborhood } = req.body ?? {}
 
     // Trim whitespace before validation (brief: "recortan antes de validar")
-    const trimmedName = name?.trim()
-    const trimmedEmail = email?.trim()
-    const trimmedPassword = password?.trim()
-    const trimmedNeighborhood = neighborhood?.trim()
+    // typeof guard: non-string values (number, array, object) are treated as missing
+    const trimmedName = typeof name === 'string' ? name.trim() : undefined
+    const trimmedEmail = typeof email === 'string' ? email.trim() : undefined
+    const trimmedPassword = typeof password === 'string' ? password.trim() : undefined
+    const trimmedNeighborhood = typeof neighborhood === 'string' ? neighborhood.trim() : undefined
 
     if (!trimmedName || !trimmedEmail || !trimmedPassword || !trimmedNeighborhood) {
       sendErrorCode(res, 'REGISTER_MISSING_FIELDS', 'Missing required fields')
@@ -64,11 +66,13 @@ export function authRoutes(
 
   // POST /api/auth/login
   router.post('/login', async (req, res) => {
-    const { email, password } = req.body
+    // Express 5 leaves req.body undefined when there is no JSON body
+    const { email, password } = req.body ?? {}
 
     // Trim whitespace before validation
-    const trimmedEmail = email?.trim()
-    const trimmedPassword = password?.trim()
+    // typeof guard: non-string values (number, array, object) are treated as missing
+    const trimmedEmail = typeof email === 'string' ? email.trim() : undefined
+    const trimmedPassword = typeof password === 'string' ? password.trim() : undefined
 
     if (!trimmedEmail || !trimmedPassword) {
       sendErrorCode(res, 'LOGIN_MISSING_FIELDS', 'Missing required fields')

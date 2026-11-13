@@ -127,6 +127,45 @@ describe('auth routes', () => {
       })
     })
 
+    // A1a — non-string fields (number 5) must answer 400 REGISTER_MISSING_FIELDS
+    it.each([
+      ['name as number 5', { email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro', name: 5 }],
+      ['email as number 5', { name: 'Ana', password: 'ana12345', neighborhood: 'Centro', email: 5 }],
+      ['password as number 5', { name: 'Ana', email: 'ana@example.com', neighborhood: 'Centro', password: 5 }],
+      ['neighborhood as number 5', { name: 'Ana', email: 'ana@example.com', password: 'ana12345', neighborhood: 5 }],
+    ])('A1a returns 400 REGISTER_MISSING_FIELDS when %s', async (_case, body) => {
+      const res = await request(app).post('/api/auth/register').send(body)
+
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({ error: { code: 'REGISTER_MISSING_FIELDS', message: 'Missing required fields' } })
+    })
+
+    // A1b — non-string fields (array, object) must answer 400 REGISTER_MISSING_FIELDS
+    it.each([
+      ['email as array', { name: 'Ana', password: 'ana12345', neighborhood: 'Centro', email: ['ana@example.com'] }],
+      ['email as object', { name: 'Ana', password: 'ana12345', neighborhood: 'Centro', email: {} }],
+    ])('A1b returns 400 REGISTER_MISSING_FIELDS when %s', async (_case, body) => {
+      const res = await request(app).post('/api/auth/register').send(body)
+
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({ error: { code: 'REGISTER_MISSING_FIELDS', message: 'Missing required fields' } })
+    })
+
+    // A1e — non-string fields (array, object) for name, password, neighborhood
+    it.each([
+      ['name as array', { email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro', name: ['Ana'] }],
+      ['name as object', { email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro', name: {} }],
+      ['password as array', { name: 'Ana', email: 'ana@example.com', neighborhood: 'Centro', password: ['ana12345'] }],
+      ['password as object', { name: 'Ana', email: 'ana@example.com', neighborhood: 'Centro', password: {} }],
+      ['neighborhood as array', { name: 'Ana', email: 'ana@example.com', password: 'ana12345', neighborhood: ['Centro'] }],
+      ['neighborhood as object', { name: 'Ana', email: 'ana@example.com', password: 'ana12345', neighborhood: {} }],
+    ])('A1e returns 400 REGISTER_MISSING_FIELDS when %s', async (_case, body) => {
+      const res = await request(app).post('/api/auth/register').send(body)
+
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({ error: { code: 'REGISTER_MISSING_FIELDS', message: 'Missing required fields' } })
+    })
+
     it('returns 409 on duplicate email', async () => {
       await request(app)
         .post('/api/auth/register')
@@ -179,6 +218,57 @@ describe('auth routes', () => {
 
       expect(res.status).toBe(400)
       expect(res.body).toEqual({ error: { code: 'LOGIN_MISSING_FIELDS', message: 'Missing required fields' } })
+    })
+
+    // A1c — non-string fields (number) must answer 400 LOGIN_MISSING_FIELDS
+    it.each([
+      ['email as number 5', { password: 'maria123', email: 5 }],
+      ['password as number 5', { email: 'maria@example.com', password: 5 }],
+    ])('A1c returns 400 LOGIN_MISSING_FIELDS when %s', async (_case, body) => {
+      const res = await request(app).post('/api/auth/login').send(body)
+
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({ error: { code: 'LOGIN_MISSING_FIELDS', message: 'Missing required fields' } })
+    })
+
+    // A1f — non-string fields (array, object) for email and password
+    it.each([
+      ['email as array', { password: 'maria123', email: ['maria@example.com'] }],
+      ['email as object', { password: 'maria123', email: {} }],
+      ['password as array', { email: 'maria@example.com', password: ['maria123'] }],
+      ['password as object', { email: 'maria@example.com', password: {} }],
+    ])('A1f returns 400 LOGIN_MISSING_FIELDS when %s', async (_case, body) => {
+      const res = await request(app).post('/api/auth/login').send(body)
+
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({ error: { code: 'LOGIN_MISSING_FIELDS', message: 'Missing required fields' } })
+    })
+
+    // A1j — a boolean is not a string either (panel nit T2-N2)
+    it.each([
+      ['email as true', { email: true, password: 'maria123' }],
+      ['password as true', { email: 'maria@example.com', password: true }],
+    ])('A1j returns 400 LOGIN_MISSING_FIELDS when %s', async (_case, body) => {
+      const res = await request(app).post('/api/auth/login').send(body)
+
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({ error: { code: 'LOGIN_MISSING_FIELDS', message: 'Missing required fields' } })
+    })
+
+    // A1h — no body and text/plain must answer 400 missing-fields, not 500
+    // plainText undefined = the request has no body at all
+    it.each<[string, string, string | undefined, string]>([
+      ['register with no body', '/api/auth/register', undefined, 'REGISTER_MISSING_FIELDS'],
+      ['register with text/plain', '/api/auth/register', 'hola', 'REGISTER_MISSING_FIELDS'],
+      ['login with no body', '/api/auth/login', undefined, 'LOGIN_MISSING_FIELDS'],
+      ['login with text/plain', '/api/auth/login', 'hola', 'LOGIN_MISSING_FIELDS'],
+    ])('A1h returns 400 for %s', async (_case, path, plainText, code) => {
+      const res = plainText === undefined
+        ? await request(app).post(path)
+        : await request(app).post(path).set('Content-Type', 'text/plain').send(plainText)
+
+      expect(res.status).toBe(400)
+      expect(res.body).toEqual({ error: { code, message: 'Missing required fields' } })
     })
 
     it('returns the same 401 response on non-existent email as on wrong password', async () => {
