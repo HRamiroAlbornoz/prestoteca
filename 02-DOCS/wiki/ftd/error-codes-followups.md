@@ -1,6 +1,7 @@
 ---
 author: HRamiroAlbornoz
-branch: main
+branch: feat/error-codes-followups
+spec: error-codes
 status: in-progress
 ---
 # Seguimientos de error-codes: error de carga con Reintentar y foco al cambiar de pantalla
