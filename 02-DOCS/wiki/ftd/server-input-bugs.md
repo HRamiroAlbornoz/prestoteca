@@ -206,7 +206,7 @@ script de lint.
 - **Controles en el worktree:** servidor 30 archivos, **578/578**; `npx tsc -b` exit 0.
 - **Riesgo:** `rsc risk` → tier 2, pero solo porque compara contra `origin/main` y arrastra `authRoutes.ts` de A1
   (sin push, ya aprobado). Los archivos de A2 son clase `default` → tier 1: **1 revisor** de contexto fresco, en
-  curso. El panel de 3 sobre todo lo que se suba va antes del push.
+  curso. Hernán confirmó el 2026-11-13 que para A2 alcanza con un revisor. El panel de 3 sobre todo lo que se suba va antes del push.
 
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
