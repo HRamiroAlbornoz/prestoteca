@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
 import { RegisterPage } from './pages/RegisterPage'
 import { LoginPage } from './pages/LoginPage'
 import { HomePage } from './pages/HomePage'
@@ -34,6 +35,23 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// Moves the keyboard focus to the page content when the path changes, so a screen reader
+// announces the new page. Not on the first render, and not when only ?query or #hash change
+// (the home search box changes ?q= while typing and must keep the focus).
+function FocusMainOnPathChange() {
+  const { pathname } = useLocation()
+  // The path of the last render: starts equal, so the first render does nothing
+  const previousPathname = useRef(pathname)
+
+  useEffect(() => {
+    if (previousPathname.current === pathname) return
+    previousPathname.current = pathname
+    document.getElementById('main')?.focus()
+  }, [pathname])
+
+  return null
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -43,6 +61,7 @@ function App() {
           a user and never redirects on its own, losing the notice (plan error-codes, decision 3).
           The app uses no lazy/Suspense, so nothing visible is lost. */}
       <BrowserRouter useTransitions={false}>
+        <FocusMainOnPathChange />
         {/* Skip link: invisible until it gets keyboard focus; jumps over the bar to the page content */}
         <a
           href="#main"

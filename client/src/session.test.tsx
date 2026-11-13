@@ -365,3 +365,18 @@ describe('AC-13: "Salir"', () => {
     expect(screen.queryByText(SESSION_ENDED)).not.toBeInTheDocument()
   })
 })
+
+describe('F3 focus after the session ends', () => {
+  it('F3e moves focus to <main> when the session ends and redirects to login', async () => {
+    renderAt('/tools/7')
+    const pause = await screen.findByRole('button', { name: /pausar/i })
+    pause.focus()
+
+    fireEvent.click(pause)
+
+    expect(await screen.findByText(SESSION_ENDED)).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/login')
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('main')))
+    expect(screen.getByRole('alert')).toHaveTextContent(SESSION_ENDED)
+  })
+})
