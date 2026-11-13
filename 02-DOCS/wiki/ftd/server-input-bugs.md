@@ -185,6 +185,29 @@ script de lint.
 - **Pasado a `main` (carpeta principal, sin commit):** `git apply` del diff del worktree; los 4 archivos son iguales
   a los del worktree (`cmp`). En `main`: servidor 30 archivos, **540/540**; `npx tsc -b` exit 0.
 
+### A2 (2026-11-13)
+
+- **Hecho por:** Qwen, en el worktree `a2-tools-loans` (base `9342dd8`), en una sola entrega con `worker_done`.
+  Tocó solo sus 4 archivos, no borró ni cambió ninguna línea de test y no usó nada de lo prohibido. El código es el
+  del pedido: `req.body ?? {}` en las 3 rutas, `typeof … === 'string'` en publicar y en pedir préstamo, el chequeo
+  de tipo del PATCH antes de editar o pausar, y la nota con `null` permitido.
+- **Ajustes (Claude):** un comentario de la nota decía que `null` se rechaza, al revés del código; faltaba el
+  comentario del `?? {}` en el PATCH. Los 3 bloques A2g declaraban `let res: ReturnType<typeof request>`, que es
+  el tipo del cliente de pruebas, no el de la respuesta. `tsc -b` no lo ve porque los tests del servidor no se
+  revisan con TypeScript (ítem (d)). Se reescribieron como en A1h, sin ese tipo.
+- **Rojo (Claude):** contra el `src/` de `9342dd8` fallan 37 de las 38 filas; pasa A2f (`note: null` → 201), que
+  existe para cuidar el comportamiento de hoy.
+- **Mutantes (Claude), deshechos desde una copia, `cmp` final OK, los 12 detectados:** `?.trim()` de vuelta en
+  `name` y `description` de publicar → sus 4 filas de A2a cada uno; guarda de `name` que rechaza solo números →
+  las 3 filas de lista, objeto y booleano; sin el chequeo del PATCH → las 10 de A2b y A2c; chequeo del PATCH
+  salteado al pausar → A2c; `?.trim()` en `startDate` y en `endDate` → sus 4 filas de A2d cada uno; sin el
+  chequeo de la nota → las 4 de A2e; `null` rechazado en la nota → A2f; sin `?? {}` en cada ruta → sus 2 filas de
+  A2g (repetido después de reescribir A2g).
+- **Controles en el worktree:** servidor 30 archivos, **578/578**; `npx tsc -b` exit 0.
+- **Riesgo:** `rsc risk` → tier 2, pero solo porque compara contra `origin/main` y arrastra `authRoutes.ts` de A1
+  (sin push, ya aprobado). Los archivos de A2 son clase `default` → tier 1: **1 revisor** de contexto fresco, en
+  curso. El panel de 3 sobre todo lo que se suba va antes del push.
+
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
 y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 commiteado en `main` como `9342dd8` (2026-11-13), sin push:** se sube cuando A2, B y C estén y se pruebe en
