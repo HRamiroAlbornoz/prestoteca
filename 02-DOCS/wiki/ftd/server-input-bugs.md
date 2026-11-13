@@ -240,8 +240,11 @@ staging. Worktree `a1-auth-types` y su rama `HRamiroAlbornoz/a1-auth-types` borr
 `9342dd8`). **Pedido de A2 armado (2026-11-13):** `A2-brief.md` en el scratchpad de la sesión, 38 filas (A2a-A2g) y 8
 mutantes (M1-M8), base `9342dd8`. **A2 commiteado en `main` como `4b266ab` (2026-11-13), sin push.** Worktree `a2-tools-loans` y su rama borrados
 (el worktree era idéntico a `4b266ab`). **Pedido de B armado (2026-11-13):** `B-brief.md` en el
-scratchpad de la sesión, 6 tests (B1a-B4) y 5 mutantes (M1-M5), base `4b266ab`. Siguiente: lanzarlo a Qwen en el
-worktree nuevo `b-deleted-account` cuando Hernán diga que sí. Historial: **A2 lanzado a Qwen el
+scratchpad de la sesión, 6 tests (B1a-B4) y 5 mutantes (M1-M5), base `4b266ab`. **B lanzado a Qwen el 2026-11-13** (run
+`run_5512b0b13d6d`, dispatch `ctx_a218a89a8cb4`, task `task_0ea86c5765d9`, worktree
+`C:/Users/hralb/orca/workspaces/prestoteca/b-deleted-account`, base `4b266ab`). Cuando entregue: copiar `src/` antes
+de tocar nada, comparar los `it(` y los `expect` contra `4b266ab` (solo cambia el helper permitido), rojo, mutantes
+M1-M5 deshechos desde la copia, suite y `tsc -b`, `rsc risk` y la revisión que pida. Historial: **A2 lanzado a Qwen el
 2026-11-13** (run `run_5512b0b13d6d`,
 dispatch `ctx_6d0651668cfa`, task `task_46f8efbf91b4`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/a2-tools-loans`, base `9342dd8`). Cuando entregue: copiar `src/` antes de
