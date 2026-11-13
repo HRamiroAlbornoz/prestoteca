@@ -389,8 +389,9 @@ describe('ProfilePage', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
     })
-    // The tools list is NOT shown (empty state instead)
-    expect(screen.getByText('No tenés herramientas publicadas')).toBeInTheDocument()
+    // Nothing from the requests is shown: only "Configuración" stays (F2)
+    expect(screen.getAllByRole('tab')).toHaveLength(1)
+    expect(screen.queryByText('No tenés herramientas publicadas')).toBeNull()
   })
 
   // C7: tools 200, history fails (network) → NETWORK_ERROR
@@ -450,7 +451,7 @@ describe('ProfilePage', () => {
     ['tools without madeLoans', { tools: [], receivedLoans: [] }, []],
     ['history as an object', { tools: [], receivedLoans: [], madeLoans: [] }, {}],
     ['history as null', { tools: [], receivedLoans: [], madeLoans: [] }, null],
-  ])('C8c: %s → UNKNOWN_ERROR, empty tabs', async (_name, toolsBody, historyBody) => {
+  ])('C8c: %s → UNKNOWN_ERROR, only the settings tab', async (_name, toolsBody, historyBody) => {
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => toolsBody })
     mockFetch.mockResolvedValueOnce({ ok: true, json: async () => historyBody })
 
@@ -459,9 +460,11 @@ describe('ProfilePage', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
     })
-    // Nothing from the requests is used: the tabs stay at their empty start.
-    expect(screen.getByText('No tenés herramientas publicadas')).toBeInTheDocument()
-    expect(screen.getByText('Historial (0)')).toBeInTheDocument()
+    // Nothing from the requests is used: only "Configuración" stays, with no count (F2)
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(1)
+    expect(tabs[0]).toHaveTextContent(/^Configuración$/)
+    expect(screen.queryByText('No tenés herramientas publicadas')).toBeNull()
   })
 
   // C8d: two ordinary failures with different codes → the first request of the list (tools) wins
@@ -737,5 +740,243 @@ describe('ProfilePage', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(text)
     })
     expect(mockFetch).not.toHaveBeenCalledWith('/api/me/password', expect.any(Object))
+  })
+})
+
+describe('F2 load error with Reintentar', () => {
+  // F2a: load error → only "Configuración" tab, Reintentar button, no false data
+  it('F2a: tools 500, history 200 [] → error view with only settings tab', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    })
+
+    renderProfile()
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.INTERNAL_ERROR)
+    })
+    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(1)
+    expect(tabs[0]).toHaveTextContent(/^Configuración$/)
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByText('No tenés herramientas publicadas')).toBeNull()
+    expect(screen.queryByText(/Server English text/)).toBeNull()
+  })
+
+  // F2b: load error → settings still work (change password)
+  it('F2b: tools 500, history 200 [] → can change password from settings', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    })
+
+    renderProfile()
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+    })
+
+    // No click on "Configuración": the error view must already show the settings content
+    fireEvent.change(document.getElementById('current-password') as HTMLInputElement, {
+      target: { value: 'current123' },
+    })
+    fireEvent.change(document.getElementById('new-password') as HTMLInputElement, {
+      target: { value: 'newpassword1' },
+    })
+    fireEvent.change(document.getElementById('confirm-password') as HTMLInputElement, {
+      target: { value: 'newpassword1' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /cambiar contraseña/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Contraseña cambiada correctamente')).toBeInTheDocument()
+    })
+    expect(mockFetch.mock.calls[2][0]).toBe('/api/me/password')
+  })
+
+  // F2c: retry → success → normal screen with 5 tabs
+  it('F2c: tools 500, history 200 []; retry → resolveProfile with a tool → normal screen', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    })
+
+    renderProfile()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    })
+
+    resolveProfile({
+      tools: [
+        {
+          id: 'tool-1',
+          owner_id: 'user-1',
+          name: 'Taladro',
+          description: 'Un taladro',
+          category: 'Herramientas eléctricas',
+          condition: 'bueno',
+          is_paused: false,
+          deleted_at: null,
+          created_at: '2026-10-01',
+        },
+      ],
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Mis herramientas (1)')).toBeInTheDocument()
+    })
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(5)
+    expect(screen.getByText('Configuración (0)')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(mockFetch).toHaveBeenCalledTimes(4)
+  })
+
+  // F2d: retry → failure again → error view, focus on Reintentar
+  it('F2d: tools 500, history 200 []; retry → tools 500, history 200 [] → error again, focus on Reintentar', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    })
+
+    renderProfile()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(4))
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.INTERNAL_ERROR)
+    })
+    await waitFor(() => {
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reintentar' }))
+    })
+  })
+
+  // F2e: first load error → focus NOT on Reintentar
+  it('F2e: tools 500, history 200 [] → focus NOT on Reintentar on first load', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    })
+
+    renderProfile()
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+    })
+
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Reintentar' }))
+  })
+
+  // F2f: loading state shows role="status" with "Cargando..."
+  it('F2f: pending fetch → getByRole("status") has text "Cargando..."', () => {
+    mockFetch.mockImplementation(() => new Promise(() => {}))
+    renderProfile()
+
+    expect(screen.getByRole('status')).toHaveTextContent('Cargando...')
+  })
+
+  // F2g: retry → 401 SESSION_REQUIRED → navigate to /login
+  it('F2g: tools 500, history 200 []; retry → both 401 → login page', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { code: 'SESSION_REQUIRED', message: 'x' } }),
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { code: 'SESSION_REQUIRED', message: 'x' } }),
+    })
+
+    renderProfileWithLogin()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('login-page')).toHaveTextContent('/login?returnTo=%2Fprofile')
+    })
+  })
+
+  // F2h: load error → delete account button still present
+  it('F2h: tools 500, history 200 [] → "Eliminar mi cuenta" button present', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+    })
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    })
+
+    renderProfile()
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+    })
+
+    expect(screen.getByRole('button', { name: 'Eliminar mi cuenta' })).toBeInTheDocument()
   })
 })

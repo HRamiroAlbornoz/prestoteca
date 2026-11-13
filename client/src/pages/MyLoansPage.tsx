@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LoanStatus } from '../components/LoanStatus'
@@ -70,6 +70,11 @@ export function MyLoansPage() {
   const [recibidos, setRecibidos] = useState<Loan[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [reloadKey, setReloadKey] = useState(0)
+  // The retry button, to give it the focus back when a retry fails again
+  const retryButtonRef = useRef<HTMLButtonElement>(null)
+  // True only between a click on "Reintentar" and the next error view: the first load never moves the focus
+  const retriedRef = useRef(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -95,8 +100,8 @@ export function MyLoansPage() {
       const pedidosIsSession = pedidosRes.status === 'fail' && pedidosRes.code === 'SESSION_REQUIRED'
       const recibidosIsSession = recibidosRes.status === 'fail' && recibidosRes.code === 'SESSION_REQUIRED'
       if (pedidosIsSession || recibidosIsSession) {
+        // Stay on "Cargando..." until the login replaces this page: never flash "0 loans"
         handle('SESSION_REQUIRED')
-        setLoading(false)
         return
       }
 
@@ -126,7 +131,7 @@ export function MyLoansPage() {
     return () => {
       controller.abort()
     }
-  }, [currentUser, handle])
+  }, [currentUser, handle, reloadKey])
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -137,10 +142,47 @@ export function MyLoansPage() {
     navigate(`/loans/${loanId}`)
   }
 
+  const handleRetry = () => {
+    retriedRef.current = true
+    setError('')
+    setLoading(true)
+    setReloadKey((key) => key + 1)
+  }
+
+  // After a retry that failed again, put the focus back on "Reintentar"
+  useEffect(() => {
+    if (!loading && error && retriedRef.current) {
+      retriedRef.current = false
+      retryButtonRef.current?.focus()
+    }
+  }, [loading, error])
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-600">Cargando...</p>
+        <p className="text-gray-600" role="status">Cargando...</p>
+      </div>
+    )
+  }
+
+  // Load error: only the error and a way to retry, never "0 loans"
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <h1 className="text-2xl font-bold text-gray-900 mb-6">Mis préstamos</h1>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
+            {error}
+          </div>
+          <button
+            ref={retryButtonRef}
+            type="button"
+            onClick={handleRetry}
+            className="min-h-11 px-6 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 focus:outline-hidden focus:ring-2 focus:ring-violet-500"
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
     )
   }
@@ -154,12 +196,6 @@ export function MyLoansPage() {
     <div className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Mis préstamos</h1>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
-            {error}
-          </div>
-        )}
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-4" role="tablist">

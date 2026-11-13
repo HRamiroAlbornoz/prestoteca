@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LoanStatus } from '../components/LoanStatus'
@@ -91,6 +91,11 @@ export function ProfilePage() {
   const [history, setHistory] = useState<Loan[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [reloadKey, setReloadKey] = useState(0)
+  // The retry button, to give it the focus back when a retry fails again
+  const retryButtonRef = useRef<HTMLButtonElement>(null)
+  // True only between a click on "Reintentar" and the next error view: the first load never moves the focus
+  const retriedRef = useRef(false)
 
   // Settings state
   const [currentPassword, setCurrentPassword] = useState('')
@@ -164,7 +169,22 @@ export function ProfilePage() {
     return () => {
       controller.abort()
     }
-  }, [currentUser, handle])
+  }, [currentUser, handle, reloadKey])
+
+  const handleRetry = () => {
+    retriedRef.current = true
+    setError('')
+    setLoading(true)
+    setReloadKey((key) => key + 1)
+  }
+
+  // After a retry that failed again, put the focus back on "Reintentar"
+  useEffect(() => {
+    if (!loading && error && retriedRef.current) {
+      retriedRef.current = false
+      retryButtonRef.current?.focus()
+    }
+  }, [loading, error])
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -244,18 +264,23 @@ export function ProfilePage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-600">Cargando...</p>
+        <p className="text-gray-600" role="status">Cargando...</p>
       </div>
     )
   }
 
-  const tabs: { key: TabType; label: string; count: number }[] = [
-    { key: 'tools', label: 'Mis herramientas', count: profileData.tools.length },
-    { key: 'received', label: 'Pedidos recibidos', count: profileData.receivedLoans.length },
-    { key: 'made', label: 'Pedidos hechos', count: profileData.madeLoans.length },
-    { key: 'history', label: 'Historial', count: history.length },
-    { key: 'settings', label: 'Configuración', count: 0 },
-  ]
+  // A load error leaves only "Configuración": the other tabs would show "0", which is false
+  const loadFailed = error !== ''
+  const shownTab: TabType = loadFailed ? 'settings' : activeTab
+  const tabs: { key: TabType; label: string; count: number | null }[] = loadFailed
+    ? [{ key: 'settings' as TabType, label: 'Configuración', count: null }]
+    : [
+        { key: 'tools', label: 'Mis herramientas', count: profileData.tools.length },
+        { key: 'received', label: 'Pedidos recibidos', count: profileData.receivedLoans.length },
+        { key: 'made', label: 'Pedidos hechos', count: profileData.madeLoans.length },
+        { key: 'history', label: 'Historial', count: history.length },
+        { key: 'settings', label: 'Configuración', count: 0 },
+      ]
 
   return (
     <div className="min-h-screen bg-gray-50 px-4 py-8">
@@ -270,21 +295,32 @@ export function ProfilePage() {
           </div>
         )}
 
+        {loadFailed && (
+          <button
+            ref={retryButtonRef}
+            type="button"
+            onClick={handleRetry}
+            className="min-h-11 mb-6 px-6 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 focus:outline-hidden focus:ring-2 focus:ring-violet-500"
+          >
+            Reintentar
+          </button>
+        )}
+
         {/* Tabs */}
         <div className="flex border-b border-gray-200 mb-6 overflow-x-auto" role="tablist">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               role="tab"
-              aria-selected={activeTab === tab.key}
+              aria-selected={shownTab === tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`flex-1 min-w-0 py-3 px-4 text-center font-medium text-sm border-b-2 transition-colors ${
-                activeTab === tab.key
+                shownTab === tab.key
                   ? 'border-violet-600 text-violet-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
-              {tab.label} ({tab.count})
+              {tab.count === null ? tab.label : `${tab.label} (${tab.count})`}
             </button>
           ))}
         </div>
@@ -292,7 +328,7 @@ export function ProfilePage() {
         {/* Tab content */}
         <div role="tabpanel">
           {/* Tools tab */}
-          {activeTab === 'tools' && (
+          {shownTab === 'tools' && (
             <>
               {profileData.tools.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
@@ -315,7 +351,7 @@ export function ProfilePage() {
           )}
 
           {/* Received loans tab */}
-          {activeTab === 'received' && (
+          {shownTab === 'received' && (
             <>
               {profileData.receivedLoans.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
@@ -349,7 +385,7 @@ export function ProfilePage() {
           )}
 
           {/* Made loans tab */}
-          {activeTab === 'made' && (
+          {shownTab === 'made' && (
             <>
               {profileData.madeLoans.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
@@ -383,7 +419,7 @@ export function ProfilePage() {
           )}
 
           {/* History tab */}
-          {activeTab === 'history' && (
+          {shownTab === 'history' && (
             <>
               {history.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
@@ -417,7 +453,7 @@ export function ProfilePage() {
           )}
 
           {/* Settings tab */}
-          {activeTab === 'settings' && (
+          {shownTab === 'settings' && (
             <div className="space-y-8">
               {/* Change password */}
               <div className="bg-white rounded-lg shadow-xs p-6">
@@ -425,7 +461,7 @@ export function ProfilePage() {
                   Cambiar contraseña
                 </h2>
 
-                {settingsError && activeTab === 'settings' && (
+                {settingsError && shownTab === 'settings' && (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-sm mb-4" role="alert">
                     {settingsError}
                   </div>

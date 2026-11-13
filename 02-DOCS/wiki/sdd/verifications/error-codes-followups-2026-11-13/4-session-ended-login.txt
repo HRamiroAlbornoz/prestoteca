@@ -1,0 +1,20 @@
+uid=6_0 RootWebArea "client" url="https://prestoteca-staging.up.railway.app/login?returnTo=%2Fprofile"
+  uid=6_1 link "Saltar al contenido" url="https://prestoteca-staging.up.railway.app/login?returnTo=%2Fprofile#main"
+  uid=6_3 banner
+    uid=6_4 navigation "Navegación principal"
+      uid=6_5 link "Prestoteca" url="https://prestoteca-staging.up.railway.app/"
+      uid=6_7 link "Iniciar sesión" url="https://prestoteca-staging.up.railway.app/login"
+      uid=6_9 link "Crear cuenta" url="https://prestoteca-staging.up.railway.app/register"
+  uid=6_11 main focusable focused
+    uid=6_12 heading "Iniciar sesión" level="1"
+    uid=6_13 alert atomic live="assertive" relevant="additions text"
+      uid=6_14 "Tu sesión terminó. Iniciá sesión para continuar."
+    uid=6_15 form
+      uid=6_16 "Email"
+      uid=6_17 textbox "Email" required
+      uid=6_18 "Contraseña"
+      uid=6_19 textbox "Contraseña" required
+      uid=6_20 button "Iniciar sesión"
+    uid=6_21 "¿No tenés cuenta?"
+    uid=6_22 " "
+    uid=6_23 link "Crear cuenta" url="https://prestoteca-staging.up.railway.app/register"

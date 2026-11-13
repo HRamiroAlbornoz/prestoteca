@@ -199,3 +199,94 @@ describe('Navigation bar', () => {
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main')
   })
 })
+
+describe('F3 focus on page change', () => {
+  beforeEach(() => {
+    sessionUser = null
+    installFakeServer()
+  })
+
+  it('F3a moves focus to <main> when a logged-in user clicks a navigation link', async () => {
+    sessionUser = { id: 'user-1', name: 'Ana' }
+    renderAt('/')
+    const nav = await screen.findByRole('navigation', { name: /principal/i })
+    const link = await within(nav).findByRole('link', { name: /mis préstamos/i })
+    link.focus()
+
+    fireEvent.click(link)
+
+    await screen.findByRole('heading', { name: /mis préstamos/i })
+    expect(document.activeElement).toBe(screen.getByRole('main'))
+  })
+
+  it('F3b does not move focus on the first render (no session)', async () => {
+    renderAt('/')
+
+    await within(await screen.findByRole('navigation', { name: /principal/i })).findByRole('link', { name: /iniciar sesión/i })
+    expect(document.activeElement).not.toBe(screen.getByRole('main'))
+  })
+
+  it('F3c does not move focus when only the query string changes (typing in search box)', async () => {
+    renderAt('/')
+    const box = await screen.findByLabelText('Buscar herramienta por nombre')
+    box.focus()
+
+    fireEvent.change(box, { target: { value: 'tal' } })
+
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('q')).toBe('tal'))
+    expect(document.activeElement).toBe(box)
+  })
+
+  it('F3d moves focus back to <main> when navigating back to home', async () => {
+    sessionUser = { id: 'user-1', name: 'Ana' }
+    renderAt('/')
+    const nav = await screen.findByRole('navigation', { name: /principal/i })
+    const link = await within(nav).findByRole('link', { name: /mis préstamos/i })
+    link.focus()
+
+    fireEvent.click(link)
+
+    await screen.findByRole('heading', { name: /mis préstamos/i })
+    expect(document.activeElement).toBe(screen.getByRole('main'))
+
+    within(nav).getByRole('link', { name: /perfil/i }).focus()
+
+    window.history.back()
+
+    await waitFor(() => expect(window.location.pathname).toBe('/'))
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('main')))
+  })
+
+  it('F3f does not move focus when only the #hash changes', async () => {
+    renderAt('/')
+    const box = await screen.findByLabelText('Buscar herramienta por nombre')
+    box.focus()
+
+    // The same path with a new #hash, as an in-page link would leave it
+    window.history.pushState({}, '', '/#x')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+
+    await waitFor(() => expect(window.location.hash).toBe('#x'))
+    expect(document.activeElement).toBe(box)
+  })
+
+  // jsdom has no scrolling, so this checks how the focus is asked for. Without preventScroll, a
+  // phone browser scrolls <main> fully into view and hides the navigation bar (staging, 2026-11-13).
+  it('F3g moves the focus to <main> without scrolling the page', async () => {
+    // A spy that records each call and still runs the real focus()
+    const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus')
+    try {
+      sessionUser = { id: 'user-1', name: 'Ana' }
+      renderAt('/')
+      const nav = await screen.findByRole('navigation', { name: /principal/i })
+      fireEvent.click(await within(nav).findByRole('link', { name: /mis préstamos/i }))
+      await screen.findByRole('heading', { name: /mis préstamos/i })
+
+      const main = screen.getByRole('main')
+      const callsOnMain = focusSpy.mock.calls.filter((_args, i) => focusSpy.mock.contexts[i] === main)
+      expect(callsOnMain).toEqual([[{ preventScroll: true }]])
+    } finally {
+      focusSpy.mockRestore()
+    }
+  })
+})

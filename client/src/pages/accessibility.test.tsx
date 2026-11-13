@@ -202,6 +202,10 @@ describe('Accessibility audit (WCAG 2.2 AA)', () => {
     })
 
     it('tabs have ARIA roles', async () => {
+      // The tabs only exist once both lists loaded: a load error shows the error and "Reintentar" instead
+      vi.spyOn(globalThis, 'fetch').mockImplementation(async () =>
+        new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      )
       render(<Wrapper><MyLoansPage /></Wrapper>)
       await waitFor(() => {
         const tablist = document.querySelector('[role="tablist"]')
