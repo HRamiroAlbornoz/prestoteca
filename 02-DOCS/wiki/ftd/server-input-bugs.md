@@ -139,6 +139,24 @@ script de lint.
 
 ## Next
 
+### A1 — ronda 2 (2026-11-13)
+
+- **Hecho por:** Qwen, mismo worktree, en una sola entrega con `worker_done`. En `src/` cambió solo lo pedido:
+  `= req.body ?? {}` con su comentario en las 3 rutas, sin tocar las guardas. Su reporte decía que «amplió las
+  guardas de solo números a solo texto»; el diff contra la copia de la ronda 1 muestra que no las tocó, así que la
+  frase estaba mal redactada. Agregó las 20 filas A1e-A1h, conservó A1a-A1d y la afirmación de Claude en A1d, y no
+  borró ni cambió ninguna línea de test. No usó nada de lo prohibido.
+- **Ajuste (Claude):** los dos bloques A1h se reescribieron para que se lean de corrido: filas explícitas con la
+  ruta, el texto y el código esperado, sin `undefined as unknown as object`.
+- **Rojo (Claude):** A1h contra el `src/` de la ronda 1 → fallan las 6 filas (500). A1e-A1g pasan antes y después,
+  como se esperaba: existen para matar el mutante «solo rechaza números».
+- **Mutantes (Claude), deshechos desde una copia, `cmp` final OK, todos detectados:** M4, «solo rechaza números» en
+  `name`, `password` y `neighborhood` del registro → sus 2 filas de A1e; M5, lo mismo en `email` y `password` del
+  login → sus 2 filas de A1f; M6, `typeof x === 'number'` en cada campo del cambio de contraseña → sus 2 filas de
+  A1g; M7, sin `?? {}` en cada una de las 3 rutas → sus 2 filas de A1h (repetido después del ajuste de lectura).
+- **Controles en el worktree:** servidor 30 archivos, **536/536**; `npx tsc -b` exit 0.
+- **Riesgo:** `rsc risk` → tier 2 (clase `auth`). Panel de 3 sobre la ronda 2 en curso.
+
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
 y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **Ronda 2 lanzada el 2026-11-13** al mismo worktree (dispatch
