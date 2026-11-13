@@ -100,7 +100,9 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
   - Cambio permitido en un helper de test: el `updatePassword` falso de `meAccountRoutes.test.ts` pasa a respetar
     `deleted_at` y a devolver `true`/`false`, como el real.
   - Prueba: los tests nuevos fallan hoy y pasan después; suite del servidor en verde.
-- [ ] **C — Estado de préstamo con nombre heredado o que no es texto.** Tests en `loanService.test.ts` y
+- [x] **C — Estado de préstamo con nombre heredado o que no es texto.** (Hecho y pasado a `main`, esperando el
+  commit de Hernán: ver Evidence, C; 604/604, rojo observado, 8 mutantes de Claude detectados, 1 revisor, nits
+  cerrados con C5 y C6.) Tests en `loanService.test.ts` y
   `loansRoutes.test.ts`:
   - C1: `transition` con `constructor`, `toString`, `hasOwnProperty` y `__proto__` → 409
     `LOAN_TRANSITION_INVALID` y no se llamó a `updateStatus` (4 filas).
@@ -312,6 +314,16 @@ script de lint.
   ninguna fila manda `0`, `false`, `''` o `null` (con el cambio, `{status: 0}` diría `Status must be text`);
   (C-N2) sacar o cambiar por `in` el `hasOwn` del primer nivel, porque ningún test guarda un préstamo con estado
   `constructor` (la base no lo permite: es una defensa extra).
+- **Cierre de los nits (Claude, con el OK de Hernán):** C5, `status` `0`, `false`, `''` o `null` → 400
+  `Missing status` (C-N1); C6, un préstamo guardado con estado `__proto__` que pide `constructor`, y uno con
+  `constructor` que pide `name` → 409 (C-N2). Las parejas se eligieron para que, sin el `hasOwn` de afuera, la
+  búsqueda encuentre algo: `Object.prototype.constructor` (una función → 500) u `Object.name` (el texto «Object» →
+  403). Con un estado guardado `constructor` y el pedido `aceptado`, el mutante habría pasado igual, porque
+  `Object.aceptado` no existe. Ahora quedan detectados: el chequeo de tipo antes del de faltante → las filas `0`,
+  `false` y `null` de C5 y otros 3 tests (la fila `''` es texto y no cambia: cuida lo de hoy); sin el `hasOwn` de
+  afuera, o cambiado por `in` → las 2 de C6.
+- **Pasado a `main` (carpeta principal, sin commit):** `git apply` del diff del worktree; los 4 archivos son
+  iguales a los del worktree (`cmp`). En `main`: servidor 30 archivos, **604/604**; `npx tsc -b` exit 0.
 
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
@@ -321,7 +333,10 @@ staging. Worktree `a1-auth-types` y su rama `HRamiroAlbornoz/a1-auth-types` borr
 mutantes (M1-M8), base `9342dd8`. **A2 commiteado en `main` como `4b266ab` (2026-11-13), sin push.** Worktree `a2-tools-loans` y su rama borrados
 (el worktree era idéntico a `4b266ab`). **B commiteado en `main` como `01ed430` (2026-11-13), sin push.** Worktree `b-deleted-account` y su rama borrados
 (el worktree era idéntico a `01ed430`). **Pedido de C armado (2026-11-13):** `C-brief.md` en el scratchpad de
-la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. **C lanzado a Qwen el 2026-11-13** (run `run_5512b0b13d6d`,
+la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. **C pasado a `main` sin commit (2026-11-13).** Siguiente: Hernán commitea C; se borra el worktree
+`c-loan-status`; después el cierre del FTD: panel de 3 sobre todo lo que se sube (`origin/main..main`), prueba en
+staging (casos con `curl` y las dos consultas de B contra el Postgres real) y push. Historial: **C lanzado a Qwen el
+2026-11-13** (run `run_5512b0b13d6d`,
 dispatch `ctx_99eb80ccd266`, task `task_9ba0c9088d02`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/c-loan-status`, base `01ed430`). Cuando entregue: copiar `src/` antes de
 tocar nada, comparar los `it(` y los `expect` contra `01ed430`, rojo, mutantes M1-M5 deshechos desde la copia,
