@@ -61,7 +61,7 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   - F2c: "Reintentar" con el server ya bien → vuelven las cinco pestañas con sus contadores y no queda el error.
   - F2d: "Reintentar" que vuelve a fallar → sigue el error.
   - Prueba: los tests nuevos fallan contra el código de hoy y pasan después; la suite del cliente en verde.
-- [ ] **F3 — Foco al cambiar de pantalla.** Tests con el `App` real (como `App.test.tsx` / `session.test.tsx`):
+- [x] **F3 — Foco al cambiar de pantalla.** (Hecho: ver Evidence, F3; tests F3a-F3f.) Tests con el `App` real (como `App.test.tsx` / `session.test.tsx`):
   - F3a: clic en un enlace de la barra que cambia la dirección → `document.activeElement` es `<main>`.
   - F3b: primera carga de la app → el foco **no** está en `<main>`.
   - F3c: en el inicio, escribir en la búsqueda (cambia `?q=`) → el foco sigue en el campo de búsqueda.
@@ -71,7 +71,8 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   - Prueba: F3a, F3d y F3e fallan contra el código de hoy; F3b y F3c pasan antes y después; suite en verde.
   - Caso borde aceptado: abrir directo una página privada sin sesión redirige a `/login`, y eso cambia la dirección,
     así que el foco va a `<main>`. Está bien: es una página nueva, y el foco estaba en el `<body>`.
-- [ ] **Controles:** `npx vitest run`, `npx tsc -b` y `npm run lint` en `client/` en verde; `axe` sin violaciones en
+- [x] **Controles:** (Hecho en `main` tras F3: 481/481, `tsc -b` y lint exit 0; `rsc risk` y revisiones en cada
+  ítem, ver Evidence.) `npx vitest run`, `npx tsc -b` y `npm run lint` en `client/` en verde; `axe` sin violaciones en
   los tests de accesibilidad; `rsc risk` del diff y la revisión que pida.
 - [ ] **Staging:** Perfil y Mis préstamos con un error forzado no se pueden provocar en staging sin tocar el
   server, así que alcanzan los tests. El foco sí se prueba a mano en staging (navegar por la barra y por la
@@ -157,12 +158,13 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   de decidir; F3-2 (nit: `/loans/` o `/Loans` contra `/loans` mueven el foco) → `irrelevant`, ningún enlace de la
   app lo hace y no daña nada. Tests: falta el caso del `#` → `fixed` con F3f; F3c afirma el foco sin esperar un
   momento más → `irrelevant`, ningún mutante lo aprovecha; componente después de `</main>` → mutante equivalente.
-- **Aprobación de Hernán (tier 2):** pendiente.
+- **Aprobación de Hernán (tier 2):** dada el 2026-11-13, con F3-1 (scroll al volver atrás) para decidir en staging.
 - **Staging:** pendiente (navegar por la barra, "atrás" y la redirección al login, con captura).
 
 ## Next
 
-F2 commiteada por Hernán en `main` (`ba52d01`). **F3 lanzada a Qwen (2026-11-12)** con el OK de Hernán: worktree
-`f3-route-focus`, pedido `F3-brief.md` en el scratchpad de la sesión `19b6ee5a-…`. Al recibir `worker_done`: rojo,
-`it(` contra HEAD, grep de `writeFileSync|execSync|spawnSync|vi.mock`, 4 mutantes, controles, `rsc risk` y prueba a
-mano en staging con captura. Al final: decidir cómo sube todo (push directo a `main` o PR). F1 y F2 siguen sin subir.
+F1, F2 (`ba52d01`) y F3 (`78f24f9`) commiteadas en el `main` local; los worktrees `f2-profile-retry` y
+`f3-route-focus` y sus ramas, borrados. Queda: decidir cómo sube todo (push directo a `main` o PR; F3 es tier 2, así que `rsc risk` pide una spec vinculada a la
+rama que pase `npx @ericrisco/rsc spec gate` antes del push o PR); y con F1-F3 en staging, la prueba a mano del
+foco (barra, "atrás", redirección al login) con captura, donde se decide F3-1 (`preventScroll`). F1, F2 y F3 siguen
+sin subir.
