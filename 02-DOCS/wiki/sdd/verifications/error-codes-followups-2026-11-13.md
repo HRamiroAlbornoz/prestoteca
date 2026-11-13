@@ -45,3 +45,21 @@ Chrome (DevTools MCP), contexto aislado, ventana de 390 px de ancho.
   alto de la barra: `<main>` mide lo mismo que la pantalla (`min-h-screen`) y Chrome lo trae entero a la vista. La
   barra de navegación queda fuera de la pantalla (`navBottom: -1`), como se ve en `4-session-ended-login.png`.
 - **Con `focus({ preventScroll: true })`**, en la misma página: el foco queda en `<main>` y el scroll queda en 0.
+
+## Segunda pasada, con el arreglo (`979f386`)
+
+- Push de la rama a `9101886`; `railway up -s prestoteca -e staging --ci` desde el checkout limpio en ese commit.
+  Staging: `c8422f16` → **`65521d13`** (SUCCESS). Producción sigue en `beeb34e0`. `GET /api/health` → 200. El HTML
+  sirve `assets/index-fm9BFuB_.js`, el del build nuevo.
+- Pestaña nueva en contexto aislado, ventana de 500 × 844 (el ancho mínimo de la ventana; la primera pasada usó el
+  mismo), sesión del usuario de prueba.
+
+| Caso | Scroll | Barra (`nav` top–bottom) | Foco |
+| --- | --- | --- | --- |
+| Clic en "Mis préstamos" → `/loans` | 0 | 0–52, visible | `MAIN#main` |
+| Clic en "Perfil" → `/profile` | 0 | 0–52, visible | `MAIN#main` |
+| Sesión cerrada en el server → clic en "Mis préstamos" → `/login?returnTo=%2Floans`, aviso "Tu sesión terminó…" | 0 (antes: 53) | 0–52, visible (antes: oculta) | `MAIN#main` |
+| "Atrás" | 0 | visible | `MAIN#main` |
+| Escribir "ta" en la búsqueda | — | — | `INPUT#search-input`, valor "ta" |
+
+Captura: `5-session-ended-login-prevent-scroll.png` (comparar con `4-session-ended-login.png`).

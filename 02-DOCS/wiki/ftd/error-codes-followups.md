@@ -75,7 +75,7 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
 - [x] **Controles:** (Hecho en `main` tras F3: 481/481, `tsc -b` y lint exit 0; `rsc risk` y revisiones en cada
   ítem, ver Evidence.) `npx vitest run`, `npx tsc -b` y `npm run lint` en `client/` en verde; `axe` sin violaciones en
   los tests de accesibilidad; `rsc risk` del diff y la revisión que pida.
-- [ ] **Staging:** Perfil y Mis préstamos con un error forzado no se pueden provocar en staging sin tocar el
+- [x] **Staging:** (Hecho el 2026-11-13: ver la verificación; F3-1 encontrado y arreglado.) Perfil y Mis préstamos con un error forzado no se pueden provocar en staging sin tocar el
   server, así que alcanzan los tests. El foco sí se prueba a mano en staging (navegar por la barra y por la
   redirección al login), con captura.
 
@@ -172,6 +172,9 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   `preventScroll` y vuelve al scroll de antes → `irrelevant`); tests, 9 mutantes nuevos, sobreviven
   `scrollIntoView()` y `scrollTo()` después del foco, que F3g no ve → `intentional`, el comentario del test ya dice
   que mira cómo se pide el foco y el scroll real se comprueba en staging.
+- **Staging con el arreglo (`9101886`, deploy `65521d13`):** al ir a una página nueva y en la sesión terminada, el
+  scroll queda en 0, la barra se ve y el foco está en `<main>`; "atrás" y la búsqueda siguen bien. Hernán aprobó el
+  arreglo al correr el commit `979f386`; panel registrado en `979f386`, `RSC_BRANCH_CHECK_PASS`.
 
 ## Next
 
