@@ -190,8 +190,11 @@ que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este F
 y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 commiteado en `main` como `9342dd8` (2026-11-13), sin push:** se sube cuando A2, B y C estén y se pruebe en
 staging. Worktree `a1-auth-types` y su rama `HRamiroAlbornoz/a1-auth-types` borrados (el worktree era idéntico a
 `9342dd8`). **Pedido de A2 armado (2026-11-13):** `A2-brief.md` en el scratchpad de la sesión, 38 filas (A2a-A2g) y 8
-mutantes (M1-M8), base `9342dd8`. Siguiente: lanzarlo a Qwen en el worktree nuevo `a2-tools-loans` cuando Hernán
-diga que sí. Historial: **ronda 2 lanzada el 2026-11-13** al mismo worktree (dispatch
+mutantes (M1-M8), base `9342dd8`. **A2 lanzado a Qwen el 2026-11-13** (run `run_5512b0b13d6d`,
+dispatch `ctx_6d0651668cfa`, task `task_46f8efbf91b4`, worktree
+`C:/Users/hralb/orca/workspaces/prestoteca/a2-tools-loans`, base `9342dd8`). Cuando entregue: copiar `src/` antes de
+tocar nada, comparar los `it(` contra `9342dd8`, rojo, mutantes M1-M8 deshechos desde la copia, suite y `tsc -b`,
+`rsc risk` y la revisión que pida. Historial: **ronda 2 lanzada el 2026-11-13** al mismo worktree (dispatch
 `ctx_2f570a81b730`, task `task_22d2f11580da`, mismo run; pedido `A1-round2.md` en el scratchpad de la sesión).
 Cuando entregue: comparar los `it(` contra el diff de la ronda 1 (`A1-qwen.diff` en el scratchpad), rojo de A1h,
 mutantes M4-M7 deshechos desde una copia (nunca `git checkout`), suite y `tsc -b`. Antes: A1 lanzado a Qwen el 2026-11-13 (Orca run `run_5512b0b13d6d`, dispatch `ctx_ff5b6d6aeaf4`, task
