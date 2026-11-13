@@ -340,7 +340,16 @@ script de lint.
   que fechas (ya `intentional`, A2-N3); `is_paused` antes que el tipo del nombre al editar (los dos son 400) →
   `intentional`. Pregunta: los parámetros de la URL de la búsqueda (`?q=a&q=b` llega como lista) no se revisan →
   **ítem 5e del backlog**, aprobado por Hernán.
-- **Tests:** en curso.
+- **Tests, APPROVE, sin hallazgos:** suite 30 archivos, **604/604**. Entre los 4 commits no se borró ni cambió ningún
+  `it(`, `it.each(` ni `expect`; las únicas líneas viejas quitadas son las permitidas (el `updatePassword` falso, el
+  `return` del helper y el `poolReturning` movido). Cada ID del Checklist (A1a-A1j, A2a-A2j, B1a-B4, C1-C6) tiene su
+  test. 10 mutantes que cruzan rutas: 8 detectados (sin `note !== null`, sin los chequeos de vacío en la contraseña,
+  `endDate` sin chequeo de tipo, sin `description` en el chequeo del PATCH, sin el `hasOwn` interno,
+  `!newStatus` → `=== undefined`, sin el filtro de `findByEmail`, `updatePassword` siempre `true`) y 2
+  equivalentes (`?? {}` → `|| {}`: `express.json` estricto nunca da un body falso que no sea `undefined`).
+  Restauración: `cmp` de los 6 archivos OK y `git status -- server` vacío; Claude lo volvió a comprobar.
+- **Panel registrado:** `npx @ericrisco/rsc review ledger panel error-codes/server-input-bugs --lenses
+  correctness,security,tests` → «panel of 3 recorded» sobre `46ae0e6` (el último `docs(auto)` encima de `c061115`).
 
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
