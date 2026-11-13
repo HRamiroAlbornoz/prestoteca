@@ -290,6 +290,21 @@ script de lint.
 - **Pasado a `main` (carpeta principal, sin commit):** `git apply` del diff del worktree; los 4 archivos son
   iguales a los del worktree (`cmp`). En `main`: servidor 30 archivos, **587/587**; `npx tsc -b` exit 0.
 
+### C (2026-11-13)
+
+- **Hecho por:** Qwen, en el worktree `c-loan-status` (base `01ed430`), en una sola entrega con `worker_done`.
+  Tocó solo sus 4 archivos, no borró ni cambió ninguna línea de test y no usó nada de lo prohibido (ni casteos).
+  El código es el del pedido, sin desvíos: `Object.hasOwn` en los dos niveles de la tabla, `req.body ?? {}`, y el
+  chequeo `typeof newStatus !== 'string'` después del `Missing status` que ya existía. Esta vez no hizo falta
+  ningún ajuste de lectura.
+- **Rojo (Claude):** contra el `src/` de `01ed430` fallan las 11 filas; la de `['aceptado']` falla con un **200**.
+- **Mutantes (Claude), deshechos desde una copia, `cmp` final OK, los 5 detectados:** la búsqueda vieja → las 4 de
+  C1 y C4; `hasOwn` solo en el primer nivel → las 4 de C1 y C4; sin el chequeo de tipo → las 4 de C2; solo rechaza
+  listas → las 3 filas de número, objeto y booleano de C2; sin `?? {}` → las 2 de C3.
+- **Controles en el worktree:** servidor 30 archivos, **598/598**; `npx tsc -b` exit 0.
+- **Riesgo:** `rsc risk` → tier 2 solo por lo que arrastra de A1 y B (sin push, ya aprobados); los archivos de C son
+  clase `default` → tier 1: **1 revisor** de contexto fresco, como en A2. En curso.
+
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
 y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 commiteado en `main` como `9342dd8` (2026-11-13), sin push:** se sube cuando A2, B y C estén y se pruebe en
