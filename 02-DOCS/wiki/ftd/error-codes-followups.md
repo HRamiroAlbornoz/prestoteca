@@ -65,9 +65,12 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   - F3a: clic en un enlace de la barra que cambia la dirección → `document.activeElement` es `<main>`.
   - F3b: primera carga de la app → el foco **no** está en `<main>`.
   - F3c: en el inicio, escribir en la búsqueda (cambia `?q=`) → el foco sigue en el campo de búsqueda.
-  - F3d: sesión terminada → redirección a `/login?returnTo=…` → el foco está en `<main>` y el aviso sigue en
-    `role="alert"`.
-  - Prueba: F3a y F3d fallan contra el código de hoy; F3b y F3c pasan antes y después; suite en verde.
+  - F3d: "atrás" del navegador (cambia la dirección) → el foco está en `<main>`.
+  - F3e (`session.test.tsx`): sesión terminada → redirección a `/login?returnTo=…` → el foco está en `<main>` y el
+    aviso sigue en `role="alert"`.
+  - Prueba: F3a, F3d y F3e fallan contra el código de hoy; F3b y F3c pasan antes y después; suite en verde.
+  - Caso borde aceptado: abrir directo una página privada sin sesión redirige a `/login`, y eso cambia la dirección,
+    así que el foco va a `<main>`. Está bien: es una página nueva, y el foco estaba en el `<body>`.
 - [ ] **Controles:** `npx vitest run`, `npx tsc -b` y `npm run lint` en `client/` en verde; `axe` sin violaciones en
   los tests de accesibilidad; `rsc risk` del diff y la revisión que pida.
 - [ ] **Staging:** Perfil y Mis préstamos con un error forzado no se pueden provocar en staging sin tocar el
@@ -138,6 +141,7 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
 
 ## Next
 
-F2 está copiada en el `main` local, sin commitear: falta que Hernán corra el commit. Después: F3 (foco al cambiar
-de pantalla), preguntándole a Hernán antes de lanzarla, y al final decidir cómo sube todo (push directo a `main` o
-PR). F1 (`5886274`, `9eb5e2a`) sigue sin subir.
+F2 commiteada por Hernán en `main` (`ba52d01`). **F3 lanzada a Qwen (2026-11-12)** con el OK de Hernán: worktree
+`f3-route-focus`, pedido `F3-brief.md` en el scratchpad de la sesión `19b6ee5a-…`. Al recibir `worker_done`: rojo,
+`it(` contra HEAD, grep de `writeFileSync|execSync|spawnSync|vi.mock`, 4 mutantes, controles, `rsc risk` y prueba a
+mano en staging con captura. Al final: decidir cómo sube todo (push directo a `main` o PR). F1 y F2 siguen sin subir.
