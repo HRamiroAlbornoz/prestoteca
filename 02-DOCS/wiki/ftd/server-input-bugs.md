@@ -325,6 +325,23 @@ script de lint.
 - **Pasado a `main` (carpeta principal, sin commit):** `git apply` del diff del worktree; los 4 archivos son
   iguales a los del worktree (`cmp`). En `main`: servidor 30 archivos, **604/604**; `npx tsc -b` exit 0.
 
+### Panel de cierre sobre `origin/main..main` (2026-11-13)
+
+- **Seguridad, APPROVE, sin hallazgos:** todos los 400 nuevos dependen solo del body y salen antes de buscar en la
+  base, así que el dueño, un desconocido y un recurso que no existe reciben lo mismo. Los logs solo guardan errores
+  inesperados, no el body. Ningún dato mal armado llega a SQL, `bcrypt` ni a la tabla de estados. El límite de
+  pedidos y el control de Origin siguen antes de cada ruta cambiada. Preguntas: el registro no usa `findByEmail`
+  (detecta el correo repetido por la restricción de la base) → `irrelevant`; el mensaje 409 mezcla español y el
+  texto del usuario → `irrelevant`, la app muestra su propio mensaje por código.
+- **Corrección, APPROVE WITH NITS:** las 9 rutas que leen el body usan `req.body ?? {}` y cada `.trim()` está detrás
+  de su chequeo de tipo. Todos los códigos usados existen en `errorCodes.ts` y tienen su mensaje en español en
+  `client/src/errors/messages.ts` (`BAD_REQUEST` → el genérico). Ningún pedido válido cambia de respuesta, y no
+  contradice la spec de error-codes (el único cambio de estado HTTP es el 404 de B, la excepción D7). Nits: nota antes
+  que fechas (ya `intentional`, A2-N3); `is_paused` antes que el tipo del nombre al editar (los dos son 400) →
+  `intentional`. Pregunta: los parámetros de la URL de la búsqueda (`?q=a&q=b` llega como lista) no se revisan →
+  **ítem 5e del backlog**, aprobado por Hernán.
+- **Tests:** en curso.
+
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
 y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 commiteado en `main` como `9342dd8` (2026-11-13), sin push:** se sube cuando A2, B y C estén y se pruebe en
