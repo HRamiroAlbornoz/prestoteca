@@ -73,7 +73,9 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
     objeto (T-N2); A1h, registro, login y cambio de contraseña sin body y con `text/plain` → el 400 de faltan datos
     de cada ruta (Q1).
   - Prueba: los tests nuevos fallan hoy (500) y pasan después; suite del servidor en verde.
-- [ ] **A2 — Tipo incorrecto en herramientas y préstamos.** Tests en `toolsRoutes.test.ts` y `loansRoutes.test.ts`.
+- [x] **A2 — Tipo incorrecto en herramientas y préstamos.** (Hecho y pasado a `main`, esperando el commit de Hernán:
+  ver Evidence, A2; 581/581, rojo observado, 16 mutantes de Claude detectados, 1 revisor, nits cerrados con A2h-A2j.)
+  Tests en `toolsRoutes.test.ts` y `loansRoutes.test.ts`.
   Cada tipo incorrecto se prueba con los 4 valores `5`, `['x']`, `{}` y `true` (lección de los paneles de A1):
   - A2a: publicar con `name` o `description` de tipo incorrecto → 400 `TOOL_MISSING_FIELDS`, no se crea nada (8 filas).
   - A2b: editar con `name` o `description` de tipo incorrecto o `null` → 400 `BAD_REQUEST`, la herramienta no
@@ -214,6 +216,14 @@ script de lint.
   sin recortar, porque ningún test mira el recorte; (A2-N3) el chequeo de la nota movido después de las fechas,
   porque ningún test fija ese orden (y ninguna regla lo pide). Pregunta (A2-Q1): ningún test fija que un
   desconocido reciba 400 y no 403 con un tipo incorrecto.
+- **Cierre de los nits (Claude, con el OK de Hernán):** A2h, editar con `{description: 5, is_paused: true}` → 400 y
+  no se pausa (A2-N1); A2i, publicar con espacios alrededor del nombre y la descripción → se guardan recortados
+  (A2-N2); A2j, un desconocido que edita con `{name: 5}` → 400 `BAD_REQUEST`, no 403, y la herramienta no cambia
+  (A2-Q1). Los mutantes que sobrevivían quedan detectados: `description` salteada al pausar → A2h; sin recortar
+  `description` o `name` → A2i; sin el chequeo del PATCH → A2b, A2c, A2h y A2j. A2-N3 (orden nota/fechas) →
+  `intentional`: ninguna regla fija ese orden, y antes ese pedido daba 500.
+- **Pasado a `main` (carpeta principal, sin commit):** `git apply` del diff del worktree; los 4 archivos son
+  iguales a los del worktree (`cmp`). En `main`: servidor 30 archivos, **581/581**; `npx tsc -b` exit 0.
 - **Bug viejo encontrado, fuera de alcance:** `PATCH` con `{name: '   '}` se acepta y guarda un nombre vacío,
   porque editar no valida largo ni vacío (publicar sí pide 3-60 caracteres). Ya pasaba antes de A2. Candidato
   para el backlog, junto con el ítem 6. El panel de 3 sobre todo lo que se suba va antes del push.
@@ -223,7 +233,9 @@ que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este F
 y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 commiteado en `main` como `9342dd8` (2026-11-13), sin push:** se sube cuando A2, B y C estén y se pruebe en
 staging. Worktree `a1-auth-types` y su rama `HRamiroAlbornoz/a1-auth-types` borrados (el worktree era idéntico a
 `9342dd8`). **Pedido de A2 armado (2026-11-13):** `A2-brief.md` en el scratchpad de la sesión, 38 filas (A2a-A2g) y 8
-mutantes (M1-M8), base `9342dd8`. **A2 lanzado a Qwen el 2026-11-13** (run `run_5512b0b13d6d`,
+mutantes (M1-M8), base `9342dd8`. **A2 pasado a `main` sin commit (2026-11-13).** Siguiente: Hernán commitea A2; después se borra el worktree
+`a2-tools-loans` y se arma el pedido de B (contraseña en una cuenta borrada). Historial: **A2 lanzado a Qwen el
+2026-11-13** (run `run_5512b0b13d6d`,
 dispatch `ctx_6d0651668cfa`, task `task_46f8efbf91b4`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/a2-tools-loans`, base `9342dd8`). Cuando entregue: copiar `src/` antes de
 tocar nada, comparar los `it(` contra `9342dd8`, rojo, mutantes M1-M8 deshechos desde la copia, suite y `tsc -b`,
