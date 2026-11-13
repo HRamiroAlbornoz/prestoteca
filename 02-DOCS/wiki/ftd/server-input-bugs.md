@@ -112,6 +112,16 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
   - C3: la ruta sin body y con `text/plain` → 400 `BAD_REQUEST` (`Missing status`) (2 filas).
   - C4: la ruta con `{ status: 'constructor' }` → 409 `LOAN_TRANSITION_INVALID`, de punta a punta (1 fila).
   - Prueba: C1 y C2 fallan hoy y pasan después; suite del servidor en verde.
+- [ ] **D — Cambiar la contraseña vuelve a funcionar** (sumada el 2026-11-13, bug S1 encontrado en staging). Se quita
+  `updated_at = now()` de `userRepo.updatePassword` y de `userRepo.update`: la tabla `users` no tiene esa columna, así
+  que hoy el cambio de contraseña responde 500 siempre, también en producción. Sin migración. Tests en
+  `userRepo.test.ts`:
+  - D1: el SQL de `updatePassword` no menciona `updated_at` y sigue con `WHERE id = $2 AND deleted_at IS NULL`.
+  - D2: el SQL de `update` no menciona `updated_at`.
+  - D3: cada columna que `userRepo` escribe en `users` existe en las migraciones (lee `001_create_users.sql` y
+    `004_add_users_deleted_at.sql`): la guarda que habría atrapado este bug.
+  - Prueba real: en staging, un cambio de contraseña válido → 204; después, el login con la contraseña vieja → 401 y
+    con la nueva → 200.
 - [ ] **Controles:** en `server/`, `npx vitest run`, `npx tsc -p .` y el lint que tenga, en verde; `rsc risk` del diff
   y la revisión que pida.
 - [ ] **Staging:** los cuatro casos a mano contra staging con `curl` (un número en el login, `"constructor"` como
@@ -351,6 +361,38 @@ script de lint.
 - **Panel registrado:** `npx @ericrisco/rsc review ledger panel error-codes/server-input-bugs --lenses
   correctness,security,tests` → «panel of 3 recorded» sobre `46ae0e6` (el último `docs(auto)` encima de `c061115`).
 
+### Staging (2026-11-13)
+
+- **Deploy:** `railway up -e staging --service prestoteca --ci` (el CLI estaba vinculado a production, así que se
+  pasaron entorno y servicio explícitos) → staging `a0090901` SUCCESS; production sin cambios (`546abcc2`, 00:50).
+  `/api/health` → 200. Node en el contenedor: v20.20.2 (`Object.hasOwn` disponible).
+- **`curl` contra staging, todo como se esperaba** (salidas en el scratchpad de la sesión, carpeta `staging-5b/`):
+  login con `email: 5` y login sin body → 400 `LOGIN_MISSING_FIELDS`; publicar con `name: 5` → 400
+  `TOOL_MISSING_FIELDS`; pedir préstamo sin body → 400 `LOAN_DATES_MISSING`; con `note: 5` → 400 `The note must be
+  text`; estado `"constructor"` y `"__proto__"` → 409 `LOAN_TRANSITION_INVALID`; `["aceptado"]` → 400 `Status must be
+  text`; sin body → 400 `Missing status`; el préstamo sigue `pendiente`; el cambio válido a `rechazado` → 200; editar
+  con `{description: 5, is_paused: true}` → 400 y la herramienta sigue sin pausar. (La primera tanda falló por un
+  dato de prueba mío: la «é» de «eléctricas» mandada desde Git Bash; se repitió con la categoría `Otros`.)
+- **B contra el Postgres real**, desde el contenedor de staging (`railway ssh`; la base no tiene puerto público), con
+  una cuenta borrada desde la app, todo dentro de una transacción con `ROLLBACK`: `findByEmail` con el correo
+  anonimizado → 0 filas; el `UPDATE` con `AND deleted_at IS NULL` → 0 filas; control, el mismo `UPDATE` sin el
+  filtro → 1 fila; después del `ROLLBACK` la fila no tiene la contraseña de prueba. **El filtro protege.**
+- **Bug viejo y grave encontrado (S1):** la tabla `users` **no tiene la columna `updated_at`** (ninguna migración la
+  crea: solo `loans` la tiene), pero `updatePassword` y `userRepo.update` hacen `SET … updated_at = now()`, y eso ya
+  estaba en `origin/main`. Por eso **cambiar la contraseña responde 500 siempre**: comprobado en staging con una
+  cuenta nueva y un cambio válido → 500 `INTERNAL_ERROR` «Failed to change password». Los tests no lo ven porque
+  usan una base falsa. La primera corrida del script de B chocó con eso (`column "updated_at" of relation "users"
+  does not exist`); la prueba de B se hizo sin esa columna. Producción usa las mismas migraciones, así que
+  probablemente pasa lo mismo (sin comprobar). Las migraciones no se corren solas en el deploy (Railway solo hace
+  `cd server && npm start`).
+- **S1 en producción, confirmado (2026-11-13, con el OK de Hernán, solo lectura de `information_schema` desde el
+  contenedor de producción):** columnas de `users` = `id, name, email, password_hash, neighborhood, created_at,
+  deleted_at`. **No hay `updated_at`: hoy en producción nadie puede cambiar su contraseña.**
+- **Decisión de Hernán sobre S1:** sacar `updated_at` del SQL (sin migración), como **tarea D** de este FTD, antes del
+  push. S2 va al backlog como ítem **5f**.
+- **Bug viejo encontrado (S2):** un id que no es UUID en la URL (`/api/tools/not-a-uuid`) → 500 en vez de 404.
+  Postgres rechaza el texto en una columna `uuid`. Un UUID válido que no existe sí da 404. No es de 5b.
+
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
 y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 commiteado en `main` como `9342dd8` (2026-11-13), sin push:** se sube cuando A2, B y C estén y se pruebe en
@@ -359,7 +401,12 @@ staging. Worktree `a1-auth-types` y su rama `HRamiroAlbornoz/a1-auth-types` borr
 mutantes (M1-M8), base `9342dd8`. **A2 commiteado en `main` como `4b266ab` (2026-11-13), sin push.** Worktree `a2-tools-loans` y su rama borrados
 (el worktree era idéntico a `4b266ab`). **B commiteado en `main` como `01ed430` (2026-11-13), sin push.** Worktree `b-deleted-account` y su rama borrados
 (el worktree era idéntico a `01ed430`). **Pedido de C armado (2026-11-13):** `C-brief.md` en el scratchpad de
-la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. **Las 4 tareas commiteadas en `main`, sin push (2026-11-13):** A1 `9342dd8`, A2 `4b266ab`, B `01ed430`, C
+la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. **Staging hecho y tarea D sumada (2026-11-13).** El pedido de D está armado (`D-brief.md` en el scratchpad de la
+sesión: 5 tests D1-D3, 3 mutantes; el helper de D3 se probó contra las migraciones reales y lee las 7 columnas).
+Siguiente: lanzar D a Qwen en el worktree nuevo `d-password-column` (base `56720b2`) cuando Hernán diga que sí; después
+`rsc risk` (tier 2 esperado: `userRepo.ts`), panel, commit, de nuevo a staging (cambio de contraseña → 204, login
+con la vieja → 401, con la nueva → 200), y recién ahí el push. Historial: **las 4 tareas commiteadas en `main`, sin
+push (2026-11-13):** A1 `9342dd8`, A2 `4b266ab`, B `01ed430`, C
 `c061115` (604/604). Worktree `c-loan-status` y su rama borrados (era idéntico a `c061115`). Nota: en `main` el
 control de rsc (`.rsc/asdd-gate.mjs`, línea 345) no pide spec ni panel registrado. Igual va el panel de 3, como se
 acordó. **Cierre, en orden:** (1) panel de 3 sobre el código de `origin/main..main`; (2) staging con
