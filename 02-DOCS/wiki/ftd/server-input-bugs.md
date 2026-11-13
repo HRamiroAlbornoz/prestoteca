@@ -87,7 +87,9 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
   - A2g: publicar, editar y pedir préstamo sin body y con `text/plain` → publicar `TOOL_MISSING_FIELDS`, pedir
     préstamo `LOAN_DATES_MISSING`, editar 404 `TOOL_EDIT_EMPTY` (lo mismo que hoy da un body `{}`) (6 filas).
   - Prueba: los tests nuevos fallan hoy y pasan después; suite del servidor en verde.
-- [ ] **B — Contraseña en una cuenta borrada.** Tests en `userRepo.test.ts` y `meAccountRoutes.test.ts`:
+- [x] **B — Contraseña en una cuenta borrada.** (Hecho y pasado a `main`, esperando el commit de Hernán: ver
+  Evidence, B; 587/587, rojo observado, 8 mutantes de Claude detectados, panel de 3, tier 2 aprobado por Hernán.)
+  Tests en `userRepo.test.ts` y `meAccountRoutes.test.ts`:
   - B1a/B1b: el SQL de `findByEmail` incluye `deleted_at IS NULL`; sin filas (lo que responde Postgres para una
     cuenta borrada) devuelve `null`, así que el login da el mismo 401 que un correo desconocido.
   - B2a/B2b: el SQL de `updatePassword` incluye `deleted_at IS NULL`; devuelve `true` si cambió una fila y `false`
@@ -108,8 +110,9 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
 - [ ] **Controles:** en `server/`, `npx vitest run`, `npx tsc -p .` y el lint que tenga, en verde; `rsc risk` del diff
   y la revisión que pida.
 - [ ] **Staging:** los cuatro casos a mano contra staging con `curl` (un número en el login, `"constructor"` como
-  estado, una lista como estado), con la respuesta copiada. (b) no se puede provocar a mano a tiempo: alcanzan los
-  tests.
+  estado, una lista como estado), con la respuesta copiada. (b) no se puede provocar a mano a tiempo; en su lugar,
+  contra el Postgres de staging: crear una cuenta, borrarla y comprobar que la consulta de `findByEmail` con su
+  correo anonimizado da 0 filas y que el `UPDATE` de `updatePassword` sobre su `id` cambia 0 filas.
 
 ## Evidence
 
@@ -253,6 +256,36 @@ script de lint.
 - **Controles en el worktree:** servidor 30 archivos, **587/587**; `npx tsc -b` exit 0.
 - **Riesgo:** `rsc risk` → **tier 2**, esta vez por B mismo (`userRepo.ts` es clase `auth`): panel de 3 y
   aprobación de Hernán. Panel en curso.
+- **Panel de 3 (2026-11-13):**
+  - Corrección, APPROVE WITH NITS: razonó (no ejecutó) los 5 órdenes posibles con READ COMMITTED y el
+    `SELECT … FOR UPDATE` del borrado; en ninguno queda una contraseña conocida en la fila anonimizada. Si el
+    borrado llega primero, el `UPDATE` espera el bloqueo, vuelve a mirar el `WHERE`, cambia 0 filas → 404; si el
+    cambio llega primero, el borrado pisa la contraseña con una al azar. `findByEmail` solo lo usa el login y
+    `updatePassword` solo esta ruta. El 404 coincide con `errorCodes.ts` y con D7 de la spec. Nits: el regex
+    `/deleted_at IS NULL/` pasaría con `WHERE id = $2 OR deleted_at IS NULL` (B-N1); B3 prueba la reacción de la
+    ruta, no el SQL contra Postgres (B-N2).
+  - Seguridad, APPROVE WITH NITS: una cuenta borrada no entra por ningún lado (login por el correo anonimizado →
+    el mismo `INVALID_CREDENTIALS`; el login sigue haciendo el bcrypt contra el hash falso, así que el tiempo no
+    delata nada). Un error de la base sigue dando 500, no se disfraza de «no encontrada».
+  - **Hallazgo fuera de B (S-Q1), confirmado por Claude en `server/src/modules/middleware/auth.ts`:**
+    `authMiddleware` solo valida la firma y el vencimiento del JWT, no si la cuenta está borrada. Un token de una
+    cuenta recién borrada sigue sirviendo hasta que vence (1 h) en las rutas de herramientas, préstamos y
+    búsqueda, actuando como el usuario anonimizado. Solo `GET /api/me` y `PATCH /me/password` lo revisan.
+    (Claude le había dicho al revisor que el middleware usaba `findActiveById`, sin comprobarlo: era falso.)
+  - Tests, APPROVE WITH NITS: no se borró ni se aflojó ningún test o `expect`; los cambios al helper son los
+    permitidos; B3 pasa por la razón correcta (el snapshot sin `deleted_at` deja seguir a la ruta, y el falso
+    devuelve `false` porque la fila guardada quedó borrada). Mutantes suyos detectados: parámetros al revés, sin
+    `client.release()`, `changed === undefined`. Equivalentes: `rowCount !== 0` y `rowCount === 1` (`pg` nunca da
+    `null` en un `UPDATE` y `id` es la clave). **Sobrevive (B-N1, lo mismo que marcó corrección):**
+    `WHERE email = $1 OR TRUE -- deleted_at IS NULL` pasa los 43 tests, porque el regex solo busca el texto.
+- **Aprobación de Hernán (tier 2) para B: dada el 2026-11-13.** También decidió: cerrar B-N1 (hecho) y llevar
+  S-Q1 (sesión de una cuenta borrada) al backlog como ítem propio, después de C.
+- **Cierre de B-N1 (Claude):** B1a exige `WHERE email = $1 AND deleted_at IS NULL` y B2a
+  `WHERE id = $2 AND deleted_at IS NULL`, la condición entera. Ahora quedan detectados `OR TRUE -- deleted_at IS
+  NULL` en cada consulta y `deleted_at IS NOT NULL`. Como los tests con una base falsa no ejecutan SQL, la prueba
+  de staging corre además las dos consultas contra el Postgres real (ver Checklist, Staging).
+- **Pasado a `main` (carpeta principal, sin commit):** `git apply` del diff del worktree; los 4 archivos son
+  iguales a los del worktree (`cmp`). En `main`: servidor 30 archivos, **587/587**; `npx tsc -b` exit 0.
 
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
@@ -260,7 +293,8 @@ y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 commiteado en `main` como `9342d
 staging. Worktree `a1-auth-types` y su rama `HRamiroAlbornoz/a1-auth-types` borrados (el worktree era idéntico a
 `9342dd8`). **Pedido de A2 armado (2026-11-13):** `A2-brief.md` en el scratchpad de la sesión, 38 filas (A2a-A2g) y 8
 mutantes (M1-M8), base `9342dd8`. **A2 commiteado en `main` como `4b266ab` (2026-11-13), sin push.** Worktree `a2-tools-loans` y su rama borrados
-(el worktree era idéntico a `4b266ab`). **Pedido de B armado (2026-11-13):** `B-brief.md` en el
+(el worktree era idéntico a `4b266ab`). **B pasado a `main` sin commit (2026-11-13).** Siguiente: Hernán commitea B; después se borra el worktree
+`b-deleted-account` y se arma el pedido de C. Historial: **pedido de B armado (2026-11-13):** `B-brief.md` en el
 scratchpad de la sesión, 6 tests (B1a-B4) y 5 mutantes (M1-M5), base `4b266ab`. **B lanzado a Qwen el 2026-11-13** (run
 `run_5512b0b13d6d`, dispatch `ctx_a218a89a8cb4`, task `task_0ea86c5765d9`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/b-deleted-account`, base `4b266ab`). Cuando entregue: copiar `src/` antes
