@@ -160,7 +160,18 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   app lo hace y no daña nada. Tests: falta el caso del `#` → `fixed` con F3f; F3c afirma el foco sin esperar un
   momento más → `irrelevant`, ningún mutante lo aprovecha; componente después de `</main>` → mutante equivalente.
 - **Aprobación de Hernán (tier 2):** dada el 2026-11-13, con F3-1 (scroll al volver atrás) para decidir en staging.
-- **Staging:** pendiente (navegar por la barra, "atrás" y la redirección al login, con captura).
+- **Staging (2026-11-13):** ver [verificación](../sdd/verifications/error-codes-followups-2026-11-13.md). Barra,
+  búsqueda, "atrás" y sesión terminada → bien. **F3-1 resultó al revés:** al volver atrás no pasa nada, pero al ir
+  hacia adelante el foco bajaba la página 53 px y escondía la barra de navegación en el celular.
+- **Arreglo de F3-1 (Claude, con el OK de Hernán):** `.focus({ preventScroll: true })` y test F3g (espía de
+  `focus` que deja pasar la llamada; jsdom no tiene scroll). Rojo: F3g falla con el código anterior. Mutantes: los 6
+  de antes más `.focus()` sin opciones (M6) y `preventScroll: false` (M7), todos detectados. Cliente **482/482**,
+  `tsc -b` y lint exit 0.
+- **Panel tier 2 sobre el arreglo:** seguridad, 0 hallazgos; corrección, 0 bloqueantes (sin `ScrollRestoration`, al
+  ir a una página más larga se mantiene el scroll, como antes de F3 → fuera de alcance; Safari < 15 ignora
+  `preventScroll` y vuelve al scroll de antes → `irrelevant`); tests, 9 mutantes nuevos, sobreviven
+  `scrollIntoView()` y `scrollTo()` después del foco, que F3g no ve → `intentional`, el comentario del test ya dice
+  que mira cómo se pide el foco y el scroll real se comprueba en staging.
 
 ## Next
 
