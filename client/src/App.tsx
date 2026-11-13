@@ -46,7 +46,9 @@ function FocusMainOnPathChange() {
   useEffect(() => {
     if (previousPathname.current === pathname) return
     previousPathname.current = pathname
-    document.getElementById('main')?.focus()
+    // preventScroll: <main> is as tall as the screen, so a plain focus() scrolls it fully into view
+    // and hides the navigation bar on a phone
+    document.getElementById('main')?.focus({ preventScroll: true })
   }, [pathname])
 
   return null

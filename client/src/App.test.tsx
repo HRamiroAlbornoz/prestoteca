@@ -269,4 +269,24 @@ describe('F3 focus on page change', () => {
     await waitFor(() => expect(window.location.hash).toBe('#x'))
     expect(document.activeElement).toBe(box)
   })
+
+  // jsdom has no scrolling, so this checks how the focus is asked for. Without preventScroll, a
+  // phone browser scrolls <main> fully into view and hides the navigation bar (staging, 2026-11-13).
+  it('F3g moves the focus to <main> without scrolling the page', async () => {
+    // A spy that records each call and still runs the real focus()
+    const focusSpy = vi.spyOn(HTMLElement.prototype, 'focus')
+    try {
+      sessionUser = { id: 'user-1', name: 'Ana' }
+      renderAt('/')
+      const nav = await screen.findByRole('navigation', { name: /principal/i })
+      fireEvent.click(await within(nav).findByRole('link', { name: /mis préstamos/i }))
+      await screen.findByRole('heading', { name: /mis préstamos/i })
+
+      const main = screen.getByRole('main')
+      const callsOnMain = focusSpy.mock.calls.filter((_args, i) => focusSpy.mock.contexts[i] === main)
+      expect(callsOnMain).toEqual([[{ preventScroll: true }]])
+    } finally {
+      focusSpy.mockRestore()
+    }
+  })
 })
