@@ -139,6 +139,27 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   `intentional`, igual que F1 y fuera del alcance.
 - **Staging:** no aplica para F2, como en F1; alcanzan los tests.
 
+### F3 (2026-11-13)
+
+- **Hecho por:** Qwen, en el worktree `f3-route-focus` (base `ba52d01`), en una sola entrega con `worker_done`. El
+  diff es el del pedido, sin desvíos: `FocusMainOnPathChange` en `App.tsx` y los tests F3a-F3e. Tocó solo sus 3
+  archivos, no borró ningún `it(` y no agregó `vi.mock`, `writeFileSync`, `execSync`, `spawnSync` ni esperas fijas.
+- **Ajuste (Claude):** test F3f (cambia solo el `#` → el foco no se mueve), que pidió el revisor de tests.
+- **Rojo (Claude):** contra el `App.tsx` de `ba52d01` → fallan F3a, F3d, F3e; pasan F3b, F3c, F3f, como se esperaba.
+- **Mutantes (Claude), todos detectados:** M1 foco también en la primera carga → F3b; M2 clave `pathname + search`
+  → F3c; M5 clave `pathname + hash` → F3f; M3 sin `.focus()` → F3a, F3d, F3e; M4 foco en otro elemento → F3a, F3d,
+  F3e. El revisor de tests probó 9 mutantes más (`location.key`, `setTimeout`, `requestAnimationFrame`, ref sin
+  actualizar, ref en `''`, `blur()`, saltar `/login`, saltar `/`) y todos quedaron detectados.
+- **Controles en el worktree:** cliente 20 archivos, **481/481**; `tsc -b` exit 0; lint exit 0.
+- **Riesgo:** `rsc risk` → **tier 2** (clase `auth`, solo por el nombre de `session.test.tsx`; ahí solo se agregó
+  F3e), 3 revisores y aprobación de Hernán. Seguridad: 0 hallazgos. Corrección: 0 bloqueantes; F3-1 (nit: al volver
+  atrás, `.focus()` sin `preventScroll` puede pisar el scroll que el navegador devuelve) → se mira en staging antes
+  de decidir; F3-2 (nit: `/loans/` o `/Loans` contra `/loans` mueven el foco) → `irrelevant`, ningún enlace de la
+  app lo hace y no daña nada. Tests: falta el caso del `#` → `fixed` con F3f; F3c afirma el foco sin esperar un
+  momento más → `irrelevant`, ningún mutante lo aprovecha; componente después de `</main>` → mutante equivalente.
+- **Aprobación de Hernán (tier 2):** pendiente.
+- **Staging:** pendiente (navegar por la barra, "atrás" y la redirección al login, con captura).
+
 ## Next
 
 F2 commiteada por Hernán en `main` (`ba52d01`). **F3 lanzada a Qwen (2026-11-12)** con el OK de Hernán: worktree
