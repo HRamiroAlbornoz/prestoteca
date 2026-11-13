@@ -812,4 +812,107 @@ describe('loans routes', () => {
     })
   })
 
+  // ============================================================
+  // A2 — wrong-type fields and missing bodies must answer 400, not 500
+  // ============================================================
+
+  describe('A2d wrong-type required dates in POST /api/tools/:id/loans', () => {
+    it.each<[string, number | string[] | object | boolean]>([
+      ['startDate', 5],
+      ['startDate', ['x']],
+      ['startDate', {}],
+      ['startDate', true],
+      ['endDate', 5],
+      ['endDate', ['x']],
+      ['endDate', {}],
+      ['endDate', true],
+    ])('returns 400 LOAN_DATES_MISSING when %s is %j', async (field, wrongValue) => {
+      const { app, tools, mockRepo } = createMockApp()
+      tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1' })
+
+      const res = await request(app)
+        .post('/api/tools/tool-1/loans')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({
+          startDate: field === 'startDate' ? wrongValue : START_DATE,
+          endDate: field === 'endDate' ? wrongValue : END_DATE,
+        })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('LOAN_DATES_MISSING')
+      expect(res.body.error.message).toBe('Missing start or end date')
+      expect(mockRepo.create).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('A2e wrong-type note in POST /api/tools/:id/loans', () => {
+    it.each<[number | string[] | object | boolean]>([
+      [5],
+      [['x']],
+      [{}],
+      [true],
+    ])('returns 400 BAD_REQUEST when note is %j', async (wrongValue) => {
+      const { app, tools, mockRepo } = createMockApp()
+      tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1' })
+
+      const res = await request(app)
+        .post('/api/tools/tool-1/loans')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({
+          startDate: START_DATE,
+          endDate: END_DATE,
+          note: wrongValue,
+        })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('BAD_REQUEST')
+      expect(res.body.error.message).toBe('The note must be text')
+      expect(mockRepo.create).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('A2f note: null is valid', () => {
+    it('returns 201 and note is null', async () => {
+      const { app, tools } = createMockApp()
+      tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1' })
+
+      const res = await request(app)
+        .post('/api/tools/tool-1/loans')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({
+          startDate: START_DATE,
+          endDate: END_DATE,
+          note: null,
+        })
+
+      expect(res.status).toBe(201)
+      expect(res.body.note).toBe(null)
+    })
+  })
+
+  describe('A2g no body and text/plain on loans routes', () => {
+    it.each<[string, string]>([
+      ['POST /api/tools/tool-1/loans no body', 'no_body'],
+      ['POST /api/tools/tool-1/loans text/plain', 'text_plain'],
+    ])('returns 400 LOAN_DATES_MISSING — %s', async (_, mode) => {
+      const { app, tools, mockRepo } = createMockApp()
+      tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1' })
+
+      const base = request(app)
+        .post('/api/tools/tool-1/loans')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+      const res = mode === 'no_body'
+        ? await base
+        : await base.set('Content-Type', 'text/plain').send('hola')
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('LOAN_DATES_MISSING')
+      expect(res.body.error.message).toBe('Missing start or end date')
+      expect(mockRepo.create).not.toHaveBeenCalled()
+    })
+  })
 })

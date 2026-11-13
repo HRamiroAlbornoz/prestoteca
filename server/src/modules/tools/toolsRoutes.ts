@@ -60,11 +60,13 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
       return
     }
 
-    const { name, description, category, condition } = req.body
+    // Express 5 leaves req.body undefined when there is no JSON body
+    const { name, description, category, condition } = req.body ?? {}
 
     // Trim whitespace before validation
-    const trimmedName = name?.trim()
-    const trimmedDescription = description?.trim()
+    // typeof guard: non-string values (number, array, object) are treated as missing
+    const trimmedName = typeof name === 'string' ? name.trim() : undefined
+    const trimmedDescription = typeof description === 'string' ? description.trim() : undefined
 
     if (!trimmedName || !trimmedDescription || !category || !condition) {
       sendErrorCode(res, 'TOOL_MISSING_FIELDS', 'Missing required fields')
@@ -110,11 +112,18 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
       return
     }
 
-    const { name, description, category, condition, is_paused } = req.body
+    // Express 5 leaves req.body undefined when there is no JSON body
+    const { name, description, category, condition, is_paused } = req.body ?? {}
 
     // Pausing is one-way: the spec has no "reactivate", so `true` is the only accepted value
     if (is_paused !== undefined && is_paused !== true) {
       sendErrorCode(res, 'BAD_REQUEST', 'is_paused only accepts true')
+      return
+    }
+
+    // A field that is sent must be text; null, numbers, lists and objects are rejected
+    if ((name !== undefined && typeof name !== 'string') || (description !== undefined && typeof description !== 'string')) {
+      sendErrorCode(res, 'BAD_REQUEST', 'name and description must be text')
       return
     }
 

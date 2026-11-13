@@ -29,12 +29,20 @@ export function loansRoutes(
       return
     }
 
-    const { startDate, endDate, note } = req.body
+    // Express 5 leaves req.body undefined when there is no JSON body
+    const { startDate, endDate, note } = req.body ?? {}
+
+    // The note is optional: missing or null means "no note"; anything else must be text
+    // (numbers, lists, objects and booleans are rejected)
+    if (note !== undefined && note !== null && typeof note !== 'string') {
+      sendErrorCode(res, 'BAD_REQUEST', 'The note must be text')
+      return
+    }
+    const trimmedNote = typeof note === 'string' ? note.trim() : undefined
 
     // Trim whitespace before validation
-    const trimmedStartDate = startDate?.trim()
-    const trimmedEndDate = endDate?.trim()
-    const trimmedNote = note?.trim()
+    const trimmedStartDate = typeof startDate === 'string' ? startDate.trim() : undefined
+    const trimmedEndDate = typeof endDate === 'string' ? endDate.trim() : undefined
 
     if (!trimmedStartDate || !trimmedEndDate) {
       sendErrorCode(res, 'LOAN_DATES_MISSING', 'Missing start or end date')

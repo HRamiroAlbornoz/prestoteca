@@ -733,4 +733,205 @@ describe('tools CRUD routes', () => {
       expect(res.body.error.message).toBe('Not authenticated')
     })
   })
+
+  // ============================================================
+  // A2 — wrong-type fields and missing bodies must answer 400, not 500
+  // ============================================================
+
+  describe('A2a wrong-type required fields in POST /api/tools', () => {
+    it.each<[string, number | string[] | object | boolean]>([
+      ['name', 5],
+      ['name', ['x']],
+      ['name', {}],
+      ['name', true],
+      ['description', 5],
+      ['description', ['x']],
+      ['description', {}],
+      ['description', true],
+    ])('returns 400 TOOL_MISSING_FIELDS when %s is %j', async (field, wrongValue) => {
+      const { app, toolsById } = createMockApp('user-1')
+
+      const res = await request(app)
+        .post('/api/tools')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({
+          name: field === 'name' ? wrongValue : 'Taladro',
+          description: field === 'description' ? wrongValue : 'Un taladro potente',
+          category: 'Herramientas eléctricas',
+          condition: 'bueno',
+        })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('TOOL_MISSING_FIELDS')
+      expect(res.body.error.message).toBe('Missing required fields')
+      expect(toolsById.size).toBe(0)
+    })
+  })
+
+  describe('A2b wrong-type fields in PATCH /api/tools/:id', () => {
+    function addOwnTool(toolsById: Map<string, Tool>): string {
+      const toolId = 'uuid-1'
+      toolsById.set(toolId, {
+        id: toolId,
+        owner_id: 'user-1',
+        name: 'Taladro',
+        description: 'Desc',
+        category: 'Herramientas eléctricas',
+        condition: 'bueno',
+        is_paused: false,
+        deleted_at: null,
+        created_at: new Date().toISOString(),
+      })
+      return toolId
+    }
+
+    it.each<[string, number | string[] | object | boolean | null]>([
+      ['name', 5],
+      ['name', ['x']],
+      ['name', {}],
+      ['name', true],
+      ['name', null],
+      ['description', 5],
+      ['description', ['x']],
+      ['description', {}],
+      ['description', true],
+      ['description', null],
+    ])('returns 400 BAD_REQUEST when %s is %j', async (field, wrongValue) => {
+      const { app, toolsById } = createMockApp('user-1')
+      const toolId = addOwnTool(toolsById)
+
+      const res = await request(app)
+        .patch(`/api/tools/${toolId}`)
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({ [field]: wrongValue })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('BAD_REQUEST')
+      expect(res.body.error.message).toBe('name and description must be text')
+      expect(toolsById.get(toolId)?.name).toBe('Taladro')
+    })
+
+    it('A2c rejects { name: 5, is_paused: true } and leaves is_paused unchanged', async () => {
+      const { app, toolsById } = createMockApp('user-1')
+      const toolId = addOwnTool(toolsById)
+
+      const res = await request(app)
+        .patch(`/api/tools/${toolId}`)
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({ name: 5, is_paused: true })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('BAD_REQUEST')
+      expect(toolsById.get(toolId)?.is_paused).toBe(false)
+    })
+
+    // A2h — the same for description: the type check also runs when the request pauses (review nit A2-N1)
+    it('A2h rejects { description: 5, is_paused: true } and leaves is_paused unchanged', async () => {
+      const { app, toolsById } = createMockApp('user-1')
+      const toolId = addOwnTool(toolsById)
+
+      const res = await request(app)
+        .patch(`/api/tools/${toolId}`)
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({ description: 5, is_paused: true })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('BAD_REQUEST')
+      expect(toolsById.get(toolId)?.is_paused).toBe(false)
+    })
+
+    // A2j — a stranger gets the same 400 as the owner, before any ownership check (review question A2-Q1)
+    it('A2j answers 400 BAD_REQUEST, not 403, to a stranger who sends a wrong type', async () => {
+      const { app, toolsById } = createMockApp('user-2')
+      const toolId = addOwnTool(toolsById) // owned by user-1
+
+      const res = await request(app)
+        .patch(`/api/tools/${toolId}`)
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({ name: 5 })
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('BAD_REQUEST')
+      expect(toolsById.get(toolId)?.name).toBe('Taladro')
+    })
+  })
+
+  // A2i — valid text is still trimmed after the typeof guards (review nit A2-N2)
+  describe('A2i POST /api/tools trims valid text', () => {
+    it('stores name and description without the surrounding spaces', async () => {
+      const { app } = createMockApp('user-1')
+
+      const res = await request(app)
+        .post('/api/tools')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+        .send({
+          name: '  Taladro  ',
+          description: '  Un taladro potente  ',
+          category: 'Herramientas eléctricas',
+          condition: 'bueno',
+        })
+
+      expect(res.status).toBe(201)
+      expect(res.body.name).toBe('Taladro')
+      expect(res.body.description).toBe('Un taladro potente')
+    })
+  })
+
+  describe('A2g no body and text/plain on tools routes', () => {
+    it.each<[string, string]>([
+      ['POST /api/tools no body', 'no_body'],
+      ['POST /api/tools text/plain', 'text_plain'],
+    ])('returns 400 TOOL_MISSING_FIELDS — %s', async (_, mode) => {
+      const { app, toolsById } = createMockApp('user-1')
+
+      const base = request(app)
+        .post('/api/tools')
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+      const res = mode === 'no_body'
+        ? await base
+        : await base.set('Content-Type', 'text/plain').send('hola')
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('TOOL_MISSING_FIELDS')
+      expect(res.body.error.message).toBe('Missing required fields')
+      expect(toolsById.size).toBe(0)
+    })
+
+    it.each<[string, string]>([
+      ['PATCH /api/tools/uuid-1 no body', 'no_body'],
+      ['PATCH /api/tools/uuid-1 text/plain', 'text_plain'],
+    ])('returns 404 TOOL_EDIT_EMPTY — %s', async (_, mode) => {
+      const { app, toolsById } = createMockApp('user-1')
+      const toolId = 'uuid-1'
+      toolsById.set(toolId, {
+        id: toolId,
+        owner_id: 'user-1',
+        name: 'Taladro',
+        description: 'Desc',
+        category: 'Herramientas eléctricas',
+        condition: 'bueno',
+        is_paused: false,
+        deleted_at: null,
+        created_at: new Date().toISOString(),
+      })
+
+      const base = request(app)
+        .patch(`/api/tools/${toolId}`)
+        .set('Authorization', 'Bearer user-1')
+        .set('Origin', 'http://localhost:5173')
+      const res = mode === 'no_body'
+        ? await base
+        : await base.set('Content-Type', 'text/plain').send('hola')
+
+      expect(res.status).toBe(404)
+      expect(res.body.error.code).toBe('TOOL_EDIT_EMPTY')
+    })
+  })
 })
