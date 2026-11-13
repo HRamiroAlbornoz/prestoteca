@@ -233,6 +233,27 @@ script de lint.
   porque editar no valida largo ni vacío (publicar sí pide 3-60 caracteres). Ya pasaba antes de A2. Candidato
   para el backlog, junto con el ítem 6. El panel de 3 sobre todo lo que se suba va antes del push.
 
+### B (2026-11-13)
+
+- **Hecho por:** Qwen, en el worktree `b-deleted-account` (base `4b266ab`), en una sola entrega con `worker_done`.
+  Tocó solo sus 4 archivos. El código es el del pedido: `AND deleted_at IS NULL` en `findByEmail` y en
+  `updatePassword`, `updatePassword` devuelve `boolean`, y la ruta responde 404 `ACCOUNT_NOT_FOUND` si no cambió
+  nada. En los tests, las únicas líneas viejas que cambiaron son las permitidas: el `updatePassword` falso (ahora
+  respeta `deleted_at` y devuelve `true`/`false`), el `return` del helper con `mockUserRepo`, y `poolReturning`
+  movido a nivel de archivo. Los `as unknown as [string, unknown[]]` copian el test existente de `findActiveById`.
+- **Ajustes (Claude):** el comentario de `findByEmail` subió arriba de la consulta; se sacaron los
+  `(client.query as any)` de B2a/B2b, que sobraban (en B2b ni hacía falta: `poolReturning([])` ya da `rowCount` 0).
+- **Rojo (Claude):** contra el `src/` de `4b266ab` fallan B1a, B2a, B2b y B3; B1b y B4 pasan antes y después, como
+  se esperaba (cuidan el comportamiento de hoy).
+- **Mutantes (Claude), deshechos desde una copia, `cmp` final OK, los 5 detectados:** sin el filtro en
+  `findByEmail` → B1a; sin el filtro en `updatePassword` → B2a; `updatePassword` siempre `true` → B2b; la ruta
+  ignora el resultado → B3; la ruta invierte el chequeo → B4 y `returns 204 on successful password change`. (El
+  primer intento de M3 no se aplicó: el script avisó «not found» por un texto de varias líneas; se repitió sobre una
+  sola línea. M2 y M3 se repitieron después de los ajustes.)
+- **Controles en el worktree:** servidor 30 archivos, **587/587**; `npx tsc -b` exit 0.
+- **Riesgo:** `rsc risk` → **tier 2**, esta vez por B mismo (`userRepo.ts` es clase `auth`): panel de 3 y
+  aprobación de Hernán. Panel en curso.
+
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
 y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 commiteado en `main` como `9342dd8` (2026-11-13), sin push:** se sube cuando A2, B y C estén y se pruebe en
