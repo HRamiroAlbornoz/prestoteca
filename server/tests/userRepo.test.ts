@@ -94,6 +94,12 @@ function createMockPool() {
   return { mockPool, mockClient, usersByEmail, usersById }
 }
 
+// Tiny fake pool: checks the SQL and what the method does with the rows
+function poolReturning(rows: unknown[]) {
+  const client = { query: vi.fn(async () => ({ rows, rowCount: rows.length })), release: vi.fn() }
+  return { pool: { connect: vi.fn(async () => client) }, client }
+}
+
 describe('UserRepository', () => {
   let { mockPool, usersByEmail, usersById } = createMockPool()
   let repo: UserRepository
@@ -139,12 +145,6 @@ describe('UserRepository', () => {
   })
 
   describe('findActiveById', () => {
-    // Its own tiny pool: this only checks the SQL and what the method does with the rows
-    function poolReturning(rows: unknown[]) {
-      const client = { query: vi.fn(async () => ({ rows, rowCount: rows.length })), release: vi.fn() }
-      return { pool: { connect: vi.fn(async () => client) }, client }
-    }
-
     it('skips deleted accounts in the query and returns the user', async () => {
       const { pool, client } = poolReturning([{ id: 'user-1', name: 'Ana' }])
       const activeRepo = new UserRepository(pool as never)
@@ -177,6 +177,29 @@ describe('UserRepository', () => {
     it('returns null when email not found', async () => {
       const found = await repo.findByEmail('unknown@example.com')
       expect(found).toBeNull()
+    })
+
+    // B1a — findByEmail must filter deleted accounts
+    it('B1a findByEmail filters deleted accounts (SQL + params + release)', async () => {
+      const { pool, client } = poolReturning([{ id: 'user-1', name: 'Ana', email: 'ana@example.com', password_hash: '$2b$12$xxx', neighborhood: 'Centro', created_at: '2026-01-01' }])
+      const activeRepo = new UserRepository(pool as never)
+
+      const found = await activeRepo.findByEmail('ana@example.com')
+
+      expect(found?.name).toBe('Ana')
+      const [sql, params] = client.query.mock.calls[0] as unknown as [string, unknown[]]
+      // The whole condition, not just the words: "OR deleted_at IS NULL" or a comment would not filter anything
+      expect(sql).toMatch(/WHERE email = \$1 AND deleted_at IS NULL/)
+      expect(params).toEqual(['ana@example.com'])
+      expect(client.release).toHaveBeenCalled()
+    })
+
+    // B1b — findByEmail returns null when no rows (deleted account)
+    it('B1b findByEmail returns null when no rows', async () => {
+      const { pool } = poolReturning([])
+      const activeRepo = new UserRepository(pool as never)
+
+      expect(await activeRepo.findByEmail('deleted@example.com')).toBeNull()
     })
   })
 
@@ -226,6 +249,37 @@ describe('UserRepository', () => {
     it('returns false when user not found', async () => {
       const result = await repo.delete('nonexistent-id')
       expect(result).toBe(false)
+    })
+  })
+
+  describe('updatePassword', () => {
+    // B2a — updatePassword must filter deleted accounts; returns true when a row changed
+    it('B2a updatePassword filters deleted accounts (SQL + params + release + true)', async () => {
+      const { pool, client } = poolReturning([])
+      // An UPDATE returns no rows; rowCount says how many rows it changed
+      client.query.mockImplementationOnce(async () => ({ rows: [], rowCount: 1 }))
+      const pwRepo = new UserRepository(pool as never)
+
+      const result = await pwRepo.updatePassword('user-1', 'hash-x')
+
+      expect(result).toBe(true)
+      const [sql, params] = client.query.mock.calls[0] as unknown as [string, unknown[]]
+      // The whole condition, not just the words (see B1a)
+      expect(sql).toMatch(/WHERE id = \$2 AND deleted_at IS NULL/)
+      expect(params).toEqual(['hash-x', 'user-1'])
+      expect(client.release).toHaveBeenCalled()
+    })
+
+    // B2b — updatePassword returns false when the account was deleted meanwhile
+    it('B2b updatePassword returns false when deleted', async () => {
+      // No rows and rowCount 0: what Postgres answers when the account was already deleted
+      const { pool, client } = poolReturning([])
+      const pwRepo = new UserRepository(pool as never)
+
+      const result = await pwRepo.updatePassword('user-1', 'hash-x')
+
+      expect(result).toBe(false)
+      expect(client.release).toHaveBeenCalled()
     })
   })
 })

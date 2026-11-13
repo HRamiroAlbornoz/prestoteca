@@ -81,7 +81,12 @@ export function meAccountRoutes(
       }
 
       const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS)
-      await userRepo.updatePassword(userId, passwordHash)
+      const changed = await userRepo.updatePassword(userId, passwordHash)
+      if (!changed) {
+        // The account was deleted while this request was running
+        sendErrorCode(res, 'ACCOUNT_NOT_FOUND', 'User not found')
+        return
+      }
 
       res.status(204).send()
     } catch (err: unknown) {

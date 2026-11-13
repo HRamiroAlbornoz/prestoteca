@@ -86,9 +86,10 @@ export class UserRepository {
   async findByEmail(email: string): Promise<User | null> {
     const client = await this.pool.connect()
     try {
+      // A deleted (anonymized) account can never log in again
       const res = await client.query(
         `SELECT id, name, email, password_hash, neighborhood, created_at
-         FROM users WHERE email = $1`,
+         FROM users WHERE email = $1 AND deleted_at IS NULL`,
         [email],
       )
       return (res.rowCount ?? 0) > 0 ? res.rows[0] : null
@@ -156,13 +157,15 @@ export class UserRepository {
     }
   }
 
-  async updatePassword(id: string, passwordHash: string): Promise<void> {
+  async updatePassword(id: string, passwordHash: string): Promise<boolean> {
     const client = await this.pool.connect()
     try {
-      await client.query(
-        `UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2`,
+      const res = await client.query(
+        `UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL`,
         [passwordHash, id],
       )
+      // Returns false when the account was deleted meanwhile: nothing is changed
+      return (res.rowCount ?? 0) > 0
     } finally {
       client.release()
     }

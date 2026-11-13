@@ -39,9 +39,9 @@ function createMockApp() {
     }),
     updatePassword: vi.fn(async (id, hash) => {
       const user = usersById.get(id)
-      if (user) {
-        user.password_hash = hash
-      }
+      if (!user || (user as any).deleted_at) return false
+      user.password_hash = hash
+      return true
     }),
     delete: vi.fn(async (id) => {
       return usersById.delete(id)
@@ -81,7 +81,7 @@ function createMockApp() {
   // The password routes never touch the pool; account deletion has its own tests
   app.use('/api', meAccountRoutes(mockUserRepo as UserRepository, {} as Pool))
 
-  return { app, usersById }
+  return { app, usersById, mockUserRepo }
 }
 
 describe('meAccountRoutes', () => {
@@ -379,6 +379,60 @@ describe('meAccountRoutes', () => {
       expect(res.status).toBe(404)
       expect(res.body.error.code).toBe('ACCOUNT_NOT_FOUND')
       expect(res.body.error.message).toBe('User not found')
+    })
+
+    // B3 — the race: findActiveById returns the user but marks it deleted (simulates deletion committing while bcrypt runs)
+    it('B3 race: account deleted while bcrypt runs → 404', async () => {
+      const { app, usersById, mockUserRepo } = createMockApp()
+
+      usersById.set('user-1', {
+        id: 'user-1',
+        name: 'Ana',
+        email: 'ana@example.com',
+        password_hash: 'hashed_old',
+        neighborhood: 'Centro',
+        created_at: '2026-10-01',
+      })
+
+      // Simulates the deletion committing while bcrypt.compare runs (~200 ms)
+      vi.mocked(mockUserRepo.findActiveById!).mockImplementationOnce(async (id) => {
+        const user = usersById.get(id)!
+        const snapshot = { ...user }
+        ;(user as any).deleted_at = '2026-11-13'
+        return snapshot
+      })
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send({ currentPassword: 'old123', newPassword: 'newpassword123' })
+
+      expect(res.status).toBe(404)
+      expect(res.body.error.code).toBe('ACCOUNT_NOT_FOUND')
+      expect(res.body.error.message).toBe('User not found')
+      expect(usersById.get('user-1')?.password_hash).toBe('hashed_old')
+    })
+
+    // B4 — normal success case with the new fake
+    it('B4 normal success: active user → 204 and password updated', async () => {
+      const { app, usersById } = createMockApp()
+
+      usersById.set('user-1', {
+        id: 'user-1',
+        name: 'Ana',
+        email: 'ana@example.com',
+        password_hash: 'hashed_old',
+        neighborhood: 'Centro',
+        created_at: '2026-10-01',
+      })
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send({ currentPassword: 'old123', newPassword: 'newpassword123' })
+
+      expect(res.status).toBe(204)
+      expect(usersById.get('user-1')?.password_hash).toBe('hashed_newpassword123')
     })
   })
 
