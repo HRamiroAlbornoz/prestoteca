@@ -174,12 +174,20 @@ script de lint.
   - Nit repetido por seguridad y corrección: en el cambio de contraseña, `!currentPassword || !newPassword` es
     redundante para los que no son texto, pero cubre `''` → `intentional`, se deja como está.
 
+### A1 — cierre (2026-11-13)
+
+- **Nits del panel cerrados (Claude, con el OK de Hernán):** A1i, cambio de contraseña con `''` en cada campo → 400 y
+  la contraseña guardada sin cambiar (T2-N1); A1j, login con `true` en cada campo → 400 (T2-N2). Los mutantes que
+  sobrevivían ahora quedan detectados: sin `|| !currentPassword || !newPassword` → las 2 filas de A1i; una guarda de
+  login que rechaza solo números y objetos → su fila de A1j.
+- **Pasado a `main` (carpeta principal, sin commit):** `git apply` del diff del worktree; los 4 archivos son iguales
+  a los del worktree (`cmp`). En `main`: servidor 30 archivos, **540/540**; `npx tsc -b` exit 0.
+
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
-y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 cerrado en el worktree (2026-11-13).** Hernán decide: (1) si los nits T2-N1 y T2-N2 se cierran con 3 filas
-más (`''` en cada campo del cambio de contraseña, `true` en el login) o quedan como `intentional`; (2) cómo pasa A1
-a `main`: copiar el diff del worktree a la carpeta principal y que Hernán lo commitee, sin push hasta que A2, B y C
-estén y se pruebe en staging. Historial: **ronda 2 lanzada el 2026-11-13** al mismo worktree (dispatch
+y la ronda 2 de A1 (A1e-A1h) la hace Qwen. **A1 pasado a `main` sin commit (2026-11-13).** Hernán eligió cerrar los nits (hecho: A1i, A1j) y pasar A1 a `main`
+para commitearlo él, **sin push** hasta que A2, B y C estén y se pruebe en staging. Siguiente: Hernán commitea A1;
+después se borra el worktree `a1-auth-types` y se arma el pedido de A2. Historial: **ronda 2 lanzada el 2026-11-13** al mismo worktree (dispatch
 `ctx_2f570a81b730`, task `task_22d2f11580da`, mismo run; pedido `A1-round2.md` en el scratchpad de la sesión).
 Cuando entregue: comparar los `it(` contra el diff de la ronda 1 (`A1-qwen.diff` en el scratchpad), rojo de A1h,
 mutantes M4-M7 deshechos desde una copia (nunca `git checkout`), suite y `tsc -b`. Antes: A1 lanzado a Qwen el 2026-11-13 (Orca run `run_5512b0b13d6d`, dispatch `ctx_ff5b6d6aeaf4`, task
