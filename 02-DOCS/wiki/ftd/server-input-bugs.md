@@ -298,8 +298,11 @@ staging. Worktree `a1-auth-types` y su rama `HRamiroAlbornoz/a1-auth-types` borr
 mutantes (M1-M8), base `9342dd8`. **A2 commiteado en `main` como `4b266ab` (2026-11-13), sin push.** Worktree `a2-tools-loans` y su rama borrados
 (el worktree era idéntico a `4b266ab`). **B commiteado en `main` como `01ed430` (2026-11-13), sin push.** Worktree `b-deleted-account` y su rama borrados
 (el worktree era idéntico a `01ed430`). **Pedido de C armado (2026-11-13):** `C-brief.md` en el scratchpad de
-la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. Siguiente: lanzarlo a Qwen en el worktree nuevo
-`c-loan-status` cuando Hernán diga que sí. Historial: **pedido de B armado (2026-11-13):** `B-brief.md` en el
+la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. **C lanzado a Qwen el 2026-11-13** (run `run_5512b0b13d6d`,
+dispatch `ctx_99eb80ccd266`, task `task_9ba0c9088d02`, worktree
+`C:/Users/hralb/orca/workspaces/prestoteca/c-loan-status`, base `01ed430`). Cuando entregue: copiar `src/` antes de
+tocar nada, comparar los `it(` y los `expect` contra `01ed430`, rojo, mutantes M1-M5 deshechos desde la copia,
+suite y `tsc -b`, `rsc risk` y la revisión que pida. Historial: **pedido de B armado (2026-11-13):** `B-brief.md` en el
 scratchpad de la sesión, 6 tests (B1a-B4) y 5 mutantes (M1-M5), base `4b266ab`. **B lanzado a Qwen el 2026-11-13** (run
 `run_5512b0b13d6d`, dispatch `ctx_a218a89a8cb4`, task `task_0ea86c5765d9`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/b-deleted-account`, base `4b266ab`). Cuando entregue: copiar `src/` antes
