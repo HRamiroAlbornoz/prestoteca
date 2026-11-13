@@ -92,6 +92,12 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
 
 (Vacío: todavía no se completó ninguna tarea.)
 
+**Base medida (2026-11-13, `927ccf6`):** servidor 30 archivos, **506/506**; `npx tsc -b` exit 0. El servidor no tiene
+script de lint.
+
 ## Next
 
-Mostrarle a Hernán el pedido de A1 para Qwen y lanzarlo cuando diga que sí.
+A1 lanzado a Qwen el 2026-11-13 (Orca run `run_5512b0b13d6d`, dispatch `ctx_ff5b6d6aeaf4`, task
+`task_75a389e45a04`, worktree `C:/Users/hralb/orca/workspaces/prestoteca/a1-auth-types`, base `927ccf6`; pedido en
+el scratchpad de la sesión, `A1-brief.md`). Cuando entregue: correr los checks, comparar los `it(` contra HEAD,
+probar los mutantes M1-M3, `rsc risk` y la revisión que pida.
