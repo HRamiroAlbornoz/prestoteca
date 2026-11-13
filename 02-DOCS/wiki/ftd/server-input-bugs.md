@@ -303,7 +303,15 @@ script de lint.
   listas → las 3 filas de número, objeto y booleano de C2; sin `?? {}` → las 2 de C3.
 - **Controles en el worktree:** servidor 30 archivos, **598/598**; `npx tsc -b` exit 0.
 - **Riesgo:** `rsc risk` → tier 2 solo por lo que arrastra de A1 y B (sin push, ya aprobados); los archivos de C son
-  clase `default` → tier 1: **1 revisor** de contexto fresco, como en A2. En curso.
+  clase `default` → tier 1: **1 revisor** de contexto fresco, como en A2.
+- **Revisor (2026-11-13), APPROVE WITH NITS, 0 bloqueantes:** los cambios válidos y los chequeos de rol no cambian;
+  `''`, `0`, `false` y `null` siguen dando `Missing status`; un préstamo guardado en `vencido` o `devuelto` sigue
+  dando 409; `Object.hasOwn` necesita Node 16.9+ y el proyecto pide `>= 20` (Railpack lee ese `engines`); el
+  mensaje 409 que repite `__proto__` es solo texto en JSON; un desconocido recibe `LOAN_NOT_FOUND` antes de llegar
+  a la tabla. Sobreviven 3 mutantes suyos: (C-N1) poner el chequeo de tipo antes del `Missing status`, porque
+  ninguna fila manda `0`, `false`, `''` o `null` (con el cambio, `{status: 0}` diría `Status must be text`);
+  (C-N2) sacar o cambiar por `in` el `hasOwn` del primer nivel, porque ningún test guarda un préstamo con estado
+  `constructor` (la base no lo permite: es una defensa extra).
 
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
