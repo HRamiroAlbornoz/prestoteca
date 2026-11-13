@@ -157,12 +157,14 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   de decidir; F3-2 (nit: `/loans/` o `/Loans` contra `/loans` mueven el foco) → `irrelevant`, ningún enlace de la
   app lo hace y no daña nada. Tests: falta el caso del `#` → `fixed` con F3f; F3c afirma el foco sin esperar un
   momento más → `irrelevant`, ningún mutante lo aprovecha; componente después de `</main>` → mutante equivalente.
-- **Aprobación de Hernán (tier 2):** pendiente.
+- **Aprobación de Hernán (tier 2):** dada el 2026-11-13, con F3-1 (scroll al volver atrás) para decidir en staging.
 - **Staging:** pendiente (navegar por la barra, "atrás" y la redirección al login, con captura).
 
 ## Next
 
-F2 commiteada por Hernán en `main` (`ba52d01`). **F3 lanzada a Qwen (2026-11-12)** con el OK de Hernán: worktree
-`f3-route-focus`, pedido `F3-brief.md` en el scratchpad de la sesión `19b6ee5a-…`. Al recibir `worker_done`: rojo,
-`it(` contra HEAD, grep de `writeFileSync|execSync|spawnSync|vi.mock`, 4 mutantes, controles, `rsc risk` y prueba a
-mano en staging con captura. Al final: decidir cómo sube todo (push directo a `main` o PR). F1 y F2 siguen sin subir.
+F2 commiteada por Hernán en `main` (`ba52d01`). F3 aprobada y copiada en el `main` local (481/481, `tsc -b` y lint
+en verde), sin commitear: falta que Hernán corra el commit. Después: borrar el worktree `f3-route-focus` y su rama;
+decidir cómo sube todo (push directo a `main` o PR; F3 es tier 2, así que `rsc risk` pide una spec vinculada a la
+rama que pase `npx @ericrisco/rsc spec gate` antes del push o PR); y con F1-F3 en staging, la prueba a mano del
+foco (barra, "atrás", redirección al login) con captura, donde se decide F3-1 (`preventScroll`). F1, F2 y F3 siguen
+sin subir.
