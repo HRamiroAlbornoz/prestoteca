@@ -54,7 +54,7 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   - F1c: "Reintentar" que vuelve a fallar → sigue el error, sigue el botón, y se hicieron 4 pedidos en total.
   - F1d: un 401 `SESSION_REQUIRED` al reintentar → lleva al login (la misma regla de hoy).
   - Prueba: los tests nuevos fallan contra el código de hoy y pasan después; la suite del cliente en verde.
-- [ ] **F2 — Perfil con error de carga.** Tests en `profilePage.test.tsx`:
+- [x] **F2 — Perfil con error de carga.** (Hecho: ver Evidence, F2; tests F2a-F2h.) Tests en `profilePage.test.tsx`:
   - F2a: la carga da 500 → error + "Reintentar"; la única pestaña es "Configuración", elegida, sin "(0)"; no se ve
     "No tenés herramientas publicadas".
   - F2b: desde ese estado se puede cambiar la contraseña (el formulario está y envía).
@@ -65,9 +65,12 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   - F3a: clic en un enlace de la barra que cambia la dirección → `document.activeElement` es `<main>`.
   - F3b: primera carga de la app → el foco **no** está en `<main>`.
   - F3c: en el inicio, escribir en la búsqueda (cambia `?q=`) → el foco sigue en el campo de búsqueda.
-  - F3d: sesión terminada → redirección a `/login?returnTo=…` → el foco está en `<main>` y el aviso sigue en
-    `role="alert"`.
-  - Prueba: F3a y F3d fallan contra el código de hoy; F3b y F3c pasan antes y después; suite en verde.
+  - F3d: "atrás" del navegador (cambia la dirección) → el foco está en `<main>`.
+  - F3e (`session.test.tsx`): sesión terminada → redirección a `/login?returnTo=…` → el foco está en `<main>` y el
+    aviso sigue en `role="alert"`.
+  - Prueba: F3a, F3d y F3e fallan contra el código de hoy; F3b y F3c pasan antes y después; suite en verde.
+  - Caso borde aceptado: abrir directo una página privada sin sesión redirige a `/login`, y eso cambia la dirección,
+    así que el foco va a `<main>`. Está bien: es una página nueva, y el foco estaba en el `<body>`.
 - [ ] **Controles:** `npx vitest run`, `npx tsc -b` y `npm run lint` en `client/` en verde; `axe` sin violaciones en
   los tests de accesibilidad; `rsc risk` del diff y la revisión que pida.
 - [ ] **Staging:** Perfil y Mis préstamos con un error forzado no se pueden provocar en staging sin tocar el
@@ -114,16 +117,31 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   `irrelevant`, porque ya pasaba antes de F1.
 - **Staging:** no aplica para F1 (no se puede forzar un error de carga sin tocar el server); alcanzan los tests.
 
+### F2 (2026-11-12)
+
+- **Hecho por:** Qwen, en el worktree `f2-profile-retry` (base `41f82f8`), en una sola entrega con `worker_done`.
+  Tocó solo sus 2 archivos, no borró ningún `it(` y no usó `writeFileSync|execSync|spawnSync` ni `vi.mock` nuevos.
+  Siguió el patrón de `MyLoansPage.tsx` al pie de la letra. Reportó, sin tocarlos, 5 tests viejos que chocaban: C6 y
+  los 4 C8c afirmaban "No tenés herramientas publicadas" e "Historial (0)" con la carga en error.
+- **Ajustes (Claude):** C6 y C8c ahora piden una sola pestaña, "Configuración", y nada del estado vacío falso. F2a y
+  C8c exigen el texto exacto `^Configuración$` (antes aceptaba "Configuración (0)"). F2b ya no hace clic en
+  "Configuración" antes de llenar el formulario (ese clic tapaba el mutante M3).
+- **Rojo (Claude):** contra el `ProfilePage.tsx` de `41f82f8` → 13 fallan (F2a-F2h, C6, 4 × C8c), 34 pasan.
+- **Mutantes (Claude), todos detectados y verificados como aplicados:** M1 sin `reloadKey` en las dependencias →
+  F2c, F2d, F2g; M2 cinco pestañas con error → C6, C8c, F2a, F2b; M3 `activeTab` en el contenido → F2b, F2h; M4 sin
+  `.focus()` → F2d; M5 foco también en la primera carga → F2e; M6 sin `role="status"` → F2f.
+- **Controles en `main`:** cliente 20 archivos, **475/475**; `tsc -b` exit 0; lint exit 0.
+- **Riesgo:** `rsc risk` → tier 1, 1 revisor de contexto fresco. 0 bloqueantes. N1 (nit: tocar "Configuración" en
+  la vista de error deja esa pestaña elegida tras un reintento bueno) → `intentional`, el pedido pide conservar
+  `activeTab`; N2 (nit: `retriedRef` queda en `true`) → `intentional`, igual que L72 de F1; N3 (nit: con error de
+  carga y de contraseña hay dos `role="alert"`) → `irrelevant`, ningún test lo pisa y los dos avisos son ciertos;
+  N4 (`queryByText('Pala')` pasaba siempre) → `fixed`, se sacó; Q1 (reintento bueno deja el foco en `<body>`) →
+  `intentional`, igual que F1 y fuera del alcance.
+- **Staging:** no aplica para F2, como en F1; alcanzan los tests.
+
 ## Next
 
-**F2 lanzada a Qwen (2026-11-12)** con el OK de Hernán: worktree `f2-profile-retry`, dispatch `ctx_48cc10e48b2d`,
-pedido `F2-brief.md` (copiado al scratchpad de la sesión `19b6ee5a-…`). Al recibir `worker_done`: rojo, `it(`
-contra HEAD, grep de `writeFileSync|execSync|spawnSync`, los 6 mutantes, controles y `rsc risk`.
-
-**Pausa anterior pedida por Hernán (2026-11-12).** F1 está commiteada (`5886274`, `9eb5e2a`) en el `main` local, sin
-subir: `main` va 4 commits por delante de `origin/main`. Al retomar: lanzar F2 (Perfil) a Qwen con el pedido ya
-escrito (`F2-brief.md` en el scratchpad de la sesión
-`C:\Users\hralb\AppData\Local\Temp\claude\eaf61a12bd7fa5c3\338e81f4-df5a-4e7f-a151-797a978a4385\scratchpad\`; si
-se borró, se rehace copiando el patrón de F1: una sola pestaña "Configuración" con el error, `shownTab`, tests
-F2a-F2h y 6 mutantes), preguntándole a Hernán antes. Después F3 (foco al cambiar de pantalla), y al final decidir
-cómo sube todo (push directo a `main` o PR).
+F2 commiteada por Hernán en `main` (`ba52d01`). **F3 lanzada a Qwen (2026-11-12)** con el OK de Hernán: worktree
+`f3-route-focus`, pedido `F3-brief.md` en el scratchpad de la sesión `19b6ee5a-…`. Al recibir `worker_done`: rojo,
+`it(` contra HEAD, grep de `writeFileSync|execSync|spawnSync|vi.mock`, 4 mutantes, controles, `rsc risk` y prueba a
+mano en staging con captura. Al final: decidir cómo sube todo (push directo a `main` o PR). F1 y F2 siguen sin subir.
