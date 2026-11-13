@@ -90,7 +90,25 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
 
 ## Evidence
 
-(Vacío: todavía no se completó ninguna tarea.)
+### A1 (2026-11-13)
+
+- **Hecho por:** Qwen, en el worktree `a1-auth-types` (base `927ccf6`), en una sola entrega con `worker_done`. Tocó
+  solo sus 4 archivos, no borró ni aflojó ningún `it(` y no usó `vi.mock`, `writeFileSync`, `execSync`,
+  `spawnSync` ni esperas fijas. El código es el del pedido: `typeof x === 'string' ? x.trim() : undefined` en
+  registro y login, y `typeof … !== 'string'` en el cambio de contraseña.
+- **Faltó:** A1d no afirmaba que no se escribiera nada. Claude lo agregó (la contraseña guardada sigue siendo la
+  vieja) y aclaró un comentario.
+- **Incidente (Claude):** al probar el segundo mutante, Claude deshizo con `git checkout -- src`, y eso volvió a
+  HEAD y borró los cambios de Qwen, que no estaban commiteados. Se restauraron a mano desde el diff ya leído (mismo
+  `--stat`: 11 líneas agregadas y 7 quitadas en `src/`), y los mutantes se repitieron deshaciendo desde una copia.
+  Regla: en un worktree sin commit, deshacer un mutante desde una copia, nunca con `git checkout`.
+- **Rojo (Claude):** los 10 tests nuevos contra el `src/` de `927ccf6` → los 10 fallan (500).
+- **Mutantes (Claude), todos detectados, uno por guarda:** registro `name`, `email`, `password` y `neighborhood`
+  vueltos a `?.trim()` → falla su fila de A1a (con `email`, también las 2 de A1b); login `email` y `password` → su
+  fila de A1c; sin `typeof currentPassword` y sin `typeof newPassword` → su fila de A1d.
+- **Controles en el worktree:** servidor 30 archivos, **516/516**; `npx tsc -b` exit 0.
+- **Riesgo:** `rsc risk` → **tier 2** (clase `auth`, por `authRoutes.ts`): 3 revisores y aprobación de Hernán. Panel
+  en curso.
 
 **Base medida (2026-11-13, `927ccf6`):** servidor 30 archivos, **506/506**; `npx tsc -b` exit 0. El servidor no tiene
 script de lint.
