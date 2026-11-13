@@ -2,7 +2,10 @@
 author: HRamiroAlbornoz
 branch: feat/error-codes-followups
 spec: error-codes
-status: in-progress
+status: done
+merged: 2026-11-13
+merged_by: HRamiroAlbornoz
+pr: #46
 ---
 # Seguimientos de error-codes: error de carga con Reintentar y foco al cambiar de pantalla
 
@@ -48,30 +51,34 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
 
 ## Checklist
 
-- [ ] **F1 — Mis préstamos con error de carga.** Tests en `myLoans.test.tsx`:
+- [x] **F1 — Mis préstamos con error de carga.** (Hecho: ver Evidence, rondas 1 y 2; más F1e-F1i.) Tests en `myLoans.test.tsx`:
   - F1a: un listado da 500 → se ve el único `role="alert"` con el texto de `INTERNAL_ERROR` y un botón
     "Reintentar"; no hay `role="tab"` ni "No tenés préstamos solicitados".
   - F1b: "Reintentar" con el server ya bien → se ven los dos listados con sus contadores reales y no queda el error.
   - F1c: "Reintentar" que vuelve a fallar → sigue el error, sigue el botón, y se hicieron 4 pedidos en total.
   - F1d: un 401 `SESSION_REQUIRED` al reintentar → lleva al login (la misma regla de hoy).
   - Prueba: los tests nuevos fallan contra el código de hoy y pasan después; la suite del cliente en verde.
-- [ ] **F2 — Perfil con error de carga.** Tests en `profilePage.test.tsx`:
+- [x] **F2 — Perfil con error de carga.** (Hecho: ver Evidence, F2; tests F2a-F2h.) Tests en `profilePage.test.tsx`:
   - F2a: la carga da 500 → error + "Reintentar"; la única pestaña es "Configuración", elegida, sin "(0)"; no se ve
     "No tenés herramientas publicadas".
   - F2b: desde ese estado se puede cambiar la contraseña (el formulario está y envía).
   - F2c: "Reintentar" con el server ya bien → vuelven las cinco pestañas con sus contadores y no queda el error.
   - F2d: "Reintentar" que vuelve a fallar → sigue el error.
   - Prueba: los tests nuevos fallan contra el código de hoy y pasan después; la suite del cliente en verde.
-- [ ] **F3 — Foco al cambiar de pantalla.** Tests con el `App` real (como `App.test.tsx` / `session.test.tsx`):
+- [x] **F3 — Foco al cambiar de pantalla.** (Hecho: ver Evidence, F3; tests F3a-F3f.) Tests con el `App` real (como `App.test.tsx` / `session.test.tsx`):
   - F3a: clic en un enlace de la barra que cambia la dirección → `document.activeElement` es `<main>`.
   - F3b: primera carga de la app → el foco **no** está en `<main>`.
   - F3c: en el inicio, escribir en la búsqueda (cambia `?q=`) → el foco sigue en el campo de búsqueda.
-  - F3d: sesión terminada → redirección a `/login?returnTo=…` → el foco está en `<main>` y el aviso sigue en
-    `role="alert"`.
-  - Prueba: F3a y F3d fallan contra el código de hoy; F3b y F3c pasan antes y después; suite en verde.
-- [ ] **Controles:** `npx vitest run`, `npx tsc -b` y `npm run lint` en `client/` en verde; `axe` sin violaciones en
+  - F3d: "atrás" del navegador (cambia la dirección) → el foco está en `<main>`.
+  - F3e (`session.test.tsx`): sesión terminada → redirección a `/login?returnTo=…` → el foco está en `<main>` y el
+    aviso sigue en `role="alert"`.
+  - Prueba: F3a, F3d y F3e fallan contra el código de hoy; F3b y F3c pasan antes y después; suite en verde.
+  - Caso borde aceptado: abrir directo una página privada sin sesión redirige a `/login`, y eso cambia la dirección,
+    así que el foco va a `<main>`. Está bien: es una página nueva, y el foco estaba en el `<body>`.
+- [x] **Controles:** (Hecho en `main` tras F3: 481/481, `tsc -b` y lint exit 0; `rsc risk` y revisiones en cada
+  ítem, ver Evidence.) `npx vitest run`, `npx tsc -b` y `npm run lint` en `client/` en verde; `axe` sin violaciones en
   los tests de accesibilidad; `rsc risk` del diff y la revisión que pida.
-- [ ] **Staging:** Perfil y Mis préstamos con un error forzado no se pueden provocar en staging sin tocar el
+- [x] **Staging:** (Hecho el 2026-11-13: ver la verificación; F3-1 encontrado y arreglado.) Perfil y Mis préstamos con un error forzado no se pueden provocar en staging sin tocar el
   server, así que alcanzan los tests. El foco sí se prueba a mano en staging (navegar por la barra y por la
   redirección al login), con captura.
 
@@ -94,7 +101,90 @@ Hernán. Claude corre los checks, revisa el diff y aplica la revisión que pida 
   foco se pierde al reintentar y "Cargando..." no se anuncia), L70 (nit: destello de "0 préstamos" con
   `SESSION_REQUIRED`), L71 (pregunta: clics fuera de `act` en F1c/F1d). Los tres van a la ronda 2.
 
-## Next
+### F1 — ronda 2 (2026-11-12)
 
-F1 ronda 2 en Qwen (worktree `f1-round2`, base `5886274`): L69, L70, L71 y los tests F1f-F1i. Después: rojo,
-mutantes, controles y revisor; luego F2 (Perfil).
+- **Hecho por:** Qwen, en el worktree `f1-round2` (base `5886274`), en una sola entrega con `worker_done`. Tocó solo
+  sus 2 archivos y no borró ningún `it(`. Por su cuenta, movió el clic de F1b-F1e para después de preparar las
+  respuestas del reintento (antes andaba de casualidad, por el orden en que corre todo).
+- **Cambios:** L69, el foco vuelve a "Reintentar" solo después de un reintento que falla (`retryButtonRef`,
+  `retriedRef` y un `useEffect` antes de los `return`), y "Cargando..." lleva `role="status"`; L70, con
+  `SESSION_REQUIRED` la pantalla queda en "Cargando..." hasta el login; L71, `fireEvent.click`, y F1c espera los 4
+  pedidos. Tests nuevos: F1f-F1i.
+- **Rojo (Claude):** los tests contra la pantalla de la ronda 1 → fallan F1f, F1h, F1i (F1g pasa antes y después,
+  como se esperaba).
+- **Mutantes (Claude), todos detectados y verificados como aplicados:** sin `.focus()` → F1f; foco también en la
+  primera carga → F1g; sin `role="status"` → F1h; `setLoading(false)` de vuelta con `SESSION_REQUIRED` → F1i.
+- **Controles:** cliente 20 archivos, **467/467**; `tsc -b` exit 0; lint exit 0.
+- **Revisión ronda 2 (1 revisor, solo el diff nuevo):** L69, L70 y L71 verificados → `fixed`. Nuevos: L72 (nit:
+  `retriedRef` queda en `true` si el reintento sale bien; un error posterior por cambio de usuario o de dirección
+  daría el foco a "Reintentar") → `intentional`, porque en ese caso el foco igual se perdería y "Reintentar" es un
+  buen lugar; L73 (pregunta: una recarga por cambio de usuario o de dirección no muestra "Cargando...") →
+  `irrelevant`, porque ya pasaba antes de F1.
+- **Staging:** no aplica para F1 (no se puede forzar un error de carga sin tocar el server); alcanzan los tests.
+
+### F2 (2026-11-12)
+
+- **Hecho por:** Qwen, en el worktree `f2-profile-retry` (base `41f82f8`), en una sola entrega con `worker_done`.
+  Tocó solo sus 2 archivos, no borró ningún `it(` y no usó `writeFileSync|execSync|spawnSync` ni `vi.mock` nuevos.
+  Siguió el patrón de `MyLoansPage.tsx` al pie de la letra. Reportó, sin tocarlos, 5 tests viejos que chocaban: C6 y
+  los 4 C8c afirmaban "No tenés herramientas publicadas" e "Historial (0)" con la carga en error.
+- **Ajustes (Claude):** C6 y C8c ahora piden una sola pestaña, "Configuración", y nada del estado vacío falso. F2a y
+  C8c exigen el texto exacto `^Configuración$` (antes aceptaba "Configuración (0)"). F2b ya no hace clic en
+  "Configuración" antes de llenar el formulario (ese clic tapaba el mutante M3).
+- **Rojo (Claude):** contra el `ProfilePage.tsx` de `41f82f8` → 13 fallan (F2a-F2h, C6, 4 × C8c), 34 pasan.
+- **Mutantes (Claude), todos detectados y verificados como aplicados:** M1 sin `reloadKey` en las dependencias →
+  F2c, F2d, F2g; M2 cinco pestañas con error → C6, C8c, F2a, F2b; M3 `activeTab` en el contenido → F2b, F2h; M4 sin
+  `.focus()` → F2d; M5 foco también en la primera carga → F2e; M6 sin `role="status"` → F2f.
+- **Controles en `main`:** cliente 20 archivos, **475/475**; `tsc -b` exit 0; lint exit 0.
+- **Riesgo:** `rsc risk` → tier 1, 1 revisor de contexto fresco. 0 bloqueantes. N1 (nit: tocar "Configuración" en
+  la vista de error deja esa pestaña elegida tras un reintento bueno) → `intentional`, el pedido pide conservar
+  `activeTab`; N2 (nit: `retriedRef` queda en `true`) → `intentional`, igual que L72 de F1; N3 (nit: con error de
+  carga y de contraseña hay dos `role="alert"`) → `irrelevant`, ningún test lo pisa y los dos avisos son ciertos;
+  N4 (`queryByText('Pala')` pasaba siempre) → `fixed`, se sacó; Q1 (reintento bueno deja el foco en `<body>`) →
+  `intentional`, igual que F1 y fuera del alcance.
+- **Staging:** no aplica para F2, como en F1; alcanzan los tests.
+
+### F3 (2026-11-13)
+
+- **Hecho por:** Qwen, en el worktree `f3-route-focus` (base `ba52d01`), en una sola entrega con `worker_done`. El
+  diff es el del pedido, sin desvíos: `FocusMainOnPathChange` en `App.tsx` y los tests F3a-F3e. Tocó solo sus 3
+  archivos, no borró ningún `it(` y no agregó `vi.mock`, `writeFileSync`, `execSync`, `spawnSync` ni esperas fijas.
+- **Ajuste (Claude):** test F3f (cambia solo el `#` → el foco no se mueve), que pidió el revisor de tests.
+- **Rojo (Claude):** contra el `App.tsx` de `ba52d01` → fallan F3a, F3d, F3e; pasan F3b, F3c, F3f, como se esperaba.
+- **Mutantes (Claude), todos detectados:** M1 foco también en la primera carga → F3b; M2 clave `pathname + search`
+  → F3c; M5 clave `pathname + hash` → F3f; M3 sin `.focus()` → F3a, F3d, F3e; M4 foco en otro elemento → F3a, F3d,
+  F3e. El revisor de tests probó 9 mutantes más (`location.key`, `setTimeout`, `requestAnimationFrame`, ref sin
+  actualizar, ref en `''`, `blur()`, saltar `/login`, saltar `/`) y todos quedaron detectados.
+- **Controles en el worktree:** cliente 20 archivos, **481/481**; `tsc -b` exit 0; lint exit 0.
+- **Riesgo:** `rsc risk` → **tier 2** (clase `auth`, solo por el nombre de `session.test.tsx`; ahí solo se agregó
+  F3e), 3 revisores y aprobación de Hernán. Seguridad: 0 hallazgos. Corrección: 0 bloqueantes; F3-1 (nit: al volver
+  atrás, `.focus()` sin `preventScroll` puede pisar el scroll que el navegador devuelve) → se mira en staging antes
+  de decidir; F3-2 (nit: `/loans/` o `/Loans` contra `/loans` mueven el foco) → `irrelevant`, ningún enlace de la
+  app lo hace y no daña nada. Tests: falta el caso del `#` → `fixed` con F3f; F3c afirma el foco sin esperar un
+  momento más → `irrelevant`, ningún mutante lo aprovecha; componente después de `</main>` → mutante equivalente.
+- **Aprobación de Hernán (tier 2):** dada el 2026-11-13, con F3-1 (scroll al volver atrás) para decidir en staging.
+- **Staging (2026-11-13):** ver [verificación](../sdd/verifications/error-codes-followups-2026-11-13.md). Barra,
+  búsqueda, "atrás" y sesión terminada → bien. **F3-1 resultó al revés:** al volver atrás no pasa nada, pero al ir
+  hacia adelante el foco bajaba la página 53 px y escondía la barra de navegación en el celular.
+- **Arreglo de F3-1 (Claude, con el OK de Hernán):** `.focus({ preventScroll: true })` y test F3g (espía de
+  `focus` que deja pasar la llamada; jsdom no tiene scroll). Rojo: F3g falla con el código anterior. Mutantes: los 6
+  de antes más `.focus()` sin opciones (M6) y `preventScroll: false` (M7), todos detectados. Cliente **482/482**,
+  `tsc -b` y lint exit 0.
+- **Panel tier 2 sobre el arreglo:** seguridad, 0 hallazgos; corrección, 0 bloqueantes (sin `ScrollRestoration`, al
+  ir a una página más larga se mantiene el scroll, como antes de F3 → fuera de alcance; Safari < 15 ignora
+  `preventScroll` y vuelve al scroll de antes → `irrelevant`); tests, 9 mutantes nuevos, sobreviven
+  `scrollIntoView()` y `scrollTo()` después del foco, que F3g no ve → `intentional`, el comentario del test ya dice
+  que mira cómo se pide el foco y el scroll real se comprueba en staging.
+- **Staging con el arreglo (`9101886`, deploy `65521d13`):** al ir a una página nueva y en la sesión terminada, el
+  scroll queda en 0, la barra se ve y el foco está en `<main>`; "atrás" y la búsqueda siguen bien. Hernán aprobó el
+  arreglo al correr el commit `979f386`; panel registrado en `979f386`, `RSC_BRANCH_CHECK_PASS`.
+
+### Merge y producción (2026-11-13)
+
+- PR #46, squash, `641c2d2` en `main`; rama `feat/error-codes-followups` borrada en GitHub y en local. El `main`
+  local se igualó con `git reset --hard origin/main` (sus commits sueltos ya estaban en el squash).
+- Producción: deploy `2e617430` SUCCESS (antes `beeb34e0`); `GET /api/health` → 200 con la base conectada; sirve
+  `assets/index-fm9BFuB_.js`, el mismo archivo verificado en staging.
+
+## Next
+Fusionado en main el 2026-11-13 (641c2d2).
