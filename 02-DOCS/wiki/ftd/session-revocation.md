@@ -104,5 +104,8 @@ limpiando la cookie. **Costo conocido:** `GET /api/me` y `PATCH /me/password` pa
 ## Next
 
 Pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
-viejos listados uno por uno). Siguiente: lanzarlo en el worktree nuevo `r-session-check` (base `05d8d2c` o el `HEAD`
-de ese momento) cuando Hernán diga que sí.
+viejos listados uno por uno). **Lanzado a Qwen el 2026-11-14** (run `run_4c56396f07c4`,
+dispatch `ctx_d7ab4763af76`, task `task_3942c5baf330`, worktree
+`C:/Users/hralb/orca/workspaces/prestoteca/r-session-check`, base `3d29ab0`, con `server/` igual a `05d8d2c`). Cuando
+entregue: copiar los 6 archivos de `src/` antes de tocar nada, comparar `it(` y `expect` contra `3d29ab0` (solo los 4
+cambios permitidos), rojo, M1-M7 deshechos desde la copia, suite y `tsc -b`, `rsc risk` y el panel.
