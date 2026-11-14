@@ -54,29 +54,32 @@ checks, revisa el diff, prueba mutantes y aplica la revisión que pida `rsc risk
 
 ## Checklist
 
-- [ ] **R1 — La huella.** Tests en `server/tests/sessionToken.test.ts` (nuevo):
+- [x] **R1 a R5** hechos (ver Evidence, rondas 1-3; 633/633, 12 mutantes de Claude detectados, panel de 3), en `main`
+  esperando el commit de Hernán y su aprobación de tier 2. Además, W1-W4 en `sessionWiring.test.ts` (la app real).
+- [x] **R1 — La huella.** Tests en `server/tests/sessionToken.test.ts` (nuevo):
   - R1a: `passwordFingerprint` da siempre lo mismo para el mismo hash, son 16 caracteres hexadecimales, cambia si
     cambia el hash y no contiene el hash.
   - R1b: `setSessionCookie` pone la cookie `token` con `httpOnly`, `SameSite=Lax` y 1 hora.
-- [ ] **R2 — Los tokens llevan la huella.** Tests en `authService.test.ts`: el token del registro y el del login traen
+- [x] **R2 — Los tokens llevan la huella.** Tests en `authService.test.ts`: el token del registro y el del login traen
   `pwf` igual a la huella del hash guardado.
-- [ ] **R3 — El control de sesión.** Tests en `middleware.test.ts`, con un repositorio falso:
+- [x] **R3 — El control de sesión.** Tests en `middleware.test.ts`, con un repositorio falso:
   - R3a: token válido, cuenta activa, huella igual → pasa y `req.userId` queda puesto.
   - R3b: token válido de una cuenta borrada (`findActiveById` da `null`) → 401 `SESSION_REQUIRED`.
   - R3c: token válido con otra huella (contraseña cambiada) → 401 `SESSION_REQUIRED`.
   - R3d: token válido sin `pwf` (emitido antes del cambio) → 401 `SESSION_REQUIRED`.
   - R3e: la base falla → 500 `INTERNAL_ERROR` y el pedido no pasa.
   - Los dos tests de hoy (sin token, token inválido) siguen dando 401.
-- [ ] **R4 — Cambiar la contraseña entrega un token nuevo.** Tests en `meAccountRoutes.test.ts`:
+- [x] **R4 — Cambiar la contraseña entrega un token nuevo.** Tests en `meAccountRoutes.test.ts`:
   - R4a: con 204 llega `Set-Cookie` con un token cuyo `pwf` es la huella del hash nuevo.
   - R4b: si el cambio falla (400, 401 o 404), no llega ninguna cookie nueva.
-- [ ] **R5 — Los tests que arman la app real.** En `errors.test.ts`, los dos tests que mandan un token para
+- [x] **R5 — Los tests que arman la app real.** En `errors.test.ts`, los dos tests que mandan un token para
   `user-1` pasan a simular ese usuario (un `findActiveById` falso con un hash cuya huella coincide). Siguen
   comprobando lo mismo de antes: el 404 JSON de una ruta `/api` que no existe y el `OPTIONS` de `/api/health`.
-- [ ] **Controles:** en `server/`, `npx vitest run` y `npx tsc -b` en verde; `rsc risk` y la revisión que pida.
-- [ ] **Medición:** en staging, el promedio de 20 pedidos a una ruta protegida (`GET /api/loans?type=pedidos`), antes
+- [x] **Controles:** (Hecho: 633/633, `tsc -b` exit 0, `rsc risk` tier 2, panel de 3, aprobación de Hernán.) En
+  `server/`, `npx vitest run` y `npx tsc -b` en verde; `rsc risk` y la revisión que pida.
+- [x] **Medición:** (Hecho: mediana 303 ms antes, 292 ms después; sin diferencia medible.) en staging, el promedio de 20 pedidos a una ruta protegida (`GET /api/loans?type=pedidos`), antes
   del deploy y después.
-- [ ] **Staging:** dos sesiones de la misma cuenta (A y B). Cambiar la contraseña desde A → 204 y cookie nueva; B → 401;
+- [x] **Staging:** (Hecho: ver Evidence, «Commit, staging y medición».) Dos sesiones de la misma cuenta (A y B). Cambiar la contraseña desde A → 204 y cookie nueva; B → 401;
   A con la cookie nueva → 200. Borrar la cuenta desde A → 204; la cookie de A reusada en una ruta de préstamos → 401.
 
 ## Evidence
@@ -169,9 +172,44 @@ limpiando la cookie. **Costo conocido:** `GET /api/me` y `PATCH /me/password` pa
   contraseña de punta a punta con `bcrypt` real y el token verificado; W4: la cookie nueva entra y la vieja no); la fila
   de R1a que no podía fallar. Mutantes S1, S2, S4 y S5 a probar.
 
+### R — ronda 3 (2026-11-14)
+
+- **Hecho por:** Qwen, mismo worktree, con `worker_done` esta vez. No tocó `src/` (los 6 archivos iguales a la copia).
+  R4a usa un falso que devuelve una copia y `jwt.verify` con secreto e `issuer`; archivo nuevo `sessionWiring.test.ts`
+  con W1-W4 sobre la app real; la fila de R1a ahora puede fallar.
+- **Ajuste (Claude):** W4 firmaba él mismo el token «nuevo» en vez de usar la cookie que devuelve la app, y no
+  comprobaba el 204 del cambio. Ahora toma la cookie de la respuesta y exige 204 y una sola llamada a `updatePassword`.
+- **Mutantes (Claude), deshechos desde la copia, `cmp` OK, los 4 detectados:** S1, firmar con el hash viejo → R4a, W3,
+  W4; S2, otro secreto → R4a, W3, W4; S4, secreto e `issuer` cambiados en `routes.ts` → W3, W4; S5, escrituras de
+  `/api/tools` sin control → las 3 filas de W1. Sin nada prohibido en los tests nuevos.
+- **Controles:** servidor **32 archivos, 633/633**; `npx tsc -b` exit 0.
+- **Nits que quedan como `intentional`:** la vida del token (`1h`) no está fijada por ningún test (S3, ya de antes); la
+  fila 404 simple de R4b sin chequeo de cookie (esa rama sale antes del código de la cookie).
+- **Pasado a `main` (carpeta principal, sin commit):** los 14 archivos copiados del worktree e iguales (`cmp`); en `main`
+  32 archivos, 633/633, `tsc -b` exit 0.
+
+### Commit, staging y medición (2026-11-14)
+
+- **Commit `aaa1f10` (Hernán), sin push.** Hernán dio la aprobación de tier 2. Worktree `r-session-check` y su rama
+  borrados: el `git diff` solo mostraba como «borrados» los 3 archivos nuevos, que en el worktree no estaban
+  registrados en git; su contenido es igual al del commit. Panel registrado en el ledger (`session-revocation/r`).
+- **Staging (deploy `2cb3e006` SUCCESS; producción sin cambios, `7a4c64da`):** cuenta nueva con dos sesiones, A y B →
+  las dos 200; cambio de contraseña desde A → 204 y cookie nueva; **B → 401** `Invalid or expired token`; **A con su
+  cookie nueva → 200**; borrar la cuenta desde A → 204; **la cookie de A reusada → 401**. Salida en el scratchpad de la
+  sesión, `session-rev/staging-checks.txt`.
+- **No probado en staging:** el rechazo de un token emitido antes del deploy. La cookie que había quedado de la
+  medición ya había vencido (1 h), así que `curl` no la mandó y el 401 fue «Authentication required». Cualquier token
+  de antes ya está vencido. Ese caso lo cubre solo el test R3d.
+- **Medición «después»** (misma cuenta, misma ruta, 3 de calentamiento + 20): 20 × 200, **mediana 292 ms** (antes 303),
+  promedio 294 (antes 299), mínimo 275, máximo 320. **La consulta extra no se nota:** la diferencia es menor que el
+  ruido de la red.
+
 ## Next
 
-Pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
+**Listo para el push (2026-11-14):** `aaa1f10` en `main`, staging probado y medido. Siguiente: Hernán corre
+`git push origin main`; después, comprobar el deploy de producción, `/api/health`, y una prueba con una cuenta de
+prueba en producción (dos sesiones y cambio de contraseña) que se borra al final. Al publicarse, **todas las sesiones
+abiertas en producción se cierran una vez**. Historial: pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
 viejos listados uno por uno). **Lanzado a Qwen el 2026-11-14** (run `run_4c56396f07c4`,
 dispatch `ctx_d7ab4763af76`, task `task_3942c5baf330`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/r-session-check`, base `3d29ab0`, con `server/` igual a `05d8d2c`). Cuando
