@@ -375,6 +375,20 @@ script de lint.
 - **Controles en el worktree:** servidor 30 archivos, **609/609**; `npx tsc -b` exit 0.
 - **Riesgo:** `rsc risk` → **tier 2** por D mismo (`userRepo.ts`, clase `auth`): panel de 3 y aprobación de Hernán.
   Panel en curso.
+- **Seguridad, APPROVE WITH NITS:** la ruta compara la contraseña actual con `bcrypt` antes de escribir; el filtro
+  `deleted_at` sigue; SQL con parámetros; Origin, cookie `httpOnly` y límite de pedidos activos; ningún log guarda
+  contraseñas ni hashes; el 500 de producción no filtraba nada (el texto de `pg` quedaba en el log del servidor).
+  Nits: el límite es por IP y no por cuenta (D-S1); la sesión vieja sigue valiendo hasta 1 h después de cambiar la
+  contraseña (D-S2, ahora alcanzable porque la ruta funciona); se acepta una nueva igual a la actual (D-S3).
+- **Corrección, APPROVE WITH NITS:** revisó **todas las consultas SQL del servidor** contra las migraciones 001-004
+  (`userRepo`, `accountDeletion`, `loanRepo`, `loanService`, `loansRoutes`, `toolRepo`, `searchRepo`, el seed): **no
+  hay otra columna inexistente**. Nadie lee `users.updated_at` (los `updated_at` del cliente son de `loans`, que sí la
+  tiene). El arreglo de B sigue intacto. Nits: la guarda lee solo 001 y 004 a mano, así que una migración futura que
+  toque `users` la haría fallar con código correcto (D-C1); `userRepo.update` no filtra `deleted_at`, pero no tiene
+  quien la llame (D-C2); el lector de la guarda contaría una línea `PRIMARY KEY (...)` o `CONSTRAINT` como columna
+  (D-C3).
+- **Decisión de Hernán:** cerrar D-C1 (la guarda lee todas las migraciones de la carpeta). Se hace cuando termine el
+  revisor de tests, que está mutando en el mismo worktree.
 
 ### Staging (2026-11-13)
 
