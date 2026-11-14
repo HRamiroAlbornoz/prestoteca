@@ -152,6 +152,22 @@ limpiando la cookie. **Costo conocido:** `GET /api/me` y `PATCH /me/password` pa
   vieja y tiene que entrar de nuevo → `intentional`, es seguro (sale, no entra a otra cuenta); (R-C2) una ruta de
   `/api/tools` que no existe pasa dos veces por el control (las que existen responden antes; Claude lo verificó en
   `routes.ts`) → `irrelevant`; (R-C3) el `issuer` no se verifica, ya de antes → `irrelevant` para este cambio.
+- **Tests, CHANGES NEEDED:** no se borró ni se aflojó ningún test viejo; el mapeo está completo. Mutantes suyos
+  detectados: leer solo la cookie o solo el header, la huella del `id` en vez del hash, `findById` en vez de
+  `findActiveById`, huella de 8 caracteres, banderas y vida de la cookie, otro secreto o sin montar el control en
+  `/api` en `routes.ts`, login o registro sin la cookie, registro con la huella equivocada. **Sobreviven 4 que importan,
+  todos errores de conexión que la suite no ve:** (S1) la ruta firma el token nuevo con el hash **viejo** → te saca de
+  tu propio dispositivo; pasa porque el `findActiveById` falso devuelve el mismo objeto que el `updatePassword` falso
+  modifica, y el real devuelve una fila nueva; (S2) R4a solo hace `jwt.decode`, así que otro secreto o `issuer` pasa;
+  (S4) en `routes.ts`, secreto e `issuer` cambiados de lugar al llamar a `meAccountRoutes`; (S5) en `routes.ts`, las
+  escrituras de `/api/tools` sin control de sesión → cualquiera podría crear, editar o borrar herramientas (hueco ya
+  de antes, pero esta tarea reescribió esa línea). Nits: la vida del token (`1h`) no está fijada por ningún test (S3);
+  la fila 404 simple de R4b no mira la cookie; la fila «no contiene el hash» de R1a no puede fallar.
+- **Ronda 3 enviada** (autorizada de antemano): pedido `R-round3.md` en el scratchpad. Solo tests: R4a con un falso
+  que devuelve una copia y `jwt.verify` con secreto e `issuer`; un archivo nuevo `sessionWiring.test.ts` que arma la
+  app real (W1: escrituras de `/api/tools` sin sesión → 401; W2: `GET /api/tools` sigue público; W3: cambio de
+  contraseña de punta a punta con `bcrypt` real y el token verificado; W4: la cookie nueva entra y la vieja no); la fila
+  de R1a que no podía fallar. Mutantes S1, S2, S4 y S5 a probar.
 
 ## Next
 
