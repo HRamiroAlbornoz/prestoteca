@@ -96,4 +96,5 @@ del proyecto (L1a-L3d, 9 mutantes), revisado y reescrito. **Lanzado a Qwen el 20
 `C:/Users/hralb/orca/workspaces/prestoteca/l-malformed-input`, base `24124ab`, con `server/` igual a `a15a5d4`).
 Cuando entregue: copiar los archivos de `src/` antes de tocar nada, comparar `it(` y `expect` contra la base, rojo,
 M1-M9 deshechos desde la copia, suite y `tsc -b`, `rsc risk` y la revisión que pida. Si hay algo para corregir, va a
-Qwen como otra ronda (autorización de Hernán para 5c, que se mantiene).
+Qwen como otra ronda sin preguntar antes: **Hernán confirmó el 2026-11-14 que la autorización de 5c se mantiene para
+este FTD.**
