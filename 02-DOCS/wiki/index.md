@@ -46,6 +46,7 @@ timestamp: 2026-10-04T00:00:00Z
 | "Mis préstamos" muestra el nombre de la herramienta | done | [02-DOCS/wiki/ftd/loan-tool-name.md](./ftd/loan-tool-name.md) |
 | Seguimientos de error-codes: error de carga con Reintentar y foco al cambiar de pantalla | done | [02-DOCS/wiki/ftd/error-codes-followups.md](./ftd/error-codes-followups.md) |
 | Bugs del servidor: datos de tipo incorrecto, contraseña en una cuenta borrada y estados con nombre raro | in-progress | [02-DOCS/wiki/ftd/server-input-bugs.md](./ftd/server-input-bugs.md) |
+| Sesiones que dejan de valer al borrar la cuenta o cambiar la contraseña | in-progress | [02-DOCS/wiki/ftd/session-revocation.md](./ftd/session-revocation.md) |
 
 ## Product docs
 

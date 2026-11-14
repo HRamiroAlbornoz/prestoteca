@@ -1,0 +1,95 @@
+---
+author: HRamiroAlbornoz
+branch: main
+status: in-progress
+---
+# Sesiones que dejan de valer al borrar la cuenta o cambiar la contraseña
+
+## Intent
+
+Ítem 5c del backlog, encontrado por los revisores de seguridad de `server-input-bugs` (tareas B y D). Hoy el control
+de sesión (`server/src/modules/middleware/auth.ts`) solo mira que el token esté bien firmado y no esté vencido. Nunca
+pregunta a la base si esa sesión sigue siendo válida. Por eso un token sigue sirviendo **hasta 1 hora**:
+
+1. **Después de borrar la cuenta**, en las rutas de herramientas, préstamos y búsqueda, actuando como el usuario
+   anonimizado. Solo `GET /api/me` y `PATCH /me/password` lo revisan.
+2. **Después de cambiar la contraseña**, en todos los dispositivos. Esto pasa de verdad desde la tarea D de
+   `server-input-bugs`, que hizo que el cambio de contraseña funcione.
+
+**Decisión de Hernán (2026-11-14): opción A**, consultar la base en cada pedido protegido. La opción B (token de
+acceso de 15 min + token de renovación de 7 días, lo que pide su checklist de auth) queda como ítem **5g** del
+backlog, aparte. La opción C (solo acortar el token) se descartó.
+
+## Scope
+
+**Entra:**
+- **Huella de la contraseña en el token.** El token pasa de `{ id }` a `{ id, pwf }`. `pwf` son los primeros 16
+  caracteres hexadecimales del SHA-256 del `password_hash` guardado. No revela la contraseña ni el hash: es un resumen
+  de un hash de bcrypt, que ya tiene sal. Se crea en un módulo nuevo y chico,
+  `server/src/modules/auth/sessionToken.ts`, junto con la cookie de sesión, que hoy está copiada en dos lugares de
+  `authRoutes.ts`.
+- **El control de sesión consulta la base.** Después de verificar la firma, busca al usuario con `findActiveById`
+  (que ya filtra las cuentas borradas) y compara la huella. Responde 401 `SESSION_REQUIRED` si: el token no trae
+  `pwf` (los emitidos antes de este cambio), la cuenta no existe o está borrada, o la huella no coincide (la
+  contraseña cambió). Si la base falla, responde 500 `INTERNAL_ERROR`: nunca deja pasar el pedido. El control pasa a
+  recibir el repositorio de usuarios y el secreto del JWT como parámetros, en vez de leer el secreto del entorno al
+  cargar el módulo.
+- **Cambiar la contraseña no te saca de tu propio dispositivo.** Si el cambio sale bien (204), la ruta entrega un token
+  nuevo, con la huella nueva, en la misma cookie. Los otros dispositivos quedan afuera.
+- **Medición.** La latencia de una ruta protegida en staging, antes y después (ver Checklist).
+- Tests de cada caso, con el ID en el nombre.
+
+**No entra:**
+- El token corto con renovación (ítem 5g).
+- Verificar el `issuer` del JWT: hoy se firma con `issuer` pero no se comprueba. Se anota como hallazgo si un revisor lo
+  marca.
+- Cambios en la app (cliente): un 401 `SESSION_REQUIRED` ya lleva al login (error-codes).
+
+**Efecto que hay que saber:** al publicar esto, **todas las sesiones abiertas se cierran una vez**, porque los tokens
+de antes no traen `pwf`. Quien esté usando la app tiene que volver a entrar. Los tokens duran 1 hora, así que el
+efecto es el mismo que esperar a que venzan.
+
+**Quién:** el código lo escribe Qwen (OpenCode vía Orca), lanzado después de preguntarle a Hernán. Claude corre los
+checks, revisa el diff, prueba mutantes y aplica la revisión que pida `rsc risk` (tier 2 esperado: toca auth).
+
+## Checklist
+
+- [ ] **R1 — La huella.** Tests en `server/tests/sessionToken.test.ts` (nuevo):
+  - R1a: `passwordFingerprint` da siempre lo mismo para el mismo hash, son 16 caracteres hexadecimales, cambia si
+    cambia el hash y no contiene el hash.
+  - R1b: `setSessionCookie` pone la cookie `token` con `httpOnly`, `SameSite=Lax` y 1 hora.
+- [ ] **R2 — Los tokens llevan la huella.** Tests en `authService.test.ts`: el token del registro y el del login traen
+  `pwf` igual a la huella del hash guardado.
+- [ ] **R3 — El control de sesión.** Tests en `middleware.test.ts`, con un repositorio falso:
+  - R3a: token válido, cuenta activa, huella igual → pasa y `req.userId` queda puesto.
+  - R3b: token válido de una cuenta borrada (`findActiveById` da `null`) → 401 `SESSION_REQUIRED`.
+  - R3c: token válido con otra huella (contraseña cambiada) → 401 `SESSION_REQUIRED`.
+  - R3d: token válido sin `pwf` (emitido antes del cambio) → 401 `SESSION_REQUIRED`.
+  - R3e: la base falla → 500 `INTERNAL_ERROR` y el pedido no pasa.
+  - Los dos tests de hoy (sin token, token inválido) siguen dando 401.
+- [ ] **R4 — Cambiar la contraseña entrega un token nuevo.** Tests en `meAccountRoutes.test.ts`:
+  - R4a: con 204 llega `Set-Cookie` con un token cuyo `pwf` es la huella del hash nuevo.
+  - R4b: si el cambio falla (400, 401 o 404), no llega ninguna cookie nueva.
+- [ ] **R5 — Los tests que arman la app real.** En `errors.test.ts`, los dos tests que mandan un token para
+  `user-1` pasan a simular ese usuario (un `findActiveById` falso con un hash cuya huella coincide). Siguen
+  comprobando lo mismo de antes: el 404 JSON de una ruta `/api` que no existe y el `OPTIONS` de `/api/health`.
+- [ ] **Controles:** en `server/`, `npx vitest run` y `npx tsc -b` en verde; `rsc risk` y la revisión que pida.
+- [ ] **Medición:** en staging, el promedio de 20 pedidos a una ruta protegida (`GET /api/loans?type=pedidos`), antes
+  del deploy y después.
+- [ ] **Staging:** dos sesiones de la misma cuenta (A y B). Cambiar la contraseña desde A → 204 y cookie nueva; B → 401;
+  A con la cookie nueva → 200. Borrar la cuenta desde A → 204; la cookie de A reusada en una ruta de préstamos → 401.
+
+## Evidence
+
+**Base (2026-11-14, `05d8d2c`):** servidor 30 archivos, 610/610; `npx tsc -b` exit 0.
+
+**Medición «antes» (2026-11-14, staging `79839f89`, sin la consulta en el control de sesión):** cuenta de prueba
+`qa-5c-…-measure@example.com`, 3 pedidos de calentamiento y después 20 a `GET /api/loans?type=pedidos` desde la máquina
+de Hernán → 20 × 200, **mediana 303 ms**, promedio 299 ms, mínimo 281 ms, máximo 319 ms. La mayor parte es el viaje de
+red hasta US East; lo que cuenta es la diferencia con la medición «después», hecha igual.
+
+## Next
+
+Pedido para Qwen armado (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
+viejos listados uno por uno). Siguiente: lanzarlo en el worktree nuevo `r-session-check` (base `05d8d2c` o el `HEAD`
+de ese momento) cuando Hernán diga que sí.
