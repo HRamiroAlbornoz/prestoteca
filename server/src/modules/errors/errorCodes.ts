@@ -29,7 +29,7 @@ export const ERROR_CODES = {
   ACCOUNT_HAS_ACTIVE_LOANS: { status: 409 }, // row 16: cannot delete an account with loans in progress
 
   // --- Tools ---
-  TOOL_MISSING_FIELDS: { status: 400 }, // row 17: a required field is missing when publishing
+  TOOL_MISSING_FIELDS: { status: 400 }, // row 17: a required field is missing when publishing or editing
   TOOL_NAME_LENGTH: { status: 400 }, // row 18: name not between 3 and 60 characters
   TOOL_DESCRIPTION_TOO_LONG: { status: 400 }, // row 19: description longer than 500 characters
   TOOL_NOT_FOUND: { status: 404 }, // row 20: the tool does not exist (or was deleted)

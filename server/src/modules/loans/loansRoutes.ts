@@ -3,6 +3,7 @@ import express from 'express'
 import type { LoanService } from './loanService.js'
 import type { AuthRequest } from '../middleware/auth.js'
 import { sendError, sendErrorCode, AppError } from '../errors/AppError.js'
+import { isInvalidIdError } from '../db/pgErrors.js'
 import { todayInAppTimeZone } from './appDate.js'
 
 type QueryFn = (text: string, values?: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>
@@ -68,10 +69,20 @@ export function loansRoutes(
 
     try {
       // Look up the tool's owner and whether it is paused
-      const toolResult = await query(
-        `SELECT owner_id, is_paused FROM tools WHERE id = $1 AND deleted_at IS NULL`,
-        [toolId],
-      )
+      let toolResult
+      try {
+        toolResult = await query(
+          `SELECT owner_id, is_paused FROM tools WHERE id = $1 AND deleted_at IS NULL`,
+          [toolId],
+        )
+      } catch (err: unknown) {
+        // An id that is not a UUID cannot exist
+        if (isInvalidIdError(err)) {
+          sendErrorCode(res, 'TOOL_NOT_FOUND', 'Tool not found')
+          return
+        }
+        throw err
+      }
       const rows = toolResult.rows as Array<{ owner_id: string; is_paused: boolean }>
       if (!rows[0]) {
         sendErrorCode(res, 'TOOL_NOT_FOUND', 'Tool not found')

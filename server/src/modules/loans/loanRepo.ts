@@ -1,3 +1,5 @@
+import { isInvalidIdError } from '../db/pgErrors.js'
+
 export interface CreateLoanInput {
   toolId: string
   borrowerId: string
@@ -53,12 +55,18 @@ export class LoanRepository {
   }
 
   async findById(id: string): Promise<Loan | null> {
-    const result = await this.query(
-      `SELECT * FROM loans WHERE id = $1`,
-      [id],
-    )
-    const rows = result.rows as Loan[]
-    return rows[0] ?? null
+    try {
+      const result = await this.query(
+        `SELECT * FROM loans WHERE id = $1`,
+        [id],
+      )
+      const rows = result.rows as Loan[]
+      return rows[0] ?? null
+    } catch (err: unknown) {
+      // An id that is not a UUID cannot exist: answer "not found" instead of failing
+      if (isInvalidIdError(err)) return null
+      throw err
+    }
   }
 
   async findAllByTool(toolId: string): Promise<Loan[]> {

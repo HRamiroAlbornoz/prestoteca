@@ -97,7 +97,7 @@ function createMockApp(getToday?: () => string) {
 
   app.use('/api', loansRoutes(service, query, getToday))
 
-  return { app, loans, tools, mockRepo }
+  return { app, loans, tools, mockRepo, query }
 }
 
 // Mounts loansRoutes WITHOUT the inline auth middleware, so the route's own
@@ -231,6 +231,50 @@ describe('loans routes', () => {
         code: 'TOOL_NOT_FOUND',
         message: 'Tool not found',
       })
+    })
+
+    it('L3c returns 404 TOOL_NOT_FOUND when tool id is not a UUID (22P02)', async () => {
+      const { app, tools, mockRepo, query } = createMockApp()
+      const err = Object.assign(new Error('invalid input syntax for type uuid'), { code: '22P02' })
+      query.mockRejectedValueOnce(err)
+
+      const res = await request(app)
+        .post('/api/tools/not-a-uuid/loans')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({
+          startDate: START_DATE,
+          endDate: END_DATE,
+        })
+
+      expect(res.status).toBe(404)
+      expect(res.body.error).toEqual({
+        code: 'TOOL_NOT_FOUND',
+        message: 'Tool not found',
+      })
+      expect(mockRepo.create).not.toHaveBeenCalled()
+    })
+
+    // L3e — any OTHER database error is still an error: it must not be hidden as "tool not found"
+    it('L3e returns 500 INTERNAL_ERROR when the tool lookup fails for another reason', async () => {
+      const { app, mockRepo, query } = createMockApp()
+      const err = Object.assign(new Error('connection lost'), { code: '08006' })
+      query.mockRejectedValueOnce(err)
+      const logSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const res = await request(app)
+        .post('/api/tools/tool-1/loans')
+        .set('Authorization', 'Bearer user-2')
+        .set('Origin', 'http://localhost:5173')
+        .send({
+          startDate: START_DATE,
+          endDate: END_DATE,
+        })
+
+      expect(res.status).toBe(500)
+      expect(res.body.error.code).toBe('INTERNAL_ERROR')
+      expect(mockRepo.create).not.toHaveBeenCalled()
+      logSpy.mockRestore()
     })
 
     it('returns 409 when dates overlap', async () => {

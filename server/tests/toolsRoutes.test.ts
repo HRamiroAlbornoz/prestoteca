@@ -934,4 +934,34 @@ describe('tools CRUD routes', () => {
       expect(res.body.error.code).toBe('TOOL_EDIT_EMPTY')
     })
   })
+
+  // L2 — repeated search parameters must be rejected
+  describe('L2 repeated search parameters', () => {
+    it.each<[string]>([
+      ['q=a&q=b'],
+      ['category=a&category=b'],
+      ['neighborhood=a&neighborhood=b'],
+    ])('L2a returns 400 when query has repeated params (%s)', async (queryString) => {
+      const spy = vi.spyOn(SearchService.prototype, 'search').mockResolvedValue({ items: [], total: 0, page: 1, pages: 1 })
+      const { app } = createMockApp('user-1')
+
+      const res = await request(app).get(`/api/tools?${queryString}`).set('Authorization', 'Bearer user-1')
+
+      expect(res.status).toBe(400)
+      expect(res.body.error.code).toBe('BAD_REQUEST')
+      expect(res.body.error.message).toBe('Search parameters must be text')
+      expect(spy).not.toHaveBeenCalled()
+    })
+
+    it('L2b accepts valid search params and calls the search service', async () => {
+      const spy = vi.spyOn(SearchService.prototype, 'search').mockResolvedValue({ items: [], total: 0, page: 1, pages: 1 })
+      const { app } = createMockApp('user-1')
+
+      const res = await request(app).get('/api/tools?q=taladro&category=Otros').set('Authorization', 'Bearer user-1')
+
+      expect(res.status).toBe(200)
+      expect(spy).toHaveBeenCalledTimes(1)
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ q: 'taladro', category: 'Otros' }))
+    })
+  })
 })

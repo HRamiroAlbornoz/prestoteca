@@ -202,6 +202,19 @@ describe('LoanRepository', () => {
     expect(loan).toBeNull()
   })
 
+  it('L3a returns null when findById gets PostgreSQL 22P02 (invalid id)', async () => {
+    const err = Object.assign(new Error('invalid input syntax for type uuid'), { code: '22P02' })
+    const repo2 = new LoanRepository(vi.fn().mockRejectedValue(err))
+    const result = await repo2.findById('not-a-uuid')
+    expect(result).toBeNull()
+  })
+
+  it('L3b re-throws non-22P02 errors (e.g. connection lost)', async () => {
+    const err = Object.assign(new Error('connection lost'), { code: '08006' })
+    const repo2 = new LoanRepository(vi.fn().mockRejectedValue(err))
+    await expect(repo2.findById('loan-1')).rejects.toBe(err)
+  })
+
   it('finds loan by id', async () => {
     const created = await repo.create({
       toolId: 'tool-1',

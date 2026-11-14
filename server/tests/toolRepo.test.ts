@@ -284,6 +284,19 @@ describe('ToolRepository', () => {
       const tool = await repo.findById('uuid-nonexistent')
       expect(tool).toBeNull()
     })
+
+    it('L3a returns null when findById gets PostgreSQL 22P02 (invalid id)', async () => {
+      const err = Object.assign(new Error('invalid input syntax for type uuid'), { code: '22P02' })
+      const repo2 = new ToolRepository({ query: vi.fn().mockRejectedValue(err) } as never)
+      const result = await repo2.findById('not-a-uuid')
+      expect(result).toBeNull()
+    })
+
+    it('L3b re-throws non-22P02 errors (e.g. connection lost)', async () => {
+      const err = Object.assign(new Error('connection lost'), { code: '08006' })
+      const repo2 = new ToolRepository({ query: vi.fn().mockRejectedValue(err) } as never)
+      await expect(repo2.findById('uuid-1')).rejects.toBe(err)
+    })
   })
 
   describe('findByOwner', () => {
@@ -345,11 +358,25 @@ describe('ToolRepository', () => {
       ['a 2-character name', { name: 'Ab' }, 'TOOL_NAME_LENGTH', 'Name must be between 3 and 60 characters'],
       ['a 61-character name', { name: 'A'.repeat(61) }, 'TOOL_NAME_LENGTH', 'Name must be between 3 and 60 characters'],
       ['a 501-character description', { description: 'x'.repeat(501) }, 'TOOL_DESCRIPTION_TOO_LONG', 'Description must be at most 500 characters'],
+      ['an empty description', { description: '' }, 'TOOL_MISSING_FIELDS', 'Description is required'],
       ['an unknown category', { category: 'Juguetes' }, 'BAD_REQUEST', 'Invalid category'],
       ['an unknown condition', { condition: 'roto' }, 'BAD_REQUEST', 'Invalid condition'],
     ])('rejects %s with %s and writes nothing', async (_case, updates, code, message) => {
       await expect(repo.update('uuid-1', updates)).rejects.toMatchObject({ code, status: 400, message })
       expect(queries.some((q) => q.text.includes('UPDATE tools SET'))).toBe(false)
+    })
+
+    it('L1b rejects description of only spaces with TOOL_MISSING_FIELDS', async () => {
+      await expect(repo.update('uuid-1', { description: '   ' })).rejects.toMatchObject({
+        code: 'TOOL_MISSING_FIELDS',
+        status: 400,
+      })
+      expect(queries.some((q) => q.text.includes('UPDATE tools SET'))).toBe(false)
+    })
+
+    it('L1c accepts a valid description and sends an UPDATE', async () => {
+      await repo.update('uuid-1', { description: 'Un taladro' })
+      expect(queries.some((q) => q.text.includes('UPDATE tools SET'))).toBe(true)
     })
 
     it('writes every valid field it gets, including is_paused', async () => {

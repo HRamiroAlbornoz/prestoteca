@@ -19,6 +19,14 @@ export function toolsRoutes(service: ToolService, searchService: SearchService):
       return
     }
 
+    // A repeated parameter (?q=a&q=b) arrives as a list: the search only understands text
+    for (const value of [q, category, neighborhood]) {
+      if (value !== undefined && typeof value !== 'string') {
+        sendErrorCode(res, 'BAD_REQUEST', 'Search parameters must be text')
+        return
+      }
+    }
+
     searchService.search({
       q: q as string | undefined,
       category: category as string | undefined,

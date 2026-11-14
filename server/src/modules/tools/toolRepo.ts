@@ -1,5 +1,6 @@
 import type { Pool } from 'pg'
 import { AppError } from '../errors/AppError.js'
+import { isInvalidIdError } from '../db/pgErrors.js'
 
 export interface Tool {
   id: string
@@ -84,11 +85,17 @@ export class ToolRepository {
   }
 
   async findById(id: string): Promise<Tool | null> {
-    const res = await this.pool.query(
-      `SELECT * FROM tools WHERE id = $1 AND deleted_at IS NULL`,
-      [id],
-    )
-    return res.rows[0] ?? null
+    try {
+      const res = await this.pool.query(
+        `SELECT * FROM tools WHERE id = $1 AND deleted_at IS NULL`,
+        [id],
+      )
+      return res.rows[0] ?? null
+    } catch (err: unknown) {
+      // An id that is not a UUID cannot exist: answer "not found" instead of failing
+      if (isInvalidIdError(err)) return null
+      throw err
+    }
   }
 
   async findByOwner(ownerId: string): Promise<Tool[]> {
@@ -165,6 +172,10 @@ export class ToolRepository {
     }
 
     if (updates.description !== undefined) {
+      // Publishing requires a description, so editing cannot leave it empty
+      if (!updates.description.trim()) {
+        throw new AppError('TOOL_MISSING_FIELDS', 'Description is required')
+      }
       if (updates.description.length > 500) {
         throw new AppError('TOOL_DESCRIPTION_TOO_LONG', 'Description must be at most 500 characters')
       }
