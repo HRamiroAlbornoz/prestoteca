@@ -361,6 +361,21 @@ script de lint.
 - **Panel registrado:** `npx @ericrisco/rsc review ledger panel error-codes/server-input-bugs --lenses
   correctness,security,tests` → «panel of 3 recorded» sobre `46ae0e6` (el último `docs(auto)` encima de `c061115`).
 
+### D (2026-11-14)
+
+- **Hecho por:** Qwen, en el worktree `d-password-column` (base `bbc1b98`), en una sola entrega con `worker_done`.
+  Tocó solo sus 2 archivos, no borró ni cambió ninguna línea de test y no usó nada de lo prohibido (los
+  `as unknown as [string, unknown[]]` copian el patrón que ya tenía el archivo). El código es el del pedido: sin
+  `updated_at` en `updatePassword` ni en `update`, más el comentario sobre la clase.
+- **Rojo (Claude):** contra el `src/` de `bbc1b98` fallan D1, D2, D3a y D3b; el test del helper de D3 pasa antes y
+  después, como se esperaba.
+- **Mutantes (Claude), deshechos desde una copia, `cmp` final OK, los 3 detectados:** `updated_at` de vuelta en
+  `updatePassword` → D1 y D3a; de vuelta en `update` → D2 y D3b; una columna inventada `changed` → solo D3a (D1 no
+  la ve: para eso está la guarda).
+- **Controles en el worktree:** servidor 30 archivos, **609/609**; `npx tsc -b` exit 0.
+- **Riesgo:** `rsc risk` → **tier 2** por D mismo (`userRepo.ts`, clase `auth`): panel de 3 y aprobación de Hernán.
+  Panel en curso.
+
 ### Staging (2026-11-13)
 
 - **Deploy:** `railway up -e staging --service prestoteca --ci` (el CLI estaba vinculado a production, así que se
