@@ -91,5 +91,9 @@ se rompe.
 ## Next
 
 Pedido para Qwen armado (2026-11-14): `C:\Users\hralb\AppData\Local\Temp\claude\prestoteca-briefs\L-brief.md`, fuera
-del proyecto (L1a-L3d, 9 mutantes), revisado y reescrito. Siguiente: lanzarlo a Qwen en el worktree nuevo
-`l-malformed-input` cuando Hernán diga que sí.
+del proyecto (L1a-L3d, 9 mutantes), revisado y reescrito. **Lanzado a Qwen el 2026-11-14** (run
+`run_4c56396f07c4`, dispatch `ctx_7854344edd43`, task `task_308b5038d70a`, worktree
+`C:/Users/hralb/orca/workspaces/prestoteca/l-malformed-input`, base `24124ab`, con `server/` igual a `a15a5d4`).
+Cuando entregue: copiar los archivos de `src/` antes de tocar nada, comparar `it(` y `expect` contra la base, rojo,
+M1-M9 deshechos desde la copia, suite y `tsc -b`, `rsc risk` y la revisión que pida. Si hay algo para corregir, va a
+Qwen como otra ronda (autorización de Hernán para 5c, que se mantiene).
