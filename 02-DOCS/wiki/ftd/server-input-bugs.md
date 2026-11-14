@@ -2,7 +2,10 @@
 author: HRamiroAlbornoz
 branch: main
 spec: error-codes
-status: in-progress
+status: done
+merged: 2026-11-14
+merged_by: HRamiroAlbornoz
+pushed: 2c0e3d9
 ---
 # Bugs del servidor: datos de tipo incorrecto, contraseña en una cuenta borrada y estados con nombre raro
 
@@ -167,8 +170,6 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
 
 **Base medida (2026-11-13, `927ccf6`):** servidor 30 archivos, **506/506**; `npx tsc -b` exit 0. El servidor no tiene
 script de lint.
-
-## Next
 
 ### A1 — ronda 2 (2026-11-13)
 
@@ -445,6 +446,12 @@ script de lint.
   push. S2 va al backlog como ítem **5f**.
 - **Bug viejo encontrado (S2):** un id que no es UUID en la URL (`/api/tools/not-a-uuid`) → 500 en vez de 404.
   Postgres rechaza el texto en una columna `uuid`. Un UUID válido que no existe sí da 404. No es de 5b.
+
+## Next
+
+En producción el 2026-11-14 (A1 `9342dd8`, A2 `4b266ab`, B `01ed430`, C `c061115`, D `2c0e3d9`). Cerrado a mano por
+pedido de Hernán: se subió directo a `main`, sin el merge con el que rsc cierra los FTD solo. Lo que sigue a
+continuación es el historial de decisiones y pasos de este FTD, de lo más viejo a lo más nuevo.
 
 **Aprobación de Hernán (tier 2) para A1: dada el 2026-11-13**, con la condición de que la ronda 2 agregue los tests
 que faltan (T-N1 a T-N3). También decidió: Q1 (pedido sin body) entra a este FTD, en cada tarea (ver Scope, (a')),
