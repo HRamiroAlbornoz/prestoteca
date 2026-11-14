@@ -403,7 +403,9 @@ mutantes (M1-M8), base `9342dd8`. **A2 commiteado en `main` como `4b266ab` (2026
 (el worktree era idéntico a `01ed430`). **Pedido de C armado (2026-11-13):** `C-brief.md` en el scratchpad de
 la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. **Staging hecho y tarea D sumada (2026-11-13).** El pedido de D está armado (`D-brief.md` en el scratchpad de la
 sesión: 5 tests D1-D3, 3 mutantes; el helper de D3 se probó contra las migraciones reales y lee las 7 columnas).
-Siguiente: lanzar D a Qwen en el worktree nuevo `d-password-column` (base `56720b2`) cuando Hernán diga que sí; después
+**D lanzado a Qwen el 2026-11-14** (run nuevo `run_4c56396f07c4`, dispatch `ctx_75eb17acf7e8`, task
+`task_a43ae404e232`, worktree `C:/Users/hralb/orca/workspaces/prestoteca/d-password-column`, base `bbc1b98`). Cuando
+entregue: copiar `userRepo.ts` antes de tocar nada, comparar los `it(` y `expect` contra `bbc1b98`, rojo, M1-M3; después
 `rsc risk` (tier 2 esperado: `userRepo.ts`), panel, commit, de nuevo a staging (cambio de contraseña → 204, login
 con la vieja → 401, con la nueva → 200), y recién ahí el push. Historial: **las 4 tareas commiteadas en `main`, sin
 push (2026-11-13):** A1 `9342dd8`, A2 `4b266ab`, B `01ed430`, C
