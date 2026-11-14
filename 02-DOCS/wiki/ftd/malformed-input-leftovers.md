@@ -1,9 +1,12 @@
 ---
 author: HRamiroAlbornoz
 branch: main
-status: in-progress
+status: done
+merged: 2026-11-14
+merged_by: HRamiroAlbornoz
+pushed: df93b00
 ---
-# Datos mal armados que quedaban: nombre vacío al editar, búsqueda con parámetros repetidos e id que no es UUID
+# Datos mal armados que quedaban: descripción vacía al editar, búsqueda con parámetros repetidos e id que no es UUID
 
 ## Intent
 
@@ -50,16 +53,18 @@ checks, revisa el diff, prueba mutantes y aplica la revisión que pida `rsc risk
 
 ## Checklist
 
-- [ ] **L1 — (5d) Editar no deja la descripción vacía.** Tests en `toolRepo.test.ts`:
+- [x] **L1-L3, Controles y Staging hechos** (ver Evidence, L): commits `90c67e3` y el del byte nulo, 654/654, rojo
+  observado, 11 mutantes de Claude detectados, 1 revisor, staging con las 6 rutas con id inválido y `%00` → 404.
+- [x] **L1 — (5d) Editar no deja la descripción vacía.** Tests en `toolRepo.test.ts`:
   - L1a: una fila más en el `it.each` que ya prueba las reglas de `update`: descripción `''` → `TOOL_MISSING_FIELDS`
     y no se escribe nada.
   - L1b: descripción `'   '` (por si alguien llama sin recortar) → `TOOL_MISSING_FIELDS` y no se escribe nada.
   - L1c: una descripción válida se sigue guardando.
-- [ ] **L2 — (5e) La búsqueda rechaza parámetros que no son texto.** Tests en `toolsRoutes.test.ts`:
+- [x] **L2 — (5e) La búsqueda rechaza parámetros que no son texto.** Tests en `toolsRoutes.test.ts`:
   - L2a: `?q=a&q=b`, `?category=a&category=b` y `?neighborhood=a&neighborhood=b` → 400 `BAD_REQUEST`; el servicio de
     búsqueda no se llamó.
   - L2b: `?q=taladro` sigue llegando al servicio como texto.
-- [ ] **L3 — (5f) Un id inválido es «no existe».** Tests en `toolRepo.test.ts`, `loanRepo.test.ts` y
+- [x] **L3 — (5f) Un id inválido es «no existe».** Tests en `toolRepo.test.ts`, `loanRepo.test.ts` y
   `loansRoutes.test.ts`:
   - L3a: `findById` con una base falsa que tira un error con `code: '22P02'` → devuelve `null`, en los dos
     repositorios.
@@ -67,10 +72,10 @@ checks, revisa el diff, prueba mutantes y aplica la revisión que pida `rsc risk
     esconde como «no existe»).
   - L3c: `POST /api/tools/:id/loans` cuando la búsqueda de la herramienta tira `22P02` → 404 `TOOL_NOT_FOUND`.
   - L3d: el helper `isInvalidIdError` reconoce `22P02` y nada más.
-- [ ] **Controles:** en `server/`, `npx vitest run` y `npx tsc -b` en verde; `rsc risk` y la revisión que pida.
-- [ ] **Staging:** `GET /api/tools/not-a-uuid` → 404; `GET /api/loans/not-a-uuid` con sesión → 404;
+- [x] **Controles:** en `server/`, `npx vitest run` y `npx tsc -b` en verde; `rsc risk` y la revisión que pida.
+- [x] **Staging:** `GET /api/tools/not-a-uuid` → 404; `GET /api/loans/not-a-uuid` con sesión → 404;
   `GET /api/tools?q=a&q=b` → 400; editar una herramienta propia con `{"description":"   "}` → 400 y la descripción no
-  cambia.
+  cambia. Además, la pregunta del revisor: `GET /api/tools/%00` (un byte nulo), para ver qué responde.
 
 ## Evidence
 
@@ -105,12 +110,45 @@ se rompe.
   (M4 y M6 no se aplicaron la primera vez, porque el texto buscado ocupaba dos líneas; el script lo avisó y se
   repitieron sobre una línea.)
 - **Riesgo:** `rsc risk` → tier 2, pero solo por un documento: compara contra GitHub y cuenta el FTD de 5c, que habla de
-  tokens. Los archivos de código son clase `default` → tier 1: **1 revisor** de contexto fresco, como en A2 y C. En
-  curso.
+  tokens. Los archivos de código son clase `default` → tier 1: **1 revisor** de contexto fresco, como en A2 y C.
+- **Revisor (2026-11-14), APPROVE WITH NITS:** las 6 rutas con id llegan a Postgres solo por una consulta ya mapeada
+  (las escrituras siempre van después de un `findById`; `meRoutes` y `meAccountRoutes` no reciben ids de la URL); la
+  regla de la descripción vacía no toca publicar (`create`) ni un PATCH que solo pausa o cambia la categoría; la app
+  arma la búsqueda con `URLSearchParams` de un objeto, así que nunca repite un parámetro; atajar `22P02` es seguro,
+  porque en las tres consultas el único valor que puede fallar el formato es el id. **Should-fix (L-R1):** nada
+  probaba que otro error de la base en la búsqueda de `POST /tools/:id/loans` siga siendo 500; el mutante
+  `if (isInvalidIdError(err))` → `if (true)` sobrevivía y habría escondido una caída de la base como «herramienta no
+  encontrada». Nits: no hay test de ruta con `not-a-uuid` para herramientas y préstamos (lo cubren los de repositorio
+  y la prueba de staging) → `intentional`; un id con un byte nulo (`%00`) podría dar otro código de Postgres y 500 →
+  se prueba en staging.
+- **Cierre de L-R1 (Claude):** test nuevo L3e: la búsqueda de la herramienta falla con `08006` → 500
+  `INTERNAL_ERROR` y no se crea el préstamo. Ahora el mutante `if (true)` falla en L3e, y M8 (`if (false)`) sigue
+  fallando en L3c.
+- **Pasado a `main` (carpeta principal, sin commit):** los 11 archivos copiados del worktree e iguales (`cmp`); en
+  `main` 33 archivos, **653/653**, `tsc -b` exit 0.
+- **Commit `90c67e3` (Hernán, 2026-11-14), sin push.** Worktree `l-malformed-input` y su rama borrados (los 11
+  archivos iguales al commit, sin contar los finales de línea).
+- **Staging (deploy `24c94027` SUCCESS; producción sin cambios, `18131e4b`)**, con una cuenta de prueba borrada al
+  final: editar con `{"description":"   "}` → 400 `TOOL_MISSING_FIELDS` y la descripción no cambió; `?q=a&q=b` → 400 y
+  una búsqueda normal → 200; con `not-a-uuid`, ver/editar/borrar herramienta, pedir préstamo, ver préstamo y cambiar su
+  estado → **los 6 dan 404**.
+- **Encontrado en staging (L-S1):** `GET /api/tools/%00` (un byte nulo en el id) → **500**. El log de staging muestra el
+  código de Postgres: **`22021`** (`invalid byte sequence for encoding "UTF8": 0x00`), que `isInvalidIdError` no
+  reconoce. Es otro id inválido, así que entra en 5f.
+- **Arreglo de L-S1 (Claude, por decisión de Hernán):** `isInvalidIdError` reconoce `22P02` y `22021` (una lista
+  `INVALID_ID_CODES`) y solo si el código es texto. Test primero: la fila `{ code: '22021' } → true` en L3d falló con el
+  código anterior. Mutantes, deshechos desde una copia con `cmp` OK: solo `22P02` → falla la fila `22021`; cualquier
+  código → falla la fila `23505`. Servidor 33 archivos, **654/654**; `tsc -b` exit 0. Staging (deploy `c8e96745`,
+  subido desde la carpeta sin commit; producción sin cambios): `/api/tools/%00`, `/api/tools/not-a-uuid` y un UUID que no
+  existe → **los tres 404** `TOOL_NOT_FOUND`.
 
 ## Next
 
-Pedido para Qwen armado (2026-11-14): `C:\Users\hralb\AppData\Local\Temp\claude\prestoteca-briefs\L-brief.md`, fuera
+**En producción el 2026-11-14.** Commits `90c67e3` (5d, 5e, 5f) y `df93b00` (el byte nulo), push `a15a5d4..df93b00`.
+Deploy de producción `3e5fac56` **SUCCESS**; pruebas de solo lectura: `/api/health` → 200; `/api/tools/not-a-uuid` y
+`/api/tools/%00` → 404 `TOOL_NOT_FOUND`; `?q=a&q=b` → 400; `?q=taladro` → 200. Cerrado a mano por pedido de Hernán: se
+subió directo a `main`, sin el merge con el que rsc cierra los FTD solo. Historial:
+pedido para Qwen armado (2026-11-14): `C:\Users\hralb\AppData\Local\Temp\claude\prestoteca-briefs\L-brief.md`, fuera
 del proyecto (L1a-L3d, 9 mutantes), revisado y reescrito. **Lanzado a Qwen el 2026-11-14** (run
 `run_4c56396f07c4`, dispatch `ctx_7854344edd43`, task `task_308b5038d70a`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/l-malformed-input`, base `24124ab`, con `server/` igual a `a15a5d4`).
