@@ -2,9 +2,11 @@ import { describe, expect, it, vi, beforeEach, afterAll } from 'vitest'
 import request from 'supertest'
 import express from 'express'
 import cookieParser from 'cookie-parser'
+import jwt from 'jsonwebtoken'
 import type { Pool } from 'pg'
 import { UserRepository, type User } from '../src/modules/auth/userRepo.js'
 import { meAccountRoutes } from '../src/modules/me/meAccountRoutes.js'
+import { passwordFingerprint } from '../src/modules/auth/sessionToken.js'
 
 // Mock bcrypt — track known hashes for realistic compare
 let knownHashes = new Set<string>()
@@ -79,7 +81,7 @@ function createMockApp() {
   })
 
   // The password routes never touch the pool; account deletion has its own tests
-  app.use('/api', meAccountRoutes(mockUserRepo as UserRepository, {} as Pool))
+  app.use('/api', meAccountRoutes(mockUserRepo as UserRepository, {} as Pool, 'a'.repeat(32), 'http://localhost:5173'))
 
   return { app, usersById, mockUserRepo }
 }
@@ -433,6 +435,94 @@ describe('meAccountRoutes', () => {
 
       expect(res.status).toBe(204)
       expect(usersById.get('user-1')?.password_hash).toBe('hashed_newpassword123')
+    })
+
+    // R4a — successful password change sets a new cookie with the new fingerprint
+    it('R4a successful password change sets a new session cookie with updated pwf', async () => {
+      const { app, usersById, mockUserRepo } = createMockApp()
+
+      usersById.set('user-1', {
+        id: 'user-1',
+        name: 'Ana',
+        email: 'ana@example.com',
+        password_hash: 'hashed_old',
+        neighborhood: 'Centro',
+        created_at: '2026-10-01',
+      })
+
+      // Like the real repository: each read returns a fresh row, not the stored object
+      vi.mocked(mockUserRepo.findActiveById!).mockImplementation(async (id) => {
+        const user = usersById.get(id)
+        return user ? { ...user } : null
+      })
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send({ currentPassword: 'old123', newPassword: 'newpassword123' })
+
+      expect(res.status).toBe(204)
+      const setCookie = res.headers['set-cookie']
+      expect(setCookie).toBeDefined()
+      expect(setCookie![0]).toMatch(/^token=/)
+      const tokenValue = setCookie![0].split(';')[0].split('=')[1]
+      const decoded = jwt.verify(tokenValue, 'a'.repeat(32), { issuer: 'http://localhost:5173' }) as { id: string; pwf: string }
+      expect(decoded.id).toBe('user-1')
+      expect(decoded.pwf).toBe(passwordFingerprint('hashed_newpassword123'))
+    })
+
+    // R4b — failure cases must NOT set a cookie
+    it.each([
+      [401, { currentPassword: 'old123', newPassword: 'newpassword123' }, { password_hash: 'hashed_other' }, 'wrong current password'],
+      [400, { currentPassword: 'old123', newPassword: 'short' }, { password_hash: 'hashed_old' }, 'new password too short'],
+    ])('R4b %s: %s → no set-cookie', async (expectedStatus, body, userFields, _label) => {
+      const { app, usersById } = createMockApp()
+
+      usersById.set('user-1', {
+        id: 'user-1',
+        name: 'Ana',
+        email: 'ana@example.com',
+        password_hash: userFields.password_hash,
+        neighborhood: 'Centro',
+        created_at: '2026-10-01',
+      } as User)
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send(body)
+
+      expect(res.status).toBe(expectedStatus)
+      expect(res.headers['set-cookie']).toBeUndefined()
+    })
+
+    // R4b row 3: account deleted while bcrypt runs → 404, no cookie
+    it('R4b race: account deleted while bcrypt runs → 404, no set-cookie', async () => {
+      const { app, usersById, mockUserRepo } = createMockApp()
+
+      usersById.set('user-1', {
+        id: 'user-1',
+        name: 'Ana',
+        email: 'ana@example.com',
+        password_hash: 'hashed_old',
+        neighborhood: 'Centro',
+        created_at: '2026-10-01',
+      })
+
+      vi.mocked(mockUserRepo.findActiveById!).mockImplementationOnce(async (id) => {
+        const user = usersById.get(id)!
+        const snapshot = { ...user }
+        ;(user as any).deleted_at = '2026-11-13'
+        return snapshot
+      })
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send({ currentPassword: 'old123', newPassword: 'newpassword123' })
+
+      expect(res.status).toBe(404)
+      expect(res.headers['set-cookie']).toBeUndefined()
     })
   })
 

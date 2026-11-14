@@ -3,6 +3,7 @@ import express from 'express'
 import type { UserRepository } from './userRepo.js'
 import { AuthService } from './authService.js'
 import { sendError, sendErrorCode } from '../errors/AppError.js'
+import { setSessionCookie } from './sessionToken.js'
 
 export function authRoutes(
   userRepo: UserRepository,
@@ -52,12 +53,7 @@ export function authRoutes(
 
     try {
       const result = await service.register({ name: trimmedName, email: normalizedEmail, password: trimmedPassword, neighborhood: trimmedNeighborhood })
-      res.cookie('token', result.token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 3600000, // 1 hour
-      })
+      setSessionCookie(res, result.token)
       res.status(201).json({ message: 'Registered successfully' })
     } catch (err: unknown) {
       sendError(res, err, 'Registration failed')
@@ -84,12 +80,7 @@ export function authRoutes(
 
     try {
       const result = await service.login({ email: normalizedEmail, password: trimmedPassword })
-      res.cookie('token', result.token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 3600000, // 1 hour
-      })
+      setSessionCookie(res, result.token)
       res.status(200).json({ message: 'Logged in successfully' })
     } catch (err: unknown) {
       sendError(res, err, 'Login failed')

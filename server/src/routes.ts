@@ -12,7 +12,7 @@ import { LoanService } from './modules/loans/loanService.js'
 import { UserRepository } from './modules/auth/userRepo.js'
 import type { ExpressApplication } from './index.js'
 import { loadEnv } from './modules/config/env.js'
-import { authMiddleware } from './modules/middleware/auth.js'
+import { createAuthMiddleware } from './modules/middleware/auth.js'
 import { originChecker } from './modules/middleware/origin.js'
 import { generalRateLimiter } from './modules/middleware/rateLimit.js'
 
@@ -29,6 +29,9 @@ export function wireRoutes(app: ExpressApplication): void {
   const toolService = new ToolService(toolRepo)
   const searchService = new SearchService(toolRepo)
   const loanService = new LoanService(loanRepo, pool.query.bind(pool))
+
+  // Auth middleware — created once with the repo and secret
+  const authMiddleware = createAuthMiddleware(userRepo, env.JWT_SECRET)
 
   // CSRF protection — every POST/PATCH/DELETE under /api must come from the frontend's origin.
   // Mounted before any router so it also covers /api/auth (login, register, logout).
@@ -50,5 +53,5 @@ export function wireRoutes(app: ExpressApplication): void {
   app.use('/api', authMiddleware)
   app.use('/api', loansRoutes(loanService, pool.query.bind(pool)))
   app.use('/api', meRoutes(toolRepo, loanRepo))
-  app.use('/api', meAccountRoutes(userRepo, pool))
+  app.use('/api', meAccountRoutes(userRepo, pool, env.JWT_SECRET, env.CORS_ORIGIN))
 }

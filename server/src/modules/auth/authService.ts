@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto'
 import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken'
 import type { UserRepository, CreateUserInput } from './userRepo.js'
 import { AppError } from '../errors/AppError.js'
+import { signSessionToken } from './sessionToken.js'
 
 const SALT_ROUNDS = 12
 
@@ -49,7 +49,7 @@ export class AuthService {
     }
 
     const created = await this.userRepo.create(user)
-    const token = this.generateToken(created.id)
+    const token = this.generateToken(created.id, passwordHash)
     return { token }
   }
 
@@ -63,14 +63,11 @@ export class AuthService {
       throw new AppError('INVALID_CREDENTIALS', INVALID_CREDENTIALS)
     }
 
-    const token = this.generateToken(user.id)
+    const token = this.generateToken(user.id, user.password_hash)
     return { token }
   }
 
-  generateToken(userId: string): string {
-    return jwt.sign({ id: userId }, this.jwtSecret, {
-      issuer: this.jwtIssuer,
-      expiresIn: '1h',
-    })
+  generateToken(userId: string, passwordHash: string): string {
+    return signSessionToken(userId, passwordHash, this.jwtSecret, this.jwtIssuer)
   }
 }

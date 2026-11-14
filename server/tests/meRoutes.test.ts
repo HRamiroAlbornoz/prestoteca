@@ -55,7 +55,7 @@ describe('meAccountRoutes (no auth)', () => {
   function appWithoutAuth() {
     const app = express()
     app.use(express.json())
-    app.use('/api', meAccountRoutes({} as UserRepository, {} as Pool))
+    app.use('/api', meAccountRoutes({} as UserRepository, {} as Pool, 'a'.repeat(32), 'http://localhost:5173'))
     return app
   }
 

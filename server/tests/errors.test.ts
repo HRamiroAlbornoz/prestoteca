@@ -12,11 +12,12 @@ import { UserRepository } from '../src/modules/auth/userRepo.js'
 import { toolsRoutes } from '../src/modules/tools/toolsRoutes.js'
 import type { ToolService } from '../src/modules/tools/toolService.js'
 import type { SearchService } from '../src/modules/search/searchService.js'
+import { passwordFingerprint } from '../src/modules/auth/sessionToken.js'
 
 const ALLOWED_ORIGIN = 'http://localhost:5173'
 
-// The auth middleware reads JWT_SECRET once, when its module loads, so it has to be set
-// before the imports run (vi.hoisted runs first). Same value the tests below put in env.
+// The middleware no longer reads JWT_SECRET when its module loads, but createApp still reads
+// it from the environment (and passes it to createAuthMiddleware), so the vi.hoisted stays.
 const TEST_JWT_SECRET = vi.hoisted(() => {
   const secret = 'a'.repeat(32)
   process.env.JWT_SECRET = secret
@@ -132,7 +133,15 @@ describe('error responses of the real app', () => {
 
   it('answers an /api route that does not exist with a JSON 404 API_ROUTE_NOT_FOUND', async () => {
     const app = await createApp()
-    const token = jwt.sign({ id: 'user-1' }, TEST_JWT_SECRET)
+    const token = jwt.sign({ id: 'user-1', pwf: passwordFingerprint('hash-1') }, TEST_JWT_SECRET)
+    vi.spyOn(UserRepository.prototype, 'findActiveById').mockResolvedValue({
+      id: 'user-1',
+      name: 'User',
+      email: 'u@example.com',
+      password_hash: 'hash-1',
+      neighborhood: 'N',
+      created_at: '2026-01-01',
+    })
 
     const res = await request(app).get('/api/nope').set('Cookie', `token=${token}`)
 
@@ -160,7 +169,15 @@ describe('error responses of the real app', () => {
 
   it('keeps the automatic OPTIONS answer of /api/health (the JSON 404 never takes it)', async () => {
     const app = await createApp()
-    const token = jwt.sign({ id: 'user-1' }, TEST_JWT_SECRET)
+    const token = jwt.sign({ id: 'user-1', pwf: passwordFingerprint('hash-1') }, TEST_JWT_SECRET)
+    vi.spyOn(UserRepository.prototype, 'findActiveById').mockResolvedValue({
+      id: 'user-1',
+      name: 'User',
+      email: 'u@example.com',
+      password_hash: 'hash-1',
+      neighborhood: 'N',
+      created_at: '2026-01-01',
+    })
 
     const res = await request(app).options('/api/health').set('Cookie', `token=${token}`)
 

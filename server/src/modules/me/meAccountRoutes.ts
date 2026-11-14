@@ -7,12 +7,15 @@ import type { UserRepository } from '../auth/userRepo.js'
 import type { AuthRequest } from '../middleware/auth.js'
 import { sendError, sendErrorCode } from '../errors/AppError.js'
 import { deleteAccount } from './accountDeletion.js'
+import { setSessionCookie, signSessionToken } from '../auth/sessionToken.js'
 
 const SALT_ROUNDS = 12
 
 export function meAccountRoutes(
   userRepo: UserRepository,
   pool: Pick<Pool, 'connect'>,
+  jwtSecret: string,
+  jwtIssuer: string,
 ): Router {
   const router = express.Router()
 
@@ -87,6 +90,10 @@ export function meAccountRoutes(
         sendErrorCode(res, 'ACCOUNT_NOT_FOUND', 'User not found')
         return
       }
+
+      // Keep THIS device signed in: a new token with the new password's fingerprint.
+      // Other devices still hold the old fingerprint, so they are signed out.
+      setSessionCookie(res, signSessionToken(userId, passwordHash, jwtSecret, jwtIssuer))
 
       res.status(204).send()
     } catch (err: unknown) {

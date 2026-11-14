@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import bcrypt from 'bcrypt'
 import { AuthService } from '../src/modules/auth/authService.js'
+import { passwordFingerprint } from '../src/modules/auth/sessionToken.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
 
 function createMockRepo() {
@@ -30,11 +31,11 @@ function createMockRepo() {
 }
 
 describe('AuthService', () => {
-  let { mockRepo } = createMockRepo()
+  let { mockRepo, usersByEmail } = createMockRepo()
   let service: AuthService
 
   beforeEach(() => {
-    ;({ mockRepo } = createMockRepo())
+    ;({ mockRepo, usersByEmail } = createMockRepo())
     service = new AuthService(mockRepo as UserRepository, 'test-secret-key', 'http://localhost:5173')
   })
 
@@ -47,6 +48,15 @@ describe('AuthService', () => {
       const result = await service.register({ name: 'Ana', email: 'ana@example.com', password: 'ana123', neighborhood: 'Centro' })
       expect(result.token).toBeDefined()
       expect(typeof result.token).toBe('string')
+    })
+
+    it('R2a register token pwf equals passwordFingerprint of the stored hash', async () => {
+      const result = await service.register({ name: 'Ana', email: 'ana2@example.com', password: 'ana123', neighborhood: 'Centro' })
+      // The mock adds an id; get the created user from the map
+      const createdUser = Array.from(usersByEmail.values()).find((u) => u.email === 'ana2@example.com')!
+      const payload = JSON.parse(Buffer.from(result.token.split('.')[1], 'base64').toString())
+      expect(payload.id).toBe(createdUser.id)
+      expect(payload.pwf).toBe(passwordFingerprint(createdUser.password_hash))
     })
 
     it('hashes password — stored hash ≠ plain text', async () => {
@@ -73,6 +83,17 @@ describe('AuthService', () => {
       const parts = result.token.split('.')
       const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
       expect(payload.id).toBeDefined()
+    })
+
+    it('R2b login token pwf equals passwordFingerprint of the stored hash', async () => {
+      await service.register({ name: 'Carlos', email: 'carlos2@example.com', password: 'carlos123', neighborhood: 'Norte' })
+      const stored = Array.from(usersByEmail.values()).find((u) => u.email === 'carlos2@example.com')!
+
+      const result = await service.login({ email: 'carlos2@example.com', password: 'carlos123' })
+
+      const payload = JSON.parse(Buffer.from(result.token.split('.')[1], 'base64').toString())
+      expect(payload.id).toBe(stored.id)
+      expect(payload.pwf).toBe(passwordFingerprint(stored.password_hash))
     })
 
     it('throws "Invalid credentials" on wrong password', async () => {
@@ -109,7 +130,7 @@ describe('AuthService', () => {
 
   describe('generateToken', () => {
     it('returns a valid JWT string', async () => {
-      const token = service.generateToken('user-123')
+      const token = service.generateToken('user-123', 'hash-1')
       expect(token).toBeDefined()
       expect(typeof token).toBe('string')
       const parts = token.split('.')
@@ -117,10 +138,11 @@ describe('AuthService', () => {
     })
 
     it('JWT payload contains user id', async () => {
-      const token = service.generateToken('user-456')
+      const token = service.generateToken('user-456', 'hash-1')
       const parts = token.split('.')
       const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
       expect(payload.id).toBe('user-456')
+      expect(payload.pwf).toBe(passwordFingerprint('hash-1'))
     })
   })
 })

@@ -159,7 +159,7 @@ describe('DELETE /api/me/account', () => {
       ;(req as express.Request & { userId?: string }).userId = userId
       next()
     })
-    app.use('/api', meAccountRoutes({} as UserRepository, db.pool))
+    app.use('/api', meAccountRoutes({} as UserRepository, db.pool, 'a'.repeat(32), 'http://localhost:5173'))
     return app
   }
 
