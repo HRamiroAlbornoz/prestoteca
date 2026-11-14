@@ -1,9 +1,12 @@
 ---
 author: HRamiroAlbornoz
 branch: main
-status: in-progress
+status: done
+merged: 2026-11-14
+merged_by: HRamiroAlbornoz
+pushed: df93b00
 ---
-# Datos mal armados que quedaban: nombre vacío al editar, búsqueda con parámetros repetidos e id que no es UUID
+# Datos mal armados que quedaban: descripción vacía al editar, búsqueda con parámetros repetidos e id que no es UUID
 
 ## Intent
 
@@ -141,9 +144,10 @@ se rompe.
 
 ## Next
 
-**Listo para el push (2026-11-14):** `90c67e3` commiteado; el arreglo del byte nulo (`pgErrors.ts` y
-`pgErrors.test.ts`) probado en staging y esperando el commit de Hernán. Después: `git push origin main`, comprobar el
-deploy de producción y las rutas con `not-a-uuid` y `%00` en producción (solo lectura), y cerrar este FTD. Historial:
+**En producción el 2026-11-14.** Commits `90c67e3` (5d, 5e, 5f) y `df93b00` (el byte nulo), push `a15a5d4..df93b00`.
+Deploy de producción `3e5fac56` **SUCCESS**; pruebas de solo lectura: `/api/health` → 200; `/api/tools/not-a-uuid` y
+`/api/tools/%00` → 404 `TOOL_NOT_FOUND`; `?q=a&q=b` → 400; `?q=taladro` → 200. Cerrado a mano por pedido de Hernán: se
+subió directo a `main`, sin el merge con el que rsc cierra los FTD solo. Historial:
 pedido para Qwen armado (2026-11-14): `C:\Users\hralb\AppData\Local\Temp\claude\prestoteca-briefs\L-brief.md`, fuera
 del proyecto (L1a-L3d, 9 mutantes), revisado y reescrito. **Lanzado a Qwen el 2026-11-14** (run
 `run_4c56396f07c4`, dispatch `ctx_7854344edd43`, task `task_308b5038d70a`, worktree
