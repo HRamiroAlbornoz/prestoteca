@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { readdirSync, readFileSync } from 'node:fs'
 import type { Pool } from 'pg'
 import { UserRepository } from '../src/modules/auth/userRepo.js'
 
@@ -98,6 +99,32 @@ function createMockPool() {
 function poolReturning(rows: unknown[]) {
   const client = { query: vi.fn(async () => ({ rows, rowCount: rows.length })), release: vi.fn() }
   return { pool: { connect: vi.fn(async () => client) }, client }
+}
+
+// The columns of the users table, read from EVERY migration in the folder (so a future migration
+// that adds a column to users is taken into account). Comment lines ("-- ...") are skipped.
+function usersColumnsFromMigrations(): Set<string> {
+  const folder = new URL('../src/migrations/', import.meta.url)
+  const sql = readdirSync(folder)
+    .filter((file) => file.endsWith('.sql'))
+    .sort()
+    .map((file) => readFileSync(new URL(file, folder), 'utf8'))
+    .join('\n')
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('--'))
+    .join('\n')
+  // Inside "CREATE TABLE ... users ( ... );" every line starts with a column name
+  const body = sql.match(/CREATE TABLE[^(]*\busers\s*\(([\s\S]*?)\);/i)?.[1] ?? ''
+  const created = body.split('\n').map((line) => line.trim().split(/\s+/)[0]).filter((word) => /^[a-z_]+$/.test(word))
+  // Only columns added to the users table, not to tools or loans
+  const added = [...sql.matchAll(/ALTER TABLE users ADD COLUMN IF NOT EXISTS (\w+)/gi)].map((m) => m[1])
+  return new Set([...created, ...added])
+}
+
+// The column names an UPDATE writes: what comes between SET and WHERE, before each "="
+function columnsWrittenBy(sql: string): string[] {
+  const set = sql.match(/SET\s+([\s\S]+?)\s+WHERE/i)?.[1] ?? ''
+  return set.split(',').map((part) => part.split('=')[0].trim())
 }
 
 describe('UserRepository', () => {
@@ -280,6 +307,74 @@ describe('UserRepository', () => {
 
       expect(result).toBe(false)
       expect(client.release).toHaveBeenCalled()
+    })
+
+    // D1 — updatePassword must NOT write updated_at
+    it('D1 updatePassword does not write updated_at (SQL + params + deleted_at filter)', async () => {
+      const { pool, client } = poolReturning([])
+      client.query.mockImplementationOnce(async () => ({ rows: [], rowCount: 1 }))
+      const pwRepo = new UserRepository(pool as never)
+
+      await pwRepo.updatePassword('user-1', 'hash-x')
+
+      const [sql, params] = client.query.mock.calls[0] as unknown as [string, unknown[]]
+      expect(sql).not.toMatch(/updated_at/)
+      // It writes the password column and nothing else (writing "email = $1" would also be a real column)
+      expect(sql).toMatch(/SET password_hash = \$1 WHERE id = \$2 AND deleted_at IS NULL/)
+      expect(params).toEqual(['hash-x', 'user-1'])
+    })
+
+    // D2 — update must NOT write updated_at
+    it('D2 update does not write updated_at (SQL)', async () => {
+      const { pool, client } = poolReturning([{ id: 'user-1', name: 'Ana' }])
+      const testRepo = new UserRepository(pool as never)
+
+      await testRepo.update('user-1', { name: 'Ana', email: 'ana@example.com', neighborhood: 'Centro' })
+
+      const [sql, params] = client.query.mock.calls[0] as unknown as [string, unknown[]]
+      expect(sql).not.toMatch(/updated_at/)
+      // Each value goes to its own column, in order
+      expect(sql).toMatch(/SET name = \$1, email = \$2, neighborhood = \$3 WHERE id = \$4/)
+      expect(params).toEqual(['Ana', 'ana@example.com', 'Centro', 'user-1'])
+    })
+
+    // D3c — the SET parser itself: it must return every column, not only the first one
+    it('D3c columnsWrittenBy returns every column of the SET part', () => {
+      expect(columnsWrittenBy('UPDATE t SET a = $1, b = now(), c = $2 WHERE id = $3')).toEqual(['a', 'b', 'c'])
+    })
+
+    // D3 helper — verify the guard reads the real columns
+    it('D3 reads the 7 columns of users from the migrations', () => {
+      expect(usersColumnsFromMigrations()).toEqual(
+        new Set(['id', 'name', 'email', 'password_hash', 'neighborhood', 'created_at', 'deleted_at']),
+      )
+    })
+
+    // D3a — schema guard for updatePassword
+    it('D3a updatePassword only writes columns that exist in users (schema guard)', async () => {
+      const { pool, client } = poolReturning([])
+      client.query.mockImplementationOnce(async () => ({ rows: [], rowCount: 1 }))
+      const pwRepo = new UserRepository(pool as never)
+
+      await pwRepo.updatePassword('user-1', 'hash-x')
+
+      const [sql] = client.query.mock.calls[0] as unknown as [string, unknown[]]
+      const columns = columnsWrittenBy(sql)
+      const valid = usersColumnsFromMigrations()
+      columns.forEach((col) => expect(valid).toContain(col))
+    })
+
+    // D3b — schema guard for update
+    it('D3b update only writes columns that exist in users (schema guard)', async () => {
+      const { pool, client } = poolReturning([{ id: 'user-1', name: 'Ana' }])
+      const testRepo = new UserRepository(pool as never)
+
+      await testRepo.update('user-1', { name: 'Ana', email: 'ana@example.com', neighborhood: 'Centro' })
+
+      const [sql] = client.query.mock.calls[0] as unknown as [string, unknown[]]
+      const columns = columnsWrittenBy(sql)
+      const valid = usersColumnsFromMigrations()
+      columns.forEach((col) => expect(valid).toContain(col))
     })
   })
 })

@@ -29,6 +29,7 @@ export interface User {
   created_at: string
 }
 
+// The users table has no updated_at column (migrations 001 and 004)
 export class UserRepository {
   constructor(private pool: Pool) {}
 
@@ -133,7 +134,6 @@ export class UserRepository {
 
       if (fields.length === 0) return null
 
-      fields.push(`updated_at = now()`)
       values.push(id)
 
       const res = await client.query(
@@ -161,7 +161,7 @@ export class UserRepository {
     const client = await this.pool.connect()
     try {
       const res = await client.query(
-        `UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL`,
+        `UPDATE users SET password_hash = $1 WHERE id = $2 AND deleted_at IS NULL`,
         [passwordHash, id],
       )
       // Returns false when the account was deleted meanwhile: nothing is changed
