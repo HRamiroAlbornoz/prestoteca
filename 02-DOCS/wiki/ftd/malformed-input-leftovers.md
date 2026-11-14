@@ -88,6 +88,26 @@ se rompe.
 
 **Base (2026-11-14, `a15a5d4`):** servidor 32 archivos, 633/633.
 
+### L (2026-11-14)
+
+- **Hecho por:** Qwen, en el worktree `l-malformed-input` (base `24124ab`), en una sola entrega con `worker_done`. El
+  código de `src/` es exactamente el del pedido. En los tests solo cambió la línea permitida (el helper de
+  `loansRoutes.test.ts` devuelve también `query`); no usó nada de lo prohibido.
+- **Ajuste (Claude):** los tests de `pgErrors.test.ts` no llevaban el ID; su `describe` pasa a llamarse
+  `L3d isInvalidIdError`.
+- **Controles en el worktree:** servidor **33 archivos, 652/652**; `npx tsc -b` exit 0.
+- **Rojo (Claude):** con el `src/` de la base (y `pgErrors.ts` presente para que los imports resuelvan) fallan L1a,
+  L1b, las 3 de L2a, las 2 de L3a y L3c. L1c, L2b y L3b pasan antes y después, como se esperaba.
+- **Mutantes (Claude), deshechos desde una copia, `cmp` OK, los 9 detectados:** sin el chequeo de descripción vacía →
+  L1a y L1b; sin `.trim()` → L1b; el chequeo de búsqueda solo sobre `q` → las filas de `category` y `neighborhood` de
+  L2a; cada repositorio sin el mapeo de `22P02` → su L3a; cada repositorio devolviendo `null` ante cualquier error →
+  su L3b; la ruta de préstamos sin el mapeo interno → L3c; el helper aceptando cualquier código → L3d y las dos L3b.
+  (M4 y M6 no se aplicaron la primera vez, porque el texto buscado ocupaba dos líneas; el script lo avisó y se
+  repitieron sobre una línea.)
+- **Riesgo:** `rsc risk` → tier 2, pero solo por un documento: compara contra GitHub y cuenta el FTD de 5c, que habla de
+  tokens. Los archivos de código son clase `default` → tier 1: **1 revisor** de contexto fresco, como en A2 y C. En
+  curso.
+
 ## Next
 
 Pedido para Qwen armado (2026-11-14): `C:\Users\hralb\AppData\Local\Temp\claude\prestoteca-briefs\L-brief.md`, fuera
