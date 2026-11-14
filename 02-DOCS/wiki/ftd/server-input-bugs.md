@@ -374,7 +374,6 @@ script de lint.
   la ve: para eso está la guarda).
 - **Controles en el worktree:** servidor 30 archivos, **609/609**; `npx tsc -b` exit 0.
 - **Riesgo:** `rsc risk` → **tier 2** por D mismo (`userRepo.ts`, clase `auth`): panel de 3 y aprobación de Hernán.
-  Panel en curso.
 - **Seguridad, APPROVE WITH NITS:** la ruta compara la contraseña actual con `bcrypt` antes de escribir; el filtro
   `deleted_at` sigue; SQL con parámetros; Origin, cookie `httpOnly` y límite de pedidos activos; ningún log guarda
   contraseñas ni hashes; el 500 de producción no filtraba nada (el texto de `pg` quedaba en el log del servidor).
@@ -387,8 +386,23 @@ script de lint.
   toque `users` la haría fallar con código correcto (D-C1); `userRepo.update` no filtra `deleted_at`, pero no tiene
   quien la llame (D-C2); el lector de la guarda contaría una línea `PRIMARY KEY (...)` o `CONSTRAINT` como columna
   (D-C3).
-- **Decisión de Hernán:** cerrar D-C1 (la guarda lee todas las migraciones de la carpeta). Se hace cuando termine el
-  revisor de tests, que está mutando en el mismo worktree.
+- **Decisión de Hernán sobre D-S2:** va al ítem 5c del backlog (sesiones que deberían dejar de valer: cuenta borrada
+  y contraseña cambiada), con un mismo arreglo posible para los dos casos.
+- **Decisión de Hernán:** cerrar D-C1 (la guarda lee todas las migraciones de la carpeta).
+- **Tests, APPROVE WITH NITS:** no se borró ni se aflojó nada; D3a y D3b no pueden pasar en vacío (sin `SET` el
+  parser devuelve `['']`, que no es una columna); la mayúscula `UPDATED_AT` la atrapa D3a. **Sobrevive un
+  should-fix (D-T1, viejo pero en la línea que D reescribió):** `SET email = $1` en vez de `SET password_hash = $1` pasa
+  todo, porque `email` es una columna real; un cambio de contraseña pisaría el correo con el hash. Nits: `update`
+  puede mandar el correo a `password_hash` sin que nada lo note (D-T2); `columnsWrittenBy` no tiene test propio
+  (D-T3); el `WHERE` de `update` no está fijado (D-T4, viejo, sin quien llame a `update`).
+- **Cierre (Claude), solo tests:** D-C1, la guarda lee todos los `.sql` de la carpeta, saltea las líneas `--` y toma
+  solo `ALTER TABLE users ADD COLUMN`; D-T1, D1 exige `SET password_hash = $1 WHERE id = $2 AND deleted_at IS NULL`;
+  D-T2, D2 exige `SET name = $1, email = $2, neighborhood = $3 WHERE id = $4` y sus parámetros; D-T3, test nuevo D3c
+  del parser. Detectados ahora: `SET email = $1` → D1; el correo a `password_hash` → D2; M1-M3 siguen detectados (M3
+  ahora también por D1). D-C2, D-C3 y D-T4 → `intentional`: `update` no tiene quien la llame y las migraciones de
+  hoy no tienen `PRIMARY KEY (...)` ni `CONSTRAINT`. D-S1 y D-S3 → `intentional` para el MVP; D-S2 → ítem 5c.
+- **Pasado a `main` (carpeta principal, sin commit):** `git apply` del diff del worktree; los 2 archivos son
+  iguales a los del worktree (`cmp`). En `main`: servidor 30 archivos, **610/610**; `npx tsc -b` exit 0.
 
 ### Staging (2026-11-13)
 
