@@ -101,6 +101,29 @@ por `Authorization`; R3e calla `console.error` y fija el cuerpo completo. Verifi
 limpiando la cookie. **Costo conocido:** `GET /api/me` y `PATCH /me/password` pasan a hacer dos búsquedas del usuario
 (la del control y la de la ruta), dentro del diseño elegido; la medición «después» lo va a mostrar.
 
+### R — ronda 1 (2026-11-14)
+
+- **Hecho por:** Qwen, en el worktree `r-session-check` (base `3d29ab0`), en una sola entrega con `worker_done`. El
+  código de `src/` es exactamente el del pedido (`sessionToken.ts` nuevo, el control de sesión como fábrica, la
+  cookie en un solo lugar, el token nuevo al cambiar la contraseña), sin desvíos.
+- **Controles en el worktree:** servidor 31 archivos, **626/626**; `npx tsc -b` exit 0.
+- **Rojo (Claude):** con el `src/` de `3d29ab0` (y `sessionToken.ts` presente para que los imports resuelvan) fallan
+  las filas R2a, R3a-R3e y R4a, y los tests viejos adaptados del control de sesión; R4b pasa antes y después, como
+  se esperaba (fila de guarda).
+- **Mutantes (Claude), deshechos desde una copia, `cmp` final OK, los 7 detectados:** sin comparar la huella → R3c;
+  sin la búsqueda → R3a, R3b, R3c, R3e; aceptar un token sin `pwf` → R3d (por la búsqueda que no debía ocurrir); `next()`
+  si la base falla → R3e; sin la cookie nueva → R4a; la cookie antes de mirar `changed` → la fila de la carrera de R4b;
+  firmar sin `pwf` → R2a, R4a y dos tests viejos.
+- **Lo que faltó (va a la ronda 2):** **R2b no estaba**: en su lugar, a un test viejo del login se le agregó
+  `pwf.toBeDefined()`. Prueba de que importa: cambiar el login a `generateToken(user.id, input.password)` (la huella de
+  la contraseña escrita, no del hash guardado) deja **todo en verde** (59/59 en `authService` y `authRoutes`), y en
+  producción haría que **nadie pueda iniciar sesión**. Además, Qwen renombró un test viejo y le cambió el correo a otro
+  (`ana2` → `ana3`), cosas prohibidas aunque inofensivas. El `(user as any)` de la fila de la carrera copia el del test
+  B3 → aceptado.
+- **Ronda 2 enviada** (autorizada por Hernán de antemano): dispatch `ctx_81e78b62cf74`, task `task_1cbdf099bd57`, pedido
+  `R-round2.md` en el scratchpad: agregar R2b, deshacer los cambios de más en `authService.test.ts`, probar el mutante
+  del login. Solo tests.
+
 ## Next
 
 Pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
