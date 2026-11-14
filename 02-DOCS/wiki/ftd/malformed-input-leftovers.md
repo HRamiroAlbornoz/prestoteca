@@ -80,5 +80,6 @@ checks, revisa el diff, prueba mutantes y aplica la revisión que pida `rsc risk
 
 ## Next
 
-Armar el pedido para Qwen (L1-L3), revisarlo con un agente de contexto fresco antes de mandarlo (como se hizo con 5c),
-y preguntarle a Hernán antes de lanzarlo.
+Pedido para Qwen armado (2026-11-14): `C:\Users\hralb\AppData\Local\Temp\claude\prestoteca-briefs\L-brief.md`, fuera
+del proyecto (L1a-L3d, 9 mutantes). En revisión con un agente de contexto fresco, a pedido de Hernán. Después:
+corregirlo si hace falta y preguntarle a Hernán antes de lanzarlo.
