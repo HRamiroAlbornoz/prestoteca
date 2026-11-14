@@ -70,7 +70,7 @@ checks, revisa el diff, prueba mutantes y aplica la revisión que pida `rsc risk
 - [ ] **Controles:** en `server/`, `npx vitest run` y `npx tsc -b` en verde; `rsc risk` y la revisión que pida.
 - [ ] **Staging:** `GET /api/tools/not-a-uuid` → 404; `GET /api/loans/not-a-uuid` con sesión → 404;
   `GET /api/tools?q=a&q=b` → 400; editar una herramienta propia con `{"description":"   "}` → 400 y la descripción no
-  cambia.
+  cambia. Además, la pregunta del revisor: `GET /api/tools/%00` (un byte nulo), para ver qué responde.
 
 ## Evidence
 
@@ -105,8 +105,22 @@ se rompe.
   (M4 y M6 no se aplicaron la primera vez, porque el texto buscado ocupaba dos líneas; el script lo avisó y se
   repitieron sobre una línea.)
 - **Riesgo:** `rsc risk` → tier 2, pero solo por un documento: compara contra GitHub y cuenta el FTD de 5c, que habla de
-  tokens. Los archivos de código son clase `default` → tier 1: **1 revisor** de contexto fresco, como en A2 y C. En
-  curso.
+  tokens. Los archivos de código son clase `default` → tier 1: **1 revisor** de contexto fresco, como en A2 y C.
+- **Revisor (2026-11-14), APPROVE WITH NITS:** las 6 rutas con id llegan a Postgres solo por una consulta ya mapeada
+  (las escrituras siempre van después de un `findById`; `meRoutes` y `meAccountRoutes` no reciben ids de la URL); la
+  regla de la descripción vacía no toca publicar (`create`) ni un PATCH que solo pausa o cambia la categoría; la app
+  arma la búsqueda con `URLSearchParams` de un objeto, así que nunca repite un parámetro; atajar `22P02` es seguro,
+  porque en las tres consultas el único valor que puede fallar el formato es el id. **Should-fix (L-R1):** nada
+  probaba que otro error de la base en la búsqueda de `POST /tools/:id/loans` siga siendo 500; el mutante
+  `if (isInvalidIdError(err))` → `if (true)` sobrevivía y habría escondido una caída de la base como «herramienta no
+  encontrada». Nits: no hay test de ruta con `not-a-uuid` para herramientas y préstamos (lo cubren los de repositorio
+  y la prueba de staging) → `intentional`; un id con un byte nulo (`%00`) podría dar otro código de Postgres y 500 →
+  se prueba en staging.
+- **Cierre de L-R1 (Claude):** test nuevo L3e: la búsqueda de la herramienta falla con `08006` → 500
+  `INTERNAL_ERROR` y no se crea el préstamo. Ahora el mutante `if (true)` falla en L3e, y M8 (`if (false)`) sigue
+  fallando en L3c.
+- **Pasado a `main` (carpeta principal, sin commit):** los 11 archivos copiados del worktree e iguales (`cmp`); en
+  `main` 33 archivos, **653/653**, `tsc -b` exit 0.
 
 ## Next
 
