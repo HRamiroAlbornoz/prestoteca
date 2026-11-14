@@ -1,5 +1,10 @@
-// PostgreSQL error 22P02 (invalid_text_representation): a value with the wrong format for its column,
-// for example an id that is not a UUID. For a lookup by id it means "no such row".
+// PostgreSQL errors that mean "this id can never exist", so a lookup by id answers "no such row":
+// - 22P02 (invalid_text_representation): the value has the wrong format for its column, e.g. not a UUID;
+// - 22021 (character_not_in_repertoire): the text itself is invalid, e.g. a NUL byte from /api/tools/%00.
+const INVALID_ID_CODES = ['22P02', '22021']
+
 export function isInvalidIdError(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === '22P02'
+  if (typeof err !== 'object' || err === null) return false
+  const code = (err as { code?: unknown }).code
+  return typeof code === 'string' && INVALID_ID_CODES.includes(code)
 }
