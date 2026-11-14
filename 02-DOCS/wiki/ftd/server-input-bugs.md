@@ -459,7 +459,10 @@ sesión: 5 tests D1-D3, 3 mutantes; el helper de D3 se probó contra las migraci
 **En producción (2026-11-14).** Hernán corrió `git push origin main` → `927ccf6..2c0e3d9` (A1 `9342dd8`, A2
 `4b266ab`, B `01ed430`, C `c061115`, D `2c0e3d9`). Deploy de producción `6ab11a3c` **SUCCESS**; `GET /api/health` →
 200 `{"status":"ok","db":"connected"}`; `POST /api/auth/login` con `{"email":5}` → 400 `LOGIN_MISSING_FIELDS` (antes
-500). Queda pendiente, aparte: subir los commits `docs(auto)` de este FTD hechos después de `2c0e3d9`, y decidir qué
+500). **Cambio de contraseña en producción (con el OK de Hernán):** cuenta de prueba `qa-5b-…-prod@example.com` →
+cambio válido **204**; login con la vieja → 401; con la nueva → 200; después se borró la cuenta (`DELETE
+/api/me/account` → 204) y el login con la nueva ya da 401, así que en producción no queda una cuenta usable. (La fila
+anonimizada queda, como con cualquier cuenta borrada.) Queda pendiente, aparte: subir los commits `docs(auto)` de este FTD hechos después de `2c0e3d9`, y decidir qué
 hacer con los 4 archivos del harness que cambió la actualización de rsc (sin commit). Nuevos ítems del backlog
 encontrados en este FTD: 5c (sesión de una cuenta borrada o con contraseña cambiada), 5d (nombre vacío al editar),
 5e (parámetros de la búsqueda sin chequeo de tipo), 5f (id que no es UUID → 500). Historial: **D lanzado a Qwen el 2026-11-14** (run nuevo `run_4c56396f07c4`, dispatch `ctx_75eb17acf7e8`, task
