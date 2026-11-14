@@ -88,8 +88,21 @@ checks, revisa el diff, prueba mutantes y aplica la revisión que pida `rsc risk
 de Hernán → 20 × 200, **mediana 303 ms**, promedio 299 ms, mínimo 281 ms, máximo 319 ms. La mayor parte es el viaje de
 red hasta US East; lo que cuenta es la diferencia con la medición «después», hecha igual.
 
+**Revisión del pedido (2026-11-14, agente de contexto fresco, a pedido de Hernán):** SEND AFTER FIXES. 4 para
+corregir, todos aplicados: (1) la fila «contraseña actual incorrecta» de R4b no se podía escribir con el hash
+`hashed_old`, porque el `bcrypt` falso de ese archivo acepta cualquier contraseña con ese hash → ahora usa
+`hashed_other`; (2) el mutante M3 sobrevivía, porque la comparación de huellas igual rechaza un token sin `pwf` → R3d
+ahora exige que no se consulte la base; (3) R4b pasa también antes del arreglo (hoy la ruta nunca pone cookie) → se
+aclaró que es una fila de guarda, probada por M6; (4) M6 solo la prueba si la fila 404 usa la carrera de B3 y no el
+caso D7 → se aclaró. Detalles aplicados: `tsc -b` no revisa los tests; actualizar el comentario de `errors.test.ts`
+sobre `JWT_SECRET`; firmar el token en un solo lugar (`signSessionToken`, en `sessionToken.ts`); el token de R3a va
+por `Authorization`; R3e calla `console.error` y fija el cuerpo completo. Verificado sin cambios: imports, tipos,
+`sendError`, el middleware `async` en Express 5, el `Set-Cookie` que escribe Express y que el borrado de cuenta sigue
+limpiando la cookie. **Costo conocido:** `GET /api/me` y `PATCH /me/password` pasan a hacer dos búsquedas del usuario
+(la del control y la de la ruta), dentro del diseño elegido; la medición «después» lo va a mostrar.
+
 ## Next
 
-Pedido para Qwen armado (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
+Pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
 viejos listados uno por uno). Siguiente: lanzarlo en el worktree nuevo `r-session-check` (base `05d8d2c` o el `HEAD`
 de ese momento) cuando Hernán diga que sí.
