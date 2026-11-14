@@ -1,7 +1,10 @@
 ---
 author: HRamiroAlbornoz
 branch: main
-status: in-progress
+status: done
+merged: 2026-11-14
+merged_by: HRamiroAlbornoz
+pushed: aaa1f10
 ---
 # Sesiones que dejan de valer al borrar la cuenta o cambiar la contraseña
 
@@ -216,8 +219,8 @@ limpiando la cookie. **Costo conocido:** `GET /api/me` y `PATCH /me/password` pa
 
 ## Next
 
-**En producción (2026-11-14).** Nada pendiente de este FTD. El estado del frontmatter sigue en `in-progress` porque
-rsc lo cierra con un merge, y acá se subió directo a `main`. Historial: pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
+En producción el 2026-11-14 (`aaa1f10`, push `a15a5d4`). Cerrado a mano por pedido de Hernán: se subió directo a
+`main`, sin el merge con el que rsc cierra los FTD solo. Historial: pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
 viejos listados uno por uno). **Lanzado a Qwen el 2026-11-14** (run `run_4c56396f07c4`,
 dispatch `ctx_d7ab4763af76`, task `task_3942c5baf330`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/r-session-check`, base `3d29ab0`, con `server/` igual a `05d8d2c`). Cuando
