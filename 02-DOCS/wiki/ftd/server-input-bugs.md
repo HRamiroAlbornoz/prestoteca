@@ -456,10 +456,13 @@ mutantes (M1-M8), base `9342dd8`. **A2 commiteado en `main` como `4b266ab` (2026
 (el worktree era idéntico a `01ed430`). **Pedido de C armado (2026-11-13):** `C-brief.md` en el scratchpad de
 la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. **Staging hecho y tarea D sumada (2026-11-13).** El pedido de D está armado (`D-brief.md` en el scratchpad de la
 sesión: 5 tests D1-D3, 3 mutantes; el helper de D3 se probó contra las migraciones reales y lee las 7 columnas).
-**Todo listo para el push (2026-11-14):** A1 `9342dd8`, A2 `4b266ab`, B `01ed430`, C `c061115`, D `2c0e3d9` en
-`main`, 610/610, staging probado. Siguiente: Hernán corre `git push origin main`; después, comprobar el deploy de
-producción, `/api/health` y un smoke sin cuentas (login con `email: 5` → 400). Los archivos del harness que cambió la
-actualización de rsc quedan sin commit, aparte. Historial: **D lanzado a Qwen el 2026-11-14** (run nuevo `run_4c56396f07c4`, dispatch `ctx_75eb17acf7e8`, task
+**En producción (2026-11-14).** Hernán corrió `git push origin main` → `927ccf6..2c0e3d9` (A1 `9342dd8`, A2
+`4b266ab`, B `01ed430`, C `c061115`, D `2c0e3d9`). Deploy de producción `6ab11a3c` **SUCCESS**; `GET /api/health` →
+200 `{"status":"ok","db":"connected"}`; `POST /api/auth/login` con `{"email":5}` → 400 `LOGIN_MISSING_FIELDS` (antes
+500). Queda pendiente, aparte: subir los commits `docs(auto)` de este FTD hechos después de `2c0e3d9`, y decidir qué
+hacer con los 4 archivos del harness que cambió la actualización de rsc (sin commit). Nuevos ítems del backlog
+encontrados en este FTD: 5c (sesión de una cuenta borrada o con contraseña cambiada), 5d (nombre vacío al editar),
+5e (parámetros de la búsqueda sin chequeo de tipo), 5f (id que no es UUID → 500). Historial: **D lanzado a Qwen el 2026-11-14** (run nuevo `run_4c56396f07c4`, dispatch `ctx_75eb17acf7e8`, task
 `task_a43ae404e232`, worktree `C:/Users/hralb/orca/workspaces/prestoteca/d-password-column`, base `bbc1b98`). Cuando
 entregue: copiar `userRepo.ts` antes de tocar nada, comparar los `it(` y `expect` contra `bbc1b98`, rojo, M1-M3; después
 `rsc risk` (tier 2 esperado: `userRepo.ts`), panel, commit, de nuevo a staging (cambio de contraseña → 204, login
