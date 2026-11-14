@@ -112,7 +112,9 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
   - C3: la ruta sin body y con `text/plain` → 400 `BAD_REQUEST` (`Missing status`) (2 filas).
   - C4: la ruta con `{ status: 'constructor' }` → 409 `LOAN_TRANSITION_INVALID`, de punta a punta (1 fila).
   - Prueba: C1 y C2 fallan hoy y pasan después; suite del servidor en verde.
-- [ ] **D — Cambiar la contraseña vuelve a funcionar** (sumada el 2026-11-13, bug S1 encontrado en staging). Se quita
+- [x] **D — Cambiar la contraseña vuelve a funcionar** (sumada el 2026-11-13, bug S1 encontrado en staging). (Hecho,
+  commit `2c0e3d9`, sin push: ver Evidence, D; 610/610, rojo observado, 5 mutantes de Claude detectados, panel de 3,
+  tier 2 aprobado por Hernán, staging 204.) Se quita
   `updated_at = now()` de `userRepo.updatePassword` y de `userRepo.update`: la tabla `users` no tiene esa columna, así
   que hoy el cambio de contraseña responde 500 siempre, también en producción. Sin migración. Tests en
   `userRepo.test.ts`:
@@ -122,9 +124,10 @@ de auth probablemente den **tier 2** (como F3): se vincula a la spec `error-code
     `004_add_users_deleted_at.sql`): la guarda que habría atrapado este bug.
   - Prueba real: en staging, un cambio de contraseña válido → 204; después, el login con la contraseña vieja → 401 y
     con la nueva → 200.
-- [ ] **Controles:** en `server/`, `npx vitest run`, `npx tsc -p .` y el lint que tenga, en verde; `rsc risk` del diff
-  y la revisión que pida.
-- [ ] **Staging:** los cuatro casos a mano contra staging con `curl` (un número en el login, `"constructor"` como
+- [x] **Controles:** (Hecho en `main` sobre `2c0e3d9`: 610/610, `npx tsc -b` exit 0; el servidor no tiene lint; `rsc
+  risk` y la revisión en cada tarea, más el panel de cierre de A1-C y el panel de D.) En `server/`, `npx vitest run`,
+  `npx tsc -p .` y el lint que tenga, en verde; `rsc risk` del diff y la revisión que pida.
+- [x] **Staging:** (Hecho el 2026-11-13 y el 2026-11-14: ver Evidence, «Staging» y D.) los cuatro casos a mano contra staging con `curl` (un número en el login, `"constructor"` como
   estado, una lista como estado), con la respuesta copiada. (b) no se puede provocar a mano a tiempo; en su lugar,
   contra el Postgres de staging: crear una cuenta, borrarla y comprobar que la consulta de `findByEmail` con su
   correo anonimizado da 0 filas y que el `UPDATE` de `updatePassword` sobre su `id` cambia 0 filas.
@@ -403,6 +406,13 @@ script de lint.
   hoy no tienen `PRIMARY KEY (...)` ni `CONSTRAINT`. D-S1 y D-S3 → `intentional` para el MVP; D-S2 → ítem 5c.
 - **Pasado a `main` (carpeta principal, sin commit):** `git apply` del diff del worktree; los 2 archivos son
   iguales a los del worktree (`cmp`). En `main`: servidor 30 archivos, **610/610**; `npx tsc -b` exit 0.
+- **Commit `2c0e3d9` (Hernán, 2026-11-14), sin push.** Hernán aprobó el tier 2 de D al correr el commit. Worktree
+  `d-password-column` y su rama borrados (era idéntico a `2c0e3d9`). Panel de D registrado en el ledger
+  (`error-codes/server-input-bugs-d`).
+- **Staging con D (deploy `79839f89` SUCCESS; production sin cambios, `546abcc2`):** cuenta nueva → cambio de
+  contraseña válido → **204** (antes 500); repetir con la vieja como actual → 401 `CURRENT_PASSWORD_INCORRECT`; login
+  con la vieja → 401 `INVALID_CREDENTIALS`; login con la nueva → 200. Salida en el scratchpad de la sesión,
+  `staging-5b/password-change-after-D.txt`.
 
 ### Staging (2026-11-13)
 
@@ -446,7 +456,10 @@ mutantes (M1-M8), base `9342dd8`. **A2 commiteado en `main` como `4b266ab` (2026
 (el worktree era idéntico a `01ed430`). **Pedido de C armado (2026-11-13):** `C-brief.md` en el scratchpad de
 la sesión, 11 filas (C1-C4) y 5 mutantes (M1-M5), base `01ed430`. **Staging hecho y tarea D sumada (2026-11-13).** El pedido de D está armado (`D-brief.md` en el scratchpad de la
 sesión: 5 tests D1-D3, 3 mutantes; el helper de D3 se probó contra las migraciones reales y lee las 7 columnas).
-**D lanzado a Qwen el 2026-11-14** (run nuevo `run_4c56396f07c4`, dispatch `ctx_75eb17acf7e8`, task
+**Todo listo para el push (2026-11-14):** A1 `9342dd8`, A2 `4b266ab`, B `01ed430`, C `c061115`, D `2c0e3d9` en
+`main`, 610/610, staging probado. Siguiente: Hernán corre `git push origin main`; después, comprobar el deploy de
+producción, `/api/health` y un smoke sin cuentas (login con `email: 5` → 400). Los archivos del harness que cambió la
+actualización de rsc quedan sin commit, aparte. Historial: **D lanzado a Qwen el 2026-11-14** (run nuevo `run_4c56396f07c4`, dispatch `ctx_75eb17acf7e8`, task
 `task_a43ae404e232`, worktree `C:/Users/hralb/orca/workspaces/prestoteca/d-password-column`, base `bbc1b98`). Cuando
 entregue: copiar `userRepo.ts` antes de tocar nada, comparar los `it(` y `expect` contra `bbc1b98`, rojo, M1-M3; después
 `rsc risk` (tier 2 esperado: `userRepo.ts`), panel, commit, de nuevo a staging (cambio de contraseña → 204, login
