@@ -136,7 +136,22 @@ limpiando la cookie. **Costo conocido:** `GET /api/me` y `PATCH /me/password` pa
 - **Controles (Claude):** servidor 31 archivos, **627/627**; `npx tsc -b` exit 0. El mutante del login
   (`generateToken(user.id, input.password)`) ahora lo atrapa R2b.
 - **Riesgo:** `rsc risk` → **tier 2** (clase `auth`: `auth.ts`, `sessionToken.ts`, `authRoutes.ts`, `authService.ts`):
-  panel de 3 y aprobación de Hernán. Panel en curso.
+  panel de 3 y aprobación de Hernán.
+- **Seguridad, APPROVE WITH NITS:** ninguna ruta que use la identidad queda fuera del control (`/api/health`, el
+  login, el registro, el logout y los `GET /api/tools*` no leen `req.userId`); borrar la cuenta mata la sesión en el
+  acto en todas las rutas; el secreto llega de `loadEnv()` (mínimo 32 caracteres) a los tres lugares; el 401 es igual
+  para firma inválida, vencido, sin `pwf`, cuenta borrada y contraseña cambiada, así que no se pueden distinguir; la
+  cookie nueva tiene las mismas banderas y se pone solo con éxito; si la base falla, 500 sin `next()`; los logs nunca
+  guardan token, huella ni hash; la huella de 64 bits dentro de un JWT firmado no se puede falsificar ni adivinar.
+  Nits, ya de antes: la cookie gana sobre el header; el `issuer` no se verifica.
+- **Corrección, APPROVE WITH NITS:** el único `jwt.sign` de `src` está en `sessionToken.ts`; el orden de `routes.ts`
+  se respeta y los `GET /api/tools*` siguen públicos; `findActiveById` devuelve la conexión antes de seguir; borrar la
+  cuenta sigue limpiando la cookie; el cliente (`useApiError.ts:24`) manda cualquier `SESSION_REQUIRED` al login con
+  el aviso, así que después del deploy el primer pedido de cada persona la lleva al login (efecto previsto). Nits:
+  (R-C1) dos cambios de contraseña simultáneos desde dos dispositivos: gana el último y el otro queda con una huella
+  vieja y tiene que entrar de nuevo → `intentional`, es seguro (sale, no entra a otra cuenta); (R-C2) una ruta de
+  `/api/tools` que no existe pasa dos veces por el control (las que existen responden antes; Claude lo verificó en
+  `routes.ts`) → `irrelevant`; (R-C3) el `issuer` no se verifica, ya de antes → `irrelevant` para este cambio.
 
 ## Next
 
