@@ -204,12 +204,20 @@ limpiando la cookie. **Costo conocido:** `GET /api/me` y `PATCH /me/password` pa
   promedio 294 (antes 299), mínimo 275, máximo 320. **La consulta extra no se nota:** la diferencia es menor que el
   ruido de la red.
 
+### Producción (2026-11-14)
+
+- Hernán corrió `git push origin main` → `05d8d2c..a15a5d4` (incluye `aaa1f10`). Deploy de producción `18131e4b`
+  **SUCCESS**; `GET /api/health` → 200 con la base conectada.
+- **Prueba con una cuenta de prueba en producción** (`qa-5c-…-prod@example.com`, contraseñas al azar no impresas,
+  cookies en una carpeta temporal borrada al final): A y B → 200; cambio de contraseña desde A → 204; **B → 401**;
+  **A con su cookie nueva → 200**; borrar la cuenta desde A → 204; la cookie de A reusada → 401; login después de
+  borrar → 401 `INVALID_CREDENTIALS`. En producción no queda una cuenta usable.
+- Efecto previsto: al publicarse, todas las sesiones abiertas en producción se cerraron una vez.
+
 ## Next
 
-**Listo para el push (2026-11-14):** `aaa1f10` en `main`, staging probado y medido. Siguiente: Hernán corre
-`git push origin main`; después, comprobar el deploy de producción, `/api/health`, y una prueba con una cuenta de
-prueba en producción (dos sesiones y cambio de contraseña) que se borra al final. Al publicarse, **todas las sesiones
-abiertas en producción se cierran una vez**. Historial: pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
+**En producción (2026-11-14).** Nada pendiente de este FTD. El estado del frontmatter sigue en `in-progress` porque
+rsc lo cierra con un merge, y acá se subió directo a `main`. Historial: pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
 viejos listados uno por uno). **Lanzado a Qwen el 2026-11-14** (run `run_4c56396f07c4`,
 dispatch `ctx_d7ab4763af76`, task `task_3942c5baf330`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/r-session-check`, base `3d29ab0`, con `server/` igual a `05d8d2c`). Cuando
