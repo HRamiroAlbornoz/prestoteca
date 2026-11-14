@@ -75,10 +75,11 @@ checks, revisa el diff, prueba mutantes y aplica la revisión que pida `rsc risk
 - [x] **R5 — Los tests que arman la app real.** En `errors.test.ts`, los dos tests que mandan un token para
   `user-1` pasan a simular ese usuario (un `findActiveById` falso con un hash cuya huella coincide). Siguen
   comprobando lo mismo de antes: el 404 JSON de una ruta `/api` que no existe y el `OPTIONS` de `/api/health`.
-- [ ] **Controles:** en `server/`, `npx vitest run` y `npx tsc -b` en verde; `rsc risk` y la revisión que pida.
-- [ ] **Medición:** en staging, el promedio de 20 pedidos a una ruta protegida (`GET /api/loans?type=pedidos`), antes
+- [x] **Controles:** (Hecho: 633/633, `tsc -b` exit 0, `rsc risk` tier 2, panel de 3, aprobación de Hernán.) En
+  `server/`, `npx vitest run` y `npx tsc -b` en verde; `rsc risk` y la revisión que pida.
+- [x] **Medición:** (Hecho: mediana 303 ms antes, 292 ms después; sin diferencia medible.) en staging, el promedio de 20 pedidos a una ruta protegida (`GET /api/loans?type=pedidos`), antes
   del deploy y después.
-- [ ] **Staging:** dos sesiones de la misma cuenta (A y B). Cambiar la contraseña desde A → 204 y cookie nueva; B → 401;
+- [x] **Staging:** (Hecho: ver Evidence, «Commit, staging y medición».) Dos sesiones de la misma cuenta (A y B). Cambiar la contraseña desde A → 204 y cookie nueva; B → 401;
   A con la cookie nueva → 200. Borrar la cuenta desde A → 204; la cookie de A reusada en una ruta de préstamos → 401.
 
 ## Evidence
@@ -187,9 +188,28 @@ limpiando la cookie. **Costo conocido:** `GET /api/me` y `PATCH /me/password` pa
 - **Pasado a `main` (carpeta principal, sin commit):** los 14 archivos copiados del worktree e iguales (`cmp`); en `main`
   32 archivos, 633/633, `tsc -b` exit 0.
 
+### Commit, staging y medición (2026-11-14)
+
+- **Commit `aaa1f10` (Hernán), sin push.** Hernán dio la aprobación de tier 2. Worktree `r-session-check` y su rama
+  borrados: el `git diff` solo mostraba como «borrados» los 3 archivos nuevos, que en el worktree no estaban
+  registrados en git; su contenido es igual al del commit. Panel registrado en el ledger (`session-revocation/r`).
+- **Staging (deploy `2cb3e006` SUCCESS; producción sin cambios, `7a4c64da`):** cuenta nueva con dos sesiones, A y B →
+  las dos 200; cambio de contraseña desde A → 204 y cookie nueva; **B → 401** `Invalid or expired token`; **A con su
+  cookie nueva → 200**; borrar la cuenta desde A → 204; **la cookie de A reusada → 401**. Salida en el scratchpad de la
+  sesión, `session-rev/staging-checks.txt`.
+- **No probado en staging:** el rechazo de un token emitido antes del deploy. La cookie que había quedado de la
+  medición ya había vencido (1 h), así que `curl` no la mandó y el 401 fue «Authentication required». Cualquier token
+  de antes ya está vencido. Ese caso lo cubre solo el test R3d.
+- **Medición «después»** (misma cuenta, misma ruta, 3 de calentamiento + 20): 20 × 200, **mediana 292 ms** (antes 303),
+  promedio 294 (antes 299), mínimo 275, máximo 320. **La consulta extra no se nota:** la diferencia es menor que el
+  ruido de la red.
+
 ## Next
 
-Pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
+**Listo para el push (2026-11-14):** `aaa1f10` en `main`, staging probado y medido. Siguiente: Hernán corre
+`git push origin main`; después, comprobar el deploy de producción, `/api/health`, y una prueba con una cuenta de
+prueba en producción (dos sesiones y cambio de contraseña) que se borra al final. Al publicarse, **todas las sesiones
+abiertas en producción se cierran una vez**. Historial: pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
 viejos listados uno por uno). **Lanzado a Qwen el 2026-11-14** (run `run_4c56396f07c4`,
 dispatch `ctx_d7ab4763af76`, task `task_3942c5baf330`, worktree
 `C:/Users/hralb/orca/workspaces/prestoteca/r-session-check`, base `3d29ab0`, con `server/` igual a `05d8d2c`). Cuando
