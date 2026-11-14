@@ -124,6 +124,20 @@ limpiando la cookie. **Costo conocido:** `GET /api/me` y `PATCH /me/password` pa
   `R-round2.md` en el scratchpad: agregar R2b, deshacer los cambios de más en `authService.test.ts`, probar el mutante
   del login. Solo tests.
 
+### R — ronda 2 (2026-11-14)
+
+- **Hecho por:** Qwen, mismo worktree. Agregó R2b tal como se pidió y volvió los tests viejos a como estaban (solo
+  quedan los `'hash-1'` permitidos, la línea más estricta de `pwf` en `JWT payload contains user id` y el
+  `usersByEmail` del helper, que R2a y R2b necesitan). **Terminó sin mandar `worker_done`** (Orca lo avisó como
+  escalación); el trabajo estaba completo.
+- **Desvío:** deshizo su mutante con `sed` en vez de copiar desde una copia, y eso le cambió los finales de línea a
+  `authService.ts`. Claude lo comprobó (mismo contenido con `diff --strip-trailing-cr`) y lo restauró desde su copia,
+  byte a byte.
+- **Controles (Claude):** servidor 31 archivos, **627/627**; `npx tsc -b` exit 0. El mutante del login
+  (`generateToken(user.id, input.password)`) ahora lo atrapa R2b.
+- **Riesgo:** `rsc risk` → **tier 2** (clase `auth`: `auth.ts`, `sessionToken.ts`, `authRoutes.ts`, `authService.ts`):
+  panel de 3 y aprobación de Hernán. Panel en curso.
+
 ## Next
 
 Pedido para Qwen armado y corregido tras la revisión (`R-brief.md` en el scratchpad de la sesión: R1a-R4b, 7 mutantes, cambios permitidos en tests
