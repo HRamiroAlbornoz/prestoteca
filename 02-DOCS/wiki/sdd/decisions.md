@@ -177,3 +177,21 @@ timestamp: 2026-10-04T00:00:00Z
   - ✅ Todo pedido no-`OPTIONS` a una `/api` inexistente responde JSON; los `OPTIONS` conservan su status de antes.
   - ⚠️ Una excepción consciente a "toda respuesta de error es JSON" (§0 del plan) para `OPTIONS` de rutas inexistentes,
     y otra a "ningún status cambia" (D7) para `/API` en mayúsculas.
+
+## D10 — Sesión recordada por el servidor en vez de acceso corto + renovación (server-sessions)
+
+- **Fecha:** 2026-11-18
+- **Contexto:** el punto 5g del backlog pedía el diseño del checklist de autenticación: permiso de acceso de 15 min +
+  permiso de renovación de 7 días con rotación y renovación automática en el cliente. Desde 5c el servidor ya consulta
+  la cuenta en cada pedido protegido, así que la revocación ya es inmediata para cambio de contraseña y cuenta borrada.
+  Lo que faltaba: sesiones de más de 1 h y un logout que anule la sesión en el servidor.
+- **Opciones:** A) acceso 15 min + renovación (checklist literal); B) sesión que el servidor recuerda y puede anular;
+  C) JWT que se reemite + lista de tokens anulados; D) solo arreglar el logout (FTD).
+- **Decisión:** B, con 7 días contados desde el último uso y un botón "Cerrar sesión en todos los dispositivos".
+  Elegido por Hernán el 2026-11-18 en `specify`.
+- **Por qué:** da los dos resultados buscados sin la renovación del cliente ni las carreras entre pedidos simultáneos;
+  la consulta por pedido ya se paga desde 5c.
+- **Consecuencias:**
+  - ✅ Logout y "Cerrar todas" anulan sesiones en el servidor; nadie vuelve al login cada hora.
+  - ⚠️ Se aparta de la letra del checklist de autenticación (no hay permiso de 15 min). Enmienda pendiente del
+    principio 8 de la constitución ("(1h expiry)") y del criterio de 1 h de la spec MVP.
