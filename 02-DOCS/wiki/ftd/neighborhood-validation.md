@@ -18,6 +18,14 @@ Con la app no se puede elegir otro barrio, pero un pedido hecho a mano sí.
   (400), mensaje «Elegí un barrio de la lista.». Es una fila nueva en la tabla de mensajes de la spec `error-codes`,
   que Hernán aprobó fila por fila; esta fila la aprueba con esta decisión.
 - Antes se miró producción, solo leyendo y solo el número: **9 cuentas activas, 2 con un barrio fuera de la lista**.
+  A pedido de Hernán se miraron los valores (solo el barrio, sin nombres ni correos): `"Norte"` y `"Sur"`, una cuenta
+  cada uno. No son de otra provincia: son formas cortas de «Barrio Norte» y «Barrio Sur», de San Miguel de Tucumán
+  (toda la lista es de Tucumán: la capital y Yerba Buena). **Hernán decidió corregirlas en vez de sumarlas a la
+  lista**, para no tener dos nombres para el mismo lugar.
+- **Corrección hecha (2026-11-18)**, desde el contenedor de producción, en una transacción que se deshacía si alguna de
+  las dos actualizaciones no tocaba exactamente 1 fila: `'Norte'` → `'Barrio Norte'` (1 fila) y `'Sur'` →
+  `'Barrio Sur'` (1 fila), `COMMIT`. Antes: 2 cuentas fuera de la lista; después: **0**. Se puede volver atrás, porque
+  los valores viejos son conocidos.
 
 ## Scope
 
@@ -37,8 +45,8 @@ Con la app no se puede elegir otro barrio, pero un pedido hecho a mano sí.
 - Tests de cada caso, con el ID en el nombre.
 
 **No entra:**
-- **Las 2 cuentas de producción con un barrio fuera de la lista.** Siguen funcionando igual; la regla solo mira los
-  registros nuevos. Qué hacer con ellas (dejarlas, corregirlas a mano) es una decisión aparte.
+- Cambiar el barrio de cuentas que ya existen: la regla solo mira los registros nuevos. (Las 2 de producción que
+  estaban fuera de la lista ya se corrigieron a mano, ver Intent.)
 - El filtro por barrio de la búsqueda: es un texto libre con coincidencia parcial, y la spec no lo pide de la lista.
 - Cambiar la lista o permitir editarla (la spec lo deja como suposición tomada).
 - Editar el barrio desde el perfil: hoy no hay ninguna ruta que lo haga.
@@ -79,5 +87,14 @@ ese valor. El límite de registros no molesta: los dos archivos llaman a `resetR
 ## Next
 
 Pedido para Qwen armado (2026-11-17): `C:\Users\hralb\AppData\Local\Temp\claude\prestoteca-briefs\N-brief.md`, fuera del
-proyecto (N1a-N2b, 5 mutantes). En revisión con un agente de contexto fresco. Después: corregirlo si hace falta y
-preguntarle a Hernán antes de lanzarlo.
+proyecto (N1a-N2b, 5 mutantes). **Revisado (2026-11-18, agente de contexto fresco): SEND AFTER FIXES, todo
+aplicado:** (1) el helper de `authValidation.test.ts` no expone el repositorio falso → «no se creó la cuenta» se mira
+con `usersByEmail.size`, y el correo se busca en minúsculas; (2) y (3) las cuentas esperadas estaban mal: cliente 484,
+no 483, y servidor 667 más los de N2, porque tests parametrizados que ya existen suman filas solos; (4) M1 y M5 hacen
+protestar a `tsc`, se aclaró que son mutantes de ejecución y que no se silencia nada; (5) se listan los 3 archivos que
+hay que copiar antes de los mutantes; (6) la spec suma una tercera edición: la lista de situaciones del registro en
+*Behaviour* nombra también el barrio. Verificado sin cambios: el punto de inserción, los vecinos de cada línea nueva,
+la tabla de la spec se lee bien con la fila 38 después de la 5, solo se rompen los 4 tests ya conocidos, la guarda N2b
+lee bien `RegisterPage.tsx`, y los acentos están en la misma forma Unicode (NFC) en los dos archivos.
+**Hernán mantuvo la autorización** de mandarle las correcciones a Qwen sin preguntar antes. Siguiente: lanzarlo en el
+worktree nuevo `n-neighborhood` cuando Hernán diga que sí.
