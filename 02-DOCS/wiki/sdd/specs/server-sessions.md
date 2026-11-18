@@ -152,6 +152,10 @@ de los botones existentes de Configuración):
   ruta nueva queda sin límite.
 - **CSRF y origen:** los pedidos que cambian estado siguen exigiendo el origen permitido (`ORIGIN_NOT_ALLOWED`),
   incluido "Cerrar sesión en los otros dispositivos".
+- **Privacidad al borrar la cuenta** (spec MVP, decisión tomada: el nombre se borra): las sesiones de una cuenta
+  borrada no solo dejan de servir, **dejan de estar guardadas**. No queda registro de cuándo usó la app.
+- **El identificador de sesión es la única llave:** no se puede adivinar, ni deducir de otro identificador, y una
+  copia de lo que el servidor guarda sobre las sesiones no alcanza para usar ninguna. El plan decide cómo.
 - **Contraseñas:** el sistema de hash y la huella de la contraseña de 5c no cambian de forma.
 
 ## How it proves it
@@ -171,11 +175,13 @@ de los botones existentes de Configuración):
 ## Behaviour
 
 - **Camino principal:** la persona inicia sesión con "Recordarme". Cada vez que usa la app con esa sesión, el plazo de
-  7 días vuelve a empezar. Mientras no pasen 7 días sin uso, sigue logueada en ese dispositivo, aunque cierre el
-  navegador.
+  7 días vuelve a empezar, en el servidor y también en el vencimiento de la cookie en el navegador. Mientras no pasen
+  7 días sin uso, sigue logueada en ese dispositivo, aunque cierre el navegador.
 - **Sin "Recordarme":** la sesión dura mientras el navegador siga abierto y se use al menos una vez cada 12 horas.
   Cerrar el navegador la termina en ese dispositivo.
-- **Registro:** registrarse inicia una sesión sin "Recordarme" (la pantalla de registro no cambia).
+- **Registro:** registrarse inicia una sesión sin "Recordarme" (la pantalla de registro no cambia). Como el login, un
+  registro correcto anula la sesión que ya hubiera en ese navegador; uno rechazado no la toca.
+- **Cuenta borrada:** sus sesiones dejan de servir y dejan de estar guardadas.
 - **Cambio de contraseña:** la sesión actual sigue con el modo que tenía.
 - **Login con una sesión ya presente en el navegador** (cambiar de cuenta o de modo sin tocar "Salir"): el login
   nunca reutiliza la sesión que trae el navegador. Un login **correcto** siempre abre una sesión nueva, y la anterior
@@ -196,6 +202,8 @@ de los botones existentes de Configuración):
   - Una sesión que lleva exactamente 7 días sin uso ya está vencida. El límite no es ambiguo: vence en el instante en
     que se cumplen los 7 días.
   - Dos pedidos simultáneos con la misma sesión funcionan los dos. Ninguno saca al otro de la sesión.
+  - Un pedido que llega al mismo tiempo que "Salir" o "cerrar las otras" sobre esa sesión puede cumplirse o no, pero
+    nunca revive la sesión anulada: después del logout, esa cookie da `401` siempre.
   - "Salir" con una sesión ya vencida o anulada responde como un logout normal (`204`): el resultado buscado ya se
     cumple.
   - Varios dispositivos de la misma cuenta tienen sesiones independientes.
@@ -258,7 +266,8 @@ de los botones existentes de Configuración):
 - **AC-19.** Given una cuenta sin otras sesiones abiertas, When la persona confirma, Then ve "Cerramos la sesión en
   tus otros dispositivos." anunciado a lectores de pantalla, y su sesión sigue.
 - **AC-20.** Given la pantalla de login recién abierta, When se inspecciona, Then hay una casilla con la etiqueta
-  "Recordarme" asociada, desmarcada, alcanzable con Tab y que se marca con la barra espaciadora.
+  "Recordarme" asociada, desmarcada, alcanzable con Tab y que se marca con la barra espaciadora, y el texto "No la
+  marques en una compu compartida." es su descripción accesible (un lector de pantalla lo lee al llegar a la casilla).
 - **AC-21.** Given un login correcto con "Recordarme", When se inspecciona la cookie, Then tiene vencimiento propio de
   7 días (sobrevive al cierre del navegador); y después de un pedido protegido hecho el día 5, el vencimiento de la
   cookie en el navegador es de nuevo 7 días a partir de ese pedido.
@@ -288,6 +297,16 @@ de los botones existentes de Configuración):
   `/loans`), Then la app lleva al login con la ruta de regreso a esa página y no muestra "Tu sesión terminó…".
 - **AC-32.** Given que cerrar las otras sesiones recibe `429`, When la persona confirma, Then ve el mensaje de la
   fila 35, anunciado a lectores de pantalla, y ninguna sesión se cierra.
+- **AC-33.** Given una cuenta con sesiones en A y B, When la cuenta se borra, Then no queda guardada ninguna sesión de
+  esa cuenta (además de que A y B reciben `401`, AC-9).
+- **AC-34.** Given un navegador con la sesión S1 de la cuenta X, When ahí se completa un registro correcto de la
+  cuenta Y, Then S1 mandada de nuevo recibe `401`; When en cambio el registro es rechazado, Then S1 sigue respondiendo
+  normal.
+- **AC-35.** Given dos logins seguidos de la misma cuenta, When se comparan los dos identificadores de sesión, Then son
+  distintos y ninguno se obtiene del otro ni de los datos de la cuenta; y con solo lo que el servidor guarda sobre las
+  sesiones, un pedido protegido no se puede hacer pasar por ninguna de ellas.
+- **AC-36.** Given una sesión, When un pedido protegido con ella y "Salir" se procesan al mismo tiempo, Then después de
+  que "Salir" respondió `204`, esa cookie recibe `401 SESSION_REQUIRED` en todo pedido posterior.
 
 ## Points to clarify
 
@@ -320,7 +339,7 @@ de los botones existentes de Configuración):
   `GET /api/me` que la app hace al abrir. *Base:* "7 días sin usarla" quiere decir sin abrir la app. *Riesgo:* una
   pestaña que quede abierta y haga pedidos sola mantendría la sesión viva. Hoy la app no hace pedidos en segundo plano.
 - **suposición tomada** — Las sesiones vencidas o anuladas no se guardan para siempre: se descartan pasado un tiempo
-  que fija el plan. *Base:* no hay ninguna pantalla que las muestre, y guardarlas sin uso es acumular sin motivo cuándo
+  que fija el plan; el plan agrega el criterio de aceptación correspondiente cuando fije ese plazo. *Base:* no hay ninguna pantalla que las muestre, y guardarlas sin uso es acumular sin motivo cuándo
   usó alguien la app. *Riesgo:* si más adelante se quiere una lista de dispositivos o una auditoría, falta el
   historial.
 - **decisión diferida** — Lista de sesiones activas por dispositivo, con cierre puntual. Fuera de este ciclo.
@@ -358,3 +377,9 @@ de los botones existentes de Configuración):
   (AC-28); el diálogo de confirmación es modal, con nombre accesible y foco atrapado, y el éxito se anuncia siempre
   (AC-18); abrir directo una página privada con cookie inválida lleva al login sin mensaje (AC-31); se listan todos
   los "1 hora" a enmendar en MVP y error-codes; la suposición del deploy concuerda con AC-29.
+- **2026-11-18 — cuarta revisión con ojos frescos** (ningún hallazgo bloqueante; el revisor juzgó que otra ronda
+  solo encontraría detalles de redacción o de plan). Siete ajustes: borrar la cuenta elimina sus sesiones guardadas
+  (AC-33, privacidad de la spec MVP); el registro anula la sesión previa del navegador como el login (AC-34); el
+  identificador no se puede adivinar ni usar desde una copia del servidor (AC-35); un pedido simultáneo con "Salir"
+  nunca revive la sesión (AC-36); la renovación del vencimiento de la cookie pasa a *Behaviour*; el aviso de la
+  casilla es su descripción accesible (AC-20); el plazo de descarte de sesiones vencidas lleva su criterio en el plan.
