@@ -118,6 +118,7 @@ de los botones existentes de Configuración):
 | "Salir" | Igual que hoy: `204` y vuelve al inicio sin sesión. Además, la cookie usada **antes** del logout, mandada de nuevo, recibe `401 SESSION_REQUIRED`. |
 | Tocar "Cerrar sesión en los otros dispositivos" | Se abre una confirmación: "¿Cerrar la sesión en tus otros dispositivos? Vas a seguir con la sesión abierta acá." con los botones "Cerrar sesiones" y "Cancelar". El foco pasa a la confirmación; Escape o "Cancelar" la cierran sin hacer nada y el foco vuelve al botón. |
 | Confirmar | Todas las sesiones de la cuenta **menos la actual** reciben `401 SESSION_REQUIRED` en su próximo pedido. La actual sigue. En Configuración aparece, anunciado a lectores de pantalla: "Cerramos la sesión en tus otros dispositivos." (también si no había otras sesiones abiertas). |
+| Demasiados pedidos seguidos al cerrar las otras (`429`) | El mensaje general de la fila 35: "Hubo demasiados pedidos en poco tiempo. Esperá un minuto y volvé a intentar." Las sesiones siguen abiertas. |
 | Falla al cerrar las otras (sin conexión, error del servidor) | Mensaje propio, fila 39 de la tabla de [error-codes](./error-codes.md): "No pudimos cerrar la sesión en tus otros dispositivos. Revisá tu conexión e intentá de nuevo en un momento." En Configuración, anunciado a lectores de pantalla, sin texto del servidor. Las sesiones siguen abiertas. |
 | Cambio de contraseña | Igual que hoy: las otras sesiones reciben `401`, la actual sigue. |
 | Cuenta borrada | Igual que hoy: todas sus sesiones reciben `401`. |
@@ -130,17 +131,20 @@ de los botones existentes de Configuración):
   servidor": un JWT con datos de la cuenta contradiría
   AC-14. La enmienda pasa por `constitution` antes del plan y se anota en su registro de enmiendas y en
   `decisions.md`.
-- **Spec MVP, criterio "la cookie de sesión expira en 1 hora"** (`prestoteca-mvp.md`, *Acceptance criteria*): queda
-  reemplazado por esta spec. Se anota la enmienda en la spec MVP.
+- **Spec MVP, todo lo que fija "1 hora"** (`prestoteca-mvp.md`): el criterio "se crea una cookie de sesión que expira
+  en 1 hora" (*Acceptance criteria*) y la suposición "La sesión dura 1 hora" (*Points to clarify*). Los dos quedan
+  reemplazados por esta spec y se anota la enmienda en la spec MVP.
 - **Spec MVP, redirección:** sin sesión o con sesión vencida, se redirige al login y vuelve a la ruta original
   (interna, empieza con `/`). Sin cambios.
 - **5c ([session-revocation](../../ftd/session-revocation.md)):** cambiar la contraseña cierra las otras sesiones y
   deja la actual; una cuenta borrada pierde todas sus sesiones. Sin cambios de comportamiento.
 - **Spec [error-codes](./error-codes.md), enmiendas que esta spec obliga:** la tabla termina hoy en la fila 38; se
   agrega la **fila 39** (falla al cerrar las otras sesiones) con una entrada en sus *Revisions*. Esa entrada también
-  actualiza el supuesto de la fila 8 ("la cookie dura lo mismo que la sesión, 1 hora"): ahora la cookie puede
-  sobrevivir a la sesión (sin "Recordarme" con un navegador que la conserva, o tras cerrar las otras sesiones desde
-  otro dispositivo). La fila 8 sigue unificada: sesión desconocida, vencida o anulada se ven igual.
+  actualiza todos los lugares que razonan con "1 hora": *Behaviour → Sesión* ("la cookie dura lo mismo que la
+  sesión (1 hora)"), y en *Points to clarify* la suposición de la fila 8 y la nota "con sesiones de 1 hora puede
+  pasar". Ahora la cookie puede sobrevivir a la sesión (sin "Recordarme" con un navegador que la conserva, o tras
+  cerrar las otras sesiones desde otro dispositivo). La fila 8 sigue unificada: sesión desconocida, vencida o anulada
+  se ven igual.
 - **Spec [error-codes](./error-codes.md):** toda sesión inválida responde `SESSION_REQUIRED` (fila 8) con su mensaje
   en español. "Salir" que falla muestra `LOGOUT_FAILED` (fila 10). Ningún texto del servidor llega a la pantalla
   (fila 1, guard `noServerText`). Los errores se anuncian a lectores de pantalla (principio 14).
@@ -174,13 +178,18 @@ de los botones existentes de Configuración):
 - **Registro:** registrarse inicia una sesión sin "Recordarme" (la pantalla de registro no cambia).
 - **Cambio de contraseña:** la sesión actual sigue con el modo que tenía.
 - **Login con una sesión ya presente en el navegador** (cambiar de cuenta o de modo sin tocar "Salir"): el login
-  nunca reutiliza la sesión que trae el navegador. Siempre abre una sesión nueva, y la anterior de ese navegador queda
-  anulada.
+  nunca reutiliza la sesión que trae el navegador. Un login **correcto** siempre abre una sesión nueva, y la anterior
+  de ese navegador queda anulada. Un login rechazado (contraseña incorrecta, demasiados intentos, datos inválidos) no
+  toca la sesión que ya estaba.
 - **Abrir la app con una cookie que ya no sirve** (vencida o anulada): igual que hoy, cuenta como "sin sesión", sin
   mensaje y sin redirección; el navegador olvida esa cookie. El mensaje "Tu sesión terminó…" y la redirección al
   login aparecen solo al intentar algo que necesita sesión.
+- **Abrir directo una página privada con una cookie que ya no sirve:** igual que hoy con "sin sesión": lleva al login
+  con la ruta de regreso, sin el mensaje "Tu sesión terminó…" (la fila 8 aplica a una acción, no a la carga).
 - **"Salir":** la sesión de ese dispositivo queda anulada en el servidor y el navegador olvida la cookie. Las sesiones
-  de otros dispositivos siguen.
+  de otros dispositivos siguen. Si el servidor no puede anularla (por ejemplo, la base de datos no responde), "Salir"
+  **no** da éxito: la pantalla muestra `LOGOUT_FAILED` (fila 10) y la barra sigue mostrando la sesión abierta, como en
+  el AC-13 de error-codes.
 - **"Cerrar sesión en los otros dispositivos":** después de confirmar, todas las sesiones de la cuenta menos la del
   dispositivo que lo pidió quedan anuladas.
 - **Bordes:**
@@ -240,10 +249,12 @@ de los botones existentes de Configuración):
 - **AC-17.** Given la base de datos no responde, When llega un pedido protegido con una cookie de sesión, Then el
   pedido no se cumple y la respuesta es un error del servidor (`INTERNAL_ERROR`), nunca un acceso concedido.
 - **AC-18.** Given la persona en Configuración, When toca "Cerrar sesión en los otros dispositivos", Then aparece la
-  confirmación con el foco adentro; When toca "Cancelar" o aprieta Escape, Then la confirmación se cierra, ninguna
+  confirmación como un diálogo modal cuyo nombre accesible es la pregunta, con el foco adentro, y Tab y Shift+Tab no
+  salen del diálogo mientras está abierto; When toca "Cancelar" o aprieta Escape, Then la confirmación se cierra, ninguna
   sesión se cierra y el foco vuelve al botón. When toca "Cerrar sesiones", Then mientras espera la respuesta ese botón
   queda deshabilitado y se manda un solo pedido aunque se toque varias veces; al terminar, la confirmación se cierra
-  y el foco vuelve al botón "Cerrar sesión en los otros dispositivos", con el mensaje de éxito o de error a la vista.
+  y el foco vuelve al botón "Cerrar sesión en los otros dispositivos", con el mensaje de éxito o de error a la vista
+  y anunciado a lectores de pantalla (el de éxito, haya habido o no otras sesiones).
 - **AC-19.** Given una cuenta sin otras sesiones abiertas, When la persona confirma, Then ve "Cerramos la sesión en
   tus otros dispositivos." anunciado a lectores de pantalla, y su sesión sigue.
 - **AC-20.** Given la pantalla de login recién abierta, When se inspecciona, Then hay una casilla con la etiqueta
@@ -264,11 +275,19 @@ de los botones existentes de Configuración):
   navegador justo después del deploy), When llega al servidor, Then inicia sesión en el modo sin "Recordarme".
 - **AC-27.** Given una sesión sin "Recordarme" y otra con "Recordarme", When cada una cambia la contraseña, Then la
   primera sigue sin vencimiento propio de cookie y vence a las 12 h sin uso, y la segunda sigue con 7 días.
-- **AC-28.** Given un navegador con la sesión S1 de la cuenta X, When ahí se hace login (con la cuenta X o con la Y),
-  Then se abre una sesión nueva distinta de S1, y S1 mandada de nuevo recibe `401 SESSION_REQUIRED`.
+- **AC-28.** Given un navegador con la sesión S1 de la cuenta X, When ahí se hace un login correcto (con la cuenta X
+  o con la Y), Then se abre una sesión nueva distinta de S1, y S1 mandada de nuevo recibe `401 SESSION_REQUIRED`.
+  When en cambio el login es rechazado (contraseña incorrecta, `429` o `400`), Then S1 sigue respondiendo normal.
 - **AC-29.** Given la app abierta en una página pública con una cookie vencida o anulada, When carga, Then se muestra
   como sin sesión, sin el mensaje "Tu sesión terminó…" y sin redirección al login, y el navegador ya no guarda esa
   cookie.
+- **AC-30.** Given una sesión abierta, When se toca "Salir" y el servidor no puede anular la sesión (base de datos
+  caída), Then la respuesta no es `204`, la pantalla muestra el mensaje de la fila 10, la barra sigue mostrando la
+  sesión abierta, y la cookie sigue sirviendo (no quedó a medias: o se anuló en el servidor o no se tocó).
+- **AC-31.** Given una cookie vencida o anulada, When se abre directo una página privada (por ejemplo
+  `/loans`), Then la app lleva al login con la ruta de regreso a esa página y no muestra "Tu sesión terminó…".
+- **AC-32.** Given que cerrar las otras sesiones recibe `429`, When la persona confirma, Then ve el mensaje de la
+  fila 35, anunciado a lectores de pantalla, y ninguna sesión se cierra.
 
 ## Points to clarify
 
@@ -292,7 +311,11 @@ de los botones existentes de Configuración):
 - **suposición tomada** — Al desplegar, todas las sesiones actuales de 1 h dejan de servir (AC-10) y cada persona
   vuelve a loguearse una vez. *Base:* producción tiene 1 cuenta activa (la de pruebas de Hernán); mantener dos formatos
   de sesión a la vez agrega código que se borra a la hora. *Riesgo:* si al momento del deploy ya hay vecinos usando la
-  app, todos ven "Tu sesión terminó" una vez.
+  app, todos vuelven a loguearse una vez; ven "Tu sesión terminó…" solo si intentan una acción que requiere sesión
+  (AC-29, AC-31).
+- **suposición tomada** — Un `429` al cerrar las otras sesiones muestra la fila 35, no la 39. *Base:* la 35 dice qué
+  hacer ("Esperá un minuto"); la 39 sugiere revisar la conexión, que no es el problema. *Riesgo:* difiere de "Salir",
+  donde error-codes agrupa el `429` en la fila 10.
 - **suposición tomada** — Cualquier pedido protegido con la sesión cuenta como "uso" y renueva el plazo, incluido el
   `GET /api/me` que la app hace al abrir. *Base:* "7 días sin usarla" quiere decir sin abrir la app. *Riesgo:* una
   pestaña que quede abierta y haga pedidos sola mantendría la sesión viva. Hoy la app no hace pedidos en segundo plano.
@@ -330,3 +353,8 @@ de los botones existentes de Configuración):
   la anterior del navegador (AC-28); sin el dato "Recordarme" el login usa el modo corto (AC-26) y un valor inválido
   muestra la fila 37 (AC-25); la confirmación deshabilita el botón mientras espera y devuelve el foco (AC-18); el
   borde "venció o fue anulada"; la meta del modo corto menciona las 12 h.
+- **2026-11-18 — tercera revisión con ojos frescos.** Siete ajustes: "Salir" con la base caída no da éxito (AC-30);
+  un `429` al cerrar las otras muestra la fila 35 (AC-32, suposición); un login rechazado no anula la sesión previa
+  (AC-28); el diálogo de confirmación es modal, con nombre accesible y foco atrapado, y el éxito se anuncia siempre
+  (AC-18); abrir directo una página privada con cookie inválida lleva al login sin mensaje (AC-31); se listan todos
+  los "1 hora" a enmendar en MVP y error-codes; la suposición del deploy concuerda con AC-29.
