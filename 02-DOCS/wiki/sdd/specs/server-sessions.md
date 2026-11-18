@@ -59,7 +59,8 @@ letra del checklist (no hay un permiso de 15 min). Cumple su intención: una ses
 ## Goals
 
 - Quien inicia sesión con "Recordarme" y usa la app al menos una vez cada 7 días no vuelve a ver la pantalla de login.
-- Quien inicia sesión sin "Recordarme" (por ejemplo, en una compu ajena) pierde la sesión al cerrar el navegador.
+- Quien inicia sesión sin "Recordarme" (por ejemplo, en una compu ajena) pierde la sesión al cerrar el navegador o,
+  si el navegador conserva la cookie, a las 12 horas sin uso.
 - "Salir" anula la sesión en el servidor: la misma cookie, usada después, ya no abre nada.
 - La persona puede cerrar su sesión en los otros dispositivos con un botón, sin cambiar la contraseña y sin salir del
   dispositivo que está usando.
@@ -135,6 +136,11 @@ de los botones existentes de Configuración):
   (interna, empieza con `/`). Sin cambios.
 - **5c ([session-revocation](../../ftd/session-revocation.md)):** cambiar la contraseña cierra las otras sesiones y
   deja la actual; una cuenta borrada pierde todas sus sesiones. Sin cambios de comportamiento.
+- **Spec [error-codes](./error-codes.md), enmiendas que esta spec obliga:** la tabla termina hoy en la fila 38; se
+  agrega la **fila 39** (falla al cerrar las otras sesiones) con una entrada en sus *Revisions*. Esa entrada también
+  actualiza el supuesto de la fila 8 ("la cookie dura lo mismo que la sesión, 1 hora"): ahora la cookie puede
+  sobrevivir a la sesión (sin "Recordarme" con un navegador que la conserva, o tras cerrar las otras sesiones desde
+  otro dispositivo). La fila 8 sigue unificada: sesión desconocida, vencida o anulada se ven igual.
 - **Spec [error-codes](./error-codes.md):** toda sesión inválida responde `SESSION_REQUIRED` (fila 8) con su mensaje
   en español. "Salir" que falla muestra `LOGOUT_FAILED` (fila 10). Ningún texto del servidor llega a la pantalla
   (fila 1, guard `noServerText`). Los errores se anuncian a lectores de pantalla (principio 14).
@@ -167,6 +173,12 @@ de los botones existentes de Configuración):
   Cerrar el navegador la termina en ese dispositivo.
 - **Registro:** registrarse inicia una sesión sin "Recordarme" (la pantalla de registro no cambia).
 - **Cambio de contraseña:** la sesión actual sigue con el modo que tenía.
+- **Login con una sesión ya presente en el navegador** (cambiar de cuenta o de modo sin tocar "Salir"): el login
+  nunca reutiliza la sesión que trae el navegador. Siempre abre una sesión nueva, y la anterior de ese navegador queda
+  anulada.
+- **Abrir la app con una cookie que ya no sirve** (vencida o anulada): igual que hoy, cuenta como "sin sesión", sin
+  mensaje y sin redirección; el navegador olvida esa cookie. El mensaje "Tu sesión terminó…" y la redirección al
+  login aparecen solo al intentar algo que necesita sesión.
 - **"Salir":** la sesión de ese dispositivo queda anulada en el servidor y el navegador olvida la cookie. Las sesiones
   de otros dispositivos siguen.
 - **"Cerrar sesión en los otros dispositivos":** después de confirmar, todas las sesiones de la cuenta menos la del
@@ -185,7 +197,8 @@ de los botones existentes de Configuración):
   - Si la base de datos no responde al revisar la sesión, el pedido no pasa (igual que hoy).
   - "Cerrar las otras" sin sesión → `401 SESSION_REQUIRED`.
   - "Cerrar las otras" sin otras sesiones abiertas → éxito igual, con el mismo mensaje.
-  - Si la sesión actual venció justo antes de confirmar → `401 SESSION_REQUIRED`, mensaje de sesión terminada y
+  - Si la sesión actual venció o fue anulada justo antes de confirmar (por ejemplo, otro dispositivo cerró las otras
+    sesiones al mismo tiempo) → `401 SESSION_REQUIRED`, mensaje de sesión terminada y
     redirección al login (no el mensaje de la fila 39).
 
 ## Acceptance criteria
@@ -228,7 +241,9 @@ de los botones existentes de Configuración):
   pedido no se cumple y la respuesta es un error del servidor (`INTERNAL_ERROR`), nunca un acceso concedido.
 - **AC-18.** Given la persona en Configuración, When toca "Cerrar sesión en los otros dispositivos", Then aparece la
   confirmación con el foco adentro; When toca "Cancelar" o aprieta Escape, Then la confirmación se cierra, ninguna
-  sesión se cierra y el foco vuelve al botón.
+  sesión se cierra y el foco vuelve al botón. When toca "Cerrar sesiones", Then mientras espera la respuesta ese botón
+  queda deshabilitado y se manda un solo pedido aunque se toque varias veces; al terminar, la confirmación se cierra
+  y el foco vuelve al botón "Cerrar sesión en los otros dispositivos", con el mensaje de éxito o de error a la vista.
 - **AC-19.** Given una cuenta sin otras sesiones abiertas, When la persona confirma, Then ve "Cerramos la sesión en
   tus otros dispositivos." anunciado a lectores de pantalla, y su sesión sigue.
 - **AC-20.** Given la pantalla de login recién abierta, When se inspecciona, Then hay una casilla con la etiqueta
@@ -243,7 +258,17 @@ de los botones existentes de Configuración):
 - **AC-24.** Given un registro correcto, When se inspecciona la cookie, Then se comporta como sin "Recordarme"
   (AC-22, AC-23).
 - **AC-25.** Given un login con "Recordarme" mandado con un valor que no es verdadero ni falso (por ejemplo un texto),
-  When llega al servidor, Then responde `400` con un código de validación y no inicia ninguna sesión.
+  When llega al servidor, Then responde `400`, la pantalla muestra el mensaje genérico de la fila 37 de error-codes
+  ("Algo salió mal. Intentá de nuevo en un momento."), y no inicia ninguna sesión.
+- **AC-26.** Given un login correcto sin el dato "Recordarme" (por ejemplo, una versión vieja de la app guardada en el
+  navegador justo después del deploy), When llega al servidor, Then inicia sesión en el modo sin "Recordarme".
+- **AC-27.** Given una sesión sin "Recordarme" y otra con "Recordarme", When cada una cambia la contraseña, Then la
+  primera sigue sin vencimiento propio de cookie y vence a las 12 h sin uso, y la segunda sigue con 7 días.
+- **AC-28.** Given un navegador con la sesión S1 de la cuenta X, When ahí se hace login (con la cuenta X o con la Y),
+  Then se abre una sesión nueva distinta de S1, y S1 mandada de nuevo recibe `401 SESSION_REQUIRED`.
+- **AC-29.** Given la app abierta en una página pública con una cookie vencida o anulada, When carga, Then se muestra
+  como sin sesión, sin el mensaje "Tu sesión terminó…" y sin redirección al login, y el navegador ya no guarda esa
+  cookie.
 
 ## Points to clarify
 
@@ -299,3 +324,9 @@ de los botones existentes de Configuración):
   email. Eligió solo "Recordarme": con la casilla, 7 días sin uso; sin ella, la sesión termina al cerrar el navegador
   y, en el servidor, a las 12 h sin uso. Nuevos AC-20 a AC-25. Los avisos por email van a una spec propia, después de
   verificar el email al registrarse; las duraciones elegibles quedan fuera.
+- **2026-11-18 — segunda revisión con ojos frescos.** Ocho ajustes: enmiendas que esta spec obliga en error-codes
+  (fila 39 y el supuesto de 1 h de la fila 8); abrir la app con una cookie que ya no sirve no muestra mensaje ni
+  redirige (AC-29); el cambio de contraseña conserva el modo (AC-27); el login siempre abre una sesión nueva y anula
+  la anterior del navegador (AC-28); sin el dato "Recordarme" el login usa el modo corto (AC-26) y un valor inválido
+  muestra la fila 37 (AC-25); la confirmación deshabilita el botón mientras espera y devuelve el foco (AC-18); el
+  borde "venció o fue anulada"; la meta del modo corto menciona las 12 h.
