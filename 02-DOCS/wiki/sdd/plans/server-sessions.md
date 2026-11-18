@@ -31,7 +31,8 @@ Valores exactos que toda tarea respeta. El revisor de cada tarea los lee primero
   otra cosa (un JWT viejo, un objeto que `cookie-parser` armó desde un valor `j:…`, basura) cuenta como **sesión
   desconocida**, sin consultar la base: el middleware responde 401 y borra la cookie; el logout responde 204 y la
   borra; login y registro simplemente no intentan anularla (no llaman a `deleteByTokenHash`). Una sola función
-  (`readSessionCookie(req) -> string | null`) aplica la regla en los cuatro lugares.
+  (`readSessionCookie(req) -> { kind: 'none' } | { kind: 'malformed' } | { kind: 'ok', token }`, §3.1) aplica la
+  regla en los cuatro lugares; distingue "sin cookie" (401 sin borrar nada) de "formato inválido" (401 + borrar).
 - **Plazos sin uso:** con "Recordarme" 7 días (`604 800 000` ms); sin él 12 horas (`43 200 000` ms). Una sesión
   vence cuando `ahora - último_uso >= plazo` (exactamente 7 días o 12 h ya es vencida, spec *Behaviour → Bordes*).
 - **Una sola regla del plazo:** `idleCutoffs(now)` devuelve dos fechas, `rememberCutoff = now - 7 d` y
@@ -40,6 +41,11 @@ Valores exactos que toda tarea respeta. El revisor de cada tarea los lee primero
   corte ya es vencida); la purga borra el complemento (`NOT (…)`). La condición se escribe **una sola vez**, como un
   fragmento SQL exportado por `SessionRepository` que `touchActive` y `purgeExpired` reutilizan (la prueba de SQL
   afirma que las dos sentencias lo contienen). Ninguna otra copia de la regla (ni en JS ni en SQL).
+  **Forma exacta del fragmento:** `last_used_at > CASE WHEN remember THEN $1::timestamptz ELSE $2::timestamptz END`.
+  Los dos cortes van **siempre como `$1` y `$2`** en las dos sentencias (los demás parámetros a partir de `$3`), y
+  los `::timestamptz` son obligatorios: sin ellos Postgres resuelve un `CASE` de dos parámetros sin tipo como `text`
+  y la comparación falla en ejecución (documentación de Postgres, *Type Resolution for CASE*, regla 3). La prueba de
+  SQL afirma los dos casts.
 - **Reloj:** toda comparación y todo "último uso" usa el reloj de la app (`Date`), nunca el `now()` de Postgres. Las
   pruebas controlan el tiempo con `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime`.
 - **"Recordarme" en el cuerpo del login:** ausente (`undefined`) → `false`; `true`/`false` → ese valor; cualquier otro
@@ -147,7 +153,11 @@ setSessionCookie(res, token, remember: boolean)  // atributos de §0; maxAge 7 d
 clearSessionCookie(res)                          // mismos atributos, sin maxAge
 IDLE_MS = { remember: 604_800_000, short: 43_200_000 }
 idleCutoffs(now: Date) -> { rememberCutoff: Date, shortCutoff: Date }   // now - 7 d, now - 12 h
+readSessionCookie(req) -> { kind: 'none' } | { kind: 'malformed' } | { kind: 'ok', token: string }
+  // 'none': no hay cookie token; 'malformed': hay, pero no es un string de ^[A-Za-z0-9_-]{43}$ (§0)
 ```
+
+- Archivo: `server/src/modules/auth/sessionToken.ts` (el mismo de hoy).
 
 - `idleCutoffs` es la única fuente del plazo; las sentencias de §3.2 reciben sus dos fechas (§0).
 - Se eliminan `passwordFingerprint` y `signSessionToken` (y con ellos `jsonwebtoken`). La comprobación "la
@@ -178,6 +188,10 @@ purgeExpired(cutoffs) -> number                              // borra el complem
 ```
 
 - `db?` = un cliente de transacción de `withTransaction` (`server/src/modules/db/transaction.ts`); sin él usa el pool.
+- Archivo: `server/src/modules/auth/sessionRepo.ts`, `class SessionRepository { constructor(pool: Pool) }`, igual
+  que `UserRepository`. Prueba: `server/tests/sessionRepo.test.ts`.
+- Purga: `server/src/modules/auth/sessionPurge.ts`, `startSessionPurge(pool, intervalMs?) -> { stop() }`. Prueba:
+  `server/tests/sessionPurge.test.ts`.
 
 ### 3.2b Firmas que cambian (hoy reciben el secreto del JWT)
 
@@ -272,6 +286,15 @@ messages.ts: OTHER_SESSIONS_CLOSE_FAILED (fila 39), código del cliente como LOG
   CLIENT_ONLY_CODES
 ```
 
+- Archivos: `client/src/components/ConfirmDialog.tsx` (+ `ConfirmDialog.test.tsx`) y
+  `client/src/components/OtherSessionsSection.tsx` (+ `OtherSessionsSection.test.tsx`), que `ProfilePage.tsx` monta
+  en la pestaña "Configuración".
+- **Sin cambios en el cliente** para el logout y la carga: con 204, `NavBar.tsx:26-38` va al inicio y olvida al
+  usuario; con 500, `AuthContext.tsx:77` devuelve `'failed'` y la barra mantiene la sesión con la fila 10
+  (`NavBar.tsx:79-85`) — eso ya cumple AC-30 del lado del cliente. Al cargar con una cookie que ya no sirve, la
+  cobertura existente es `client/src/contexts/sessionPersist.test.tsx:46` (AC-29: 401 → sin sesión) y
+  `client/src/session.test.tsx:113` (AC-31: página privada → login con `returnTo`); el paso 11 las vuelve a correr y
+  les agrega el id del criterio al nombre.
 - El diálogo es propio y no el `<dialog>` nativo: jsdom 30.1.3 (el entorno de pruebas del cliente) no implementa
   `showModal`, así que el nativo no se podría probar (D13).
 
@@ -401,14 +424,18 @@ el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos int
    UNIQUE`, `remember BOOLEAN NOT NULL`, el índice por `user_id`, ninguna columna con `DEFAULT now()` (la hora la
    pone la app), y el `down` solo en comentario (sin `DROP` activo, como la prueba de la 004) — depende de: nada —
    serial.
-2. `sessionToken`: se **agregan** `newSessionToken`, `hashSessionToken`, `idleCutoffs`, `setSessionCookie(res,
-   token, remember)` nueva y `clearSessionCookie`, sin quitar todavía lo del JWT — pruebas en
-   `sessionToken.test.ts` — depende de: nada — paralelizable con 1.
+2. `sessionToken`: se **agregan** solo nombres nuevos — `newSessionToken`, `hashSessionToken`, `idleCutoffs`,
+   `readSessionCookie`, `clearSessionCookie` — sin tocar lo del JWT ni el `setSessionCookie(res, token)` actual (sus
+   llamadas en `authRoutes.ts:63,90` y `meAccountRoutes.ts:96` y la prueba R1b de `sessionToken.test.ts:27` con
+   `Max-Age=3600` siguen igual hasta el paso 4) — pruebas en `sessionToken.test.ts` — depende de: nada —
+   paralelizable con 1.
 3. `SessionRepository` (§3.2) + `updatePassword(id, hash, db?)` — pruebas de SQL nuevas (`sessionRepo.test.ts`) y
    `userRepo.test.ts` — depende de: 1, 2 — serial.
 4. **El cambio**: `createAuthMiddleware(sessionRepo)`, `AuthService(userRepo)`, `authRoutes` y `meAccountRoutes`
    con las firmas de §3.2b, login/registro/logout, cambio de contraseña, borrado de cuenta (`deleteAccount`),
-   `DELETE /api/me/other-sessions`, cableado en `routes.ts`; se quitan `signSessionToken`, `passwordFingerprint` y
+   `DELETE /api/me/other-sessions`, cableado en `routes.ts`; `setSessionCookie` pasa a `(res, token, remember)`
+   (reescribiendo R1b); los dos `res.clearCookie('token')` de hoy (`authRoutes.ts:99`, `meAccountRoutes.ts:119`) pasan
+   a `clearSessionCookie`; se quitan `signSessionToken`, `passwordFingerprint` y
    `pwf`; `AuthRequest` suma `sessionTokenHash`. **Pruebas que se reescriben en este paso:** `middleware.test.ts`,
    `authService.test.ts`, `authRoutes.test.ts` (:40, firma nueva y `Pool.prototype.connect`),
    `authValidation.test.ts` (:40, ídem), `meAccountRoutes.test.ts` (:84, y su middleware falso de :79 carga
@@ -425,11 +452,24 @@ el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos int
    del bloque que hace `app.listen` (ese bloque no lo corren las pruebas; la lógica vive en `sessionPurge.ts`, que sí
    se prueba, para no romper la cobertura por archivo) — depende de: 3 — paralelizable con 4.
 6. Limpieza: quitar `jsonwebtoken` y `@types/jsonwebtoken` (comando para Hernán) y `JWT_SECRET`/`JWT_EXPIRES_IN`
-   del esquema de `env.ts`, reescribiendo `env.test.ts:30-41`. Antes, ninguna prueba puede seguir usando `jwt.sign`:
-   la "cookie JWT vieja" de AC-10 se escribe como un texto fijo con forma de JWT (tres partes separadas por puntos). La variable **sigue** en Railway (§0) — depende de: 4
+   del esquema de `env.ts`, reescribiendo `env.test.ts:30-41`, y `JWT_SECRET` de `server/.env.example:4`. Antes,
+   ninguna prueba puede seguir usando `jsonwebtoken` (`jwt.sign` ni `jwt.verify`, p. ej.
+   `meAccountRoutes.test.ts:469`, `sessionWiring.test.ts:108`; hoy lo importan `errors`, `meAccountRoutes`,
+   `middleware` y `sessionWiring`): la "cookie JWT vieja" de AC-10 se escribe como un texto fijo con forma de JWT
+   (tres partes separadas por puntos). **Done-check:** `grep -rn jsonwebtoken server/src server/tests
+   server/package.json` no devuelve nada. La variable **sigue** en Railway (§0) — depende de: 4
    — serial.
 7. Barrido de criterios del server en la app real (`server/tests/serverSessions.test.ts`): un caso por criterio
-   del server que no haya quedado probado en 1-6 — depende de: 1-6.
+   del server que no haya quedado probado en 1-6 — depende de: 1-6. **Regla para todos los pasos:** cada prueba nueva
+   o reescrita lleva en su nombre el id del criterio que cubre (`AC-4 …`). **Done-check del paso 7:** para cada id de
+   la lista del server — AC-1 a AC-10, AC-12 a AC-17, AC-19, AC-21 a AC-30, AC-33 a AC-37 — `grep -rn "AC-<n>\b"
+   server/tests` encuentra al menos una prueba.
+
+**Qué criterios escribe cada paso** (para que `tasks` saque el done-check): 1 → AC-35 (esquema), AC-33 (sin
+`CASCADE`); 2 → AC-1, AC-2, AC-23 (`idleCutoffs`), AC-35 (token), AC-14 (atributos con `NODE_ENV=production`); 3 →
+AC-3, AC-7, AC-15, AC-36 (SQL), AC-8/AC-33 (`FOR SHARE`); 4 → AC-4 a AC-6, AC-8 a AC-10, AC-12, AC-13, AC-16,
+AC-17, AC-19, AC-21, AC-22, AC-24 a AC-28, AC-29 (lado server), AC-30, AC-33, AC-34; 5 → AC-37; 11 → AC-20, AC-29 y
+AC-31 (cliente, pruebas existentes renombradas); 12 → AC-11, AC-18, AC-19, AC-32.
 8. Cierre del PR 1 en local: pasos 1 a 5 de la **puerta de push de tier 2** (arriba), con
    `branch: feat/server-sessions-server` en la spec.
 9. **Staging:** migración 005 con el procedimiento de §4 (psql dentro del contenedor de Postgres de staging) →
@@ -481,6 +521,11 @@ el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos int
 - Logout durante un pedido (AC-36): con la sesión E, se lanzan juntos un pedido protegido y el logout; después del
   204 del logout, E da 401 en tres pedidos seguidos.
 - Cookie JWT vieja → 401 y `Set-Cookie` de borrado.
+- Cambio de contraseña (AC-8, AC-27): sesiones A ("Recordarme") y F (X) → `PATCH /api/me/password` desde A → F da
+  401, A sigue con el **mismo** valor de cookie y su `Max-Age`; login con la contraseña vieja → 401.
+- `node server/scripts/smoke.mjs` contra staging (registro, login, logout, borrado de cuenta con su cookie
+  borrada): es la primera vez que `deleteAllForUser` corre contra un Postgres real **antes** del merge; después, la
+  consulta de solo lectura confirma que la cuenta borrada no tiene filas en `sessions` (AC-33).
 - Purga: una fila de la cuenta de prueba con `last_used_at` puesto a hace 8 días desaparece después de reiniciar el
   servicio de staging (`railway restart -e staging --service prestoteca`; la purga corre al arrancar).
 - Consulta de solo lectura: `token_hash` de 64 caracteres, ninguna columna de dispositivo, ninguna fila con el
@@ -567,3 +612,13 @@ backlog, no se toca acá.
   valores de cookie en la verificación); AC-5 prueba que el logout borra solo su sesión; AC-7 con aserción de SQL y
   una segunda cuenta en staging; AC-3 y AC-36 agregados a la comprobación de staging; AC-29 del lado del server;
   `startSessionPurge(pool)` para que `index.ts` sume una sola línea sin cubrir; AC-10 sin `jwt.sign`.
+- **2026-11-18 — quinta revisión con ojos frescos (lectura de implementador).** Ocho ajustes: el fragmento SQL con
+  `$1::timestamptz` / `$2::timestamptz` fijos (un `CASE` de parámetros sin tipo se resuelve como `text` y la
+  comparación fallaría en ejecución; confirmado en la documentación de Postgres); el paso 2 agrega solo nombres
+  nuevos y el `setSessionCookie` de tres argumentos pasa al paso 4 (si no, el paso 2 rompía `tsc` o la prueba R1b);
+  `readSessionCookie` con tres resultados y su lugar en §3.1; staging corre el cambio de contraseña y `smoke.mjs`
+  (el borrado de cuenta tocaba un Postgres real recién en producción); criterios por paso e id del criterio en el
+  nombre de cada prueba, con done-check por `grep`; AC-29 y AC-31 del cliente con sus pruebas existentes; rutas de
+  archivo de `SessionRepository`, `sessionPurge`, `ConfirmDialog` y `OtherSessionsSection`; limpieza de
+  `jsonwebtoken` con done-check por `grep` y `.env.example`. Sin cambios: logout del cliente (ya cumple AC-30) y
+  los dos `clearCookie` de hoy (el paso 4 los reemplaza).
