@@ -6,12 +6,14 @@ tags: [sdd, spec, auth, session]
 timestamp: 2026-11-18T19:30:00Z
 topic: sdd
 slug: server-sessions
-status: draft
+status: approved
+approved: 2026-11-18
+approved_by: Hernán — "Apruebo la spec." (aprobada ítem por ítem, no en autopiloto, tras clarify y cuatro revisiones con ojos frescos)
 ---
 
 # Spec — Sesiones de 7 días que el logout anula de verdad
 
-> Slug: `server-sessions` · Status: draft · Created: 2026-11-18
+> Slug: `server-sessions` · Status: approved (2026-11-18) · Created: 2026-11-18
 > Inherits: [constitution](../constitution.md) (principio 8, que esta spec enmienda: hoy dice "JWT en cookie httpOnly
 > (1h)")
 > Origen: punto 5g del backlog ("token de acceso corto + token de renovación"), redefinido el 2026-11-18. Ver
