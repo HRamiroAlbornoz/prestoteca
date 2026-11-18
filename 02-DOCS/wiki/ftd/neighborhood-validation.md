@@ -90,11 +90,21 @@ Pedido para Qwen armado (2026-11-17): `C:\Users\hralb\AppData\Local\Temp\claude\
 proyecto (N1a-N2b, 5 mutantes). **Revisado (2026-11-18, agente de contexto fresco): SEND AFTER FIXES, todo
 aplicado:** (1) el helper de `authValidation.test.ts` no expone el repositorio falso → «no se creó la cuenta» se mira
 con `usersByEmail.size`, y el correo se busca en minúsculas; (2) y (3) las cuentas esperadas estaban mal: cliente 484,
-no 483, y servidor 667 más los de N2, porque tests parametrizados que ya existen suman filas solos; (4) M1 y M5 hacen
+no 483, y servidor más los de N2, porque tests parametrizados que ya existen suman filas solos; (4) M1 y M5 hacen
 protestar a `tsc`, se aclaró que son mutantes de ejecución y que no se silencia nada; (5) se listan los 3 archivos que
 hay que copiar antes de los mutantes; (6) la spec suma una tercera edición: la lista de situaciones del registro en
 *Behaviour* nombra también el barrio. Verificado sin cambios: el punto de inserción, los vecinos de cada línea nueva,
 la tabla de la spec se lee bien con la fila 38 después de la 5, solo se rompen los 4 tests ya conocidos, la guarda N2b
 lee bien `RegisterPage.tsx`, y los acentos están en la misma forma Unicode (NFC) en los dos archivos.
+**Segunda revisión (2026-11-18, otro agente de contexto fresco, a pedido de Hernán):** simuló el cambio en una copia
+fuera del proyecto y corrió las suites: con el pedido aplicado, `tsc` y las dos suites pasan (servidor 673, cliente 484).
+SEND AFTER FIXES, todo aplicado: (1) **la cuenta del servidor estaba mal sumada** en el pedido: 654 + 4 + 13 = **671**,
+no 667 (error de Claude); con un número equivocado, Qwen podía borrar tests para llegar a él → ahora dice 671 y que
+nunca se borran tests para cuadrar; (2) el punto de inserción quedaba entre un comentario y su código → ahora va antes
+del comentario; (3) M2 dice dónde va el cambio y que falla también N2a; (4) M5 rompe además unos 7 tests viejos, y se
+avisa que es lo esperado; (5) de los 4 tests con `'Norte'`/`'Sur'`, 3 se rompen y el cuarto pasaría sin probar nada →
+se cambian los 4, y se explica por qué; (6) la oración de la spec que dice que la pantalla no valida antes de enviar se
+aclara para el barrio (la pantalla ofrece la lista). Verificado: cada texto donde se edita aparece una sola vez en su
+archivo; finales de línea: la spec usa LF y los 4 archivos de código, CRLF.
 **Hernán mantuvo la autorización** de mandarle las correcciones a Qwen sin preguntar antes. Siguiente: lanzarlo en el
 worktree nuevo `n-neighborhood` cuando Hernán diga que sí.
