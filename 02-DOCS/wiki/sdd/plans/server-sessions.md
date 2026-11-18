@@ -6,14 +6,16 @@ tags: [sdd, plan, auth, session]
 timestamp: 2026-11-18T23:00:00Z
 topic: sdd
 slug: server-sessions
-status: draft
+status: approved
+approved: 2026-11-18
+approved_by: Hernán — "Apruebo el plan." (aprobado ítem por ítem, no en autopiloto, tras seis revisiones con ojos frescos)
 branch: docs/server-sessions-plan
 ---
 
 # Plan — Sesiones de 7 días que el logout anula de verdad
 
 > Spec: [../specs/server-sessions.md](../specs/server-sessions.md) · Constitution: [../constitution.md](../constitution.md)
-> v1.3.0 · Decisiones: D10, D12, D13 y D14 en [../decisions.md](../decisions.md) · Status: draft
+> v1.3.0 · Decisiones: D10, D12, D13 y D14 en [../decisions.md](../decisions.md) · Status: approved (2026-11-18)
 > Last updated: 2026-11-18
 
 ## 0. Global Constraints
