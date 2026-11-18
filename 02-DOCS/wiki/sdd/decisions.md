@@ -227,3 +227,30 @@ timestamp: 2026-10-04T00:00:00Z
   - ✅ Ningún cambio llega a `main` sin PR.
   - ⚠️ Los commits `docs(auto)` que el hook de rsc hace en `main` local tienen que moverse a una rama antes de subir.
   - ⚠️ Cada cambio de docs suma un PR.
+
+## D13 — Diálogo de confirmación propio, no el `<dialog>` nativo (server-sessions, plan)
+
+- **Fecha:** 2026-11-18
+- **Contexto:** "Cerrar sesión en los otros dispositivos" pide confirmación en un diálogo modal accesible (spec AC-18).
+  El cliente se prueba con jsdom 30.1.3, que no implementa `HTMLDialogElement.showModal`.
+- **Opciones:** `<dialog>` nativo (sin pruebas de componente posibles); componente propio `ConfirmDialog` con
+  `role="dialog"`, `aria-modal`, foco atrapado y Escape; librería externa de diálogos.
+- **Decisión:** componente propio, reutilizable.
+- **Por qué:** AC-18 tiene que probarse en CI; una dependencia nueva para un solo diálogo no se justifica.
+- **Consecuencias:**
+  - ✅ Foco, Tab, Escape y anuncio se prueban en Testing Library.
+  - ⚠️ El foco atrapado es código propio: revisión a mano con teclado en staging (riesgo R4 del plan).
+
+## D14 — Anular una sesión es borrar su fila; validar y renovar es un único `UPDATE` (server-sessions, plan)
+
+- **Fecha:** 2026-11-18
+- **Contexto:** la sesión vive en la tabla `sessions`. Hay que anularla (logout, cerrar las otras, contraseña,
+  cuenta borrada) y renovarla en cada pedido sin que un pedido simultáneo la reviva (spec AC-36).
+- **Opciones:** columna `revoked_at` + leer y después escribir; borrar la fila + `UPDATE … RETURNING` atómico.
+- **Decisión:** borrar la fila; el middleware valida y renueva con un único `UPDATE … RETURNING`. Se dejan de leer
+  el encabezado `Authorization: Bearer` y la huella `pwf`, y se quita `jsonwebtoken`.
+- **Por qué:** un `UPDATE` sobre una fila borrada no afecta nada, así que ninguna carrera revive una sesión; no se
+  guardan sesiones anuladas (privacidad); un solo viaje a la base por pedido, como hoy.
+- **Consecuencias:**
+  - ✅ AC-15 y AC-36 salen de la forma de la sentencia, no de un bloqueo extra.
+  - ⚠️ Una escritura por pedido protegido: se mide en staging (riesgo R3 del plan).
