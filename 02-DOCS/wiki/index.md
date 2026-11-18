@@ -48,7 +48,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Bugs del servidor: datos de tipo incorrecto, contraseña en una cuenta borrada y estados con nombre raro | done | [02-DOCS/wiki/ftd/server-input-bugs.md](./ftd/server-input-bugs.md) |
 | Sesiones que dejan de valer al borrar la cuenta o cambiar la contraseña | done | [02-DOCS/wiki/ftd/session-revocation.md](./ftd/session-revocation.md) |
 | Datos mal armados que quedaban: descripción vacía al editar, búsqueda con parámetros repetidos e id que no es UUID | done | [02-DOCS/wiki/ftd/malformed-input-leftovers.md](./ftd/malformed-input-leftovers.md) |
-| El servidor valida el barrio del registro contra la lista fija | in-progress | [02-DOCS/wiki/ftd/neighborhood-validation.md](./ftd/neighborhood-validation.md) |
+| El servidor valida el barrio del registro contra la lista fija | done | [02-DOCS/wiki/ftd/neighborhood-validation.md](./ftd/neighborhood-validation.md) |
 
 ## Product docs
 
