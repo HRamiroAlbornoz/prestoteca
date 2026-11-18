@@ -129,3 +129,13 @@ dos, lint 0. Los 5 mutantes fallan donde dice el pedido (M1: N1a ×3; M2: la fil
 N2a y N2b; M4: N2b; M5: N1d y 7 tests viejos de campos faltantes), y los 3 archivos volvieron iguales a la copia
 (`cmp`). **Desvío chico:** N2a quedó en 3 `it` en vez de 1 (por eso 675 y no 673), y los nombres de los tests de N2
 no llevan el ID. `rsc risk`: **tier 2** (clase `auth`), 3 revisores y aprobación de Hernán; panel lanzado.
+**Panel (2026-11-18), ronda 1, sin bloqueantes:** seguridad, sin hallazgos (el chequeo no consulta la base, así que no
+deja averiguar si un correo existe; el mensaje no repite lo enviado; el límite de intentos sigue). Corrección, sin
+hallazgos (orden de los chequeos, acentos NFC en las dos listas, la app no necesita más que el mensaje). Tests: **1 a
+corregir**: los barrios rechazados de N1a no detectan un validador que acepte una parte del nombre (`'Barrio'` o
+`'Centro Histórico'` darían 201 y la suite seguiría verde); y detalles: un acento escrito en dos caracteres (NFD) no
+está probado, los correos de N1a se arman con espacios y la guarda no dice por qué falla si no encuentra la lista.
+**Vuelta de arreglos 1, solo tests** (`N-fix1.md`), lanzada a Qwen en una sesión nueva sobre el mismo worktree
+(la vieja se quedó sin contexto y se cerró): N1a suma `'Barrio'`, `'Centro Histórico'` y `'Villa Lujan'` con el acento
+en dos caracteres, cada fila con su correo; N2a vuelve a ser un solo `it`; N2a y N2b llevan el ID en el nombre; la
+guarda dice por qué falla. Cuenta esperada: 676. Dispatch `ctx_7a86cd4d23f3`.
