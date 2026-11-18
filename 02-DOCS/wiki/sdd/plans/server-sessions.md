@@ -295,7 +295,7 @@ parámetros y que no aparece `now()` de SQL), y (b) **contra el Postgres real de
 | AC-8, AC-27 | integración | cambio de contraseña: `updatePassword` y `deleteOthers` en la misma transacción; el valor de la cookie no cambia; `Max-Age` aparece solo si la sesión es "Recordarme" | repo + `Pool.prototype.connect` espiados |
 | AC-8, AC-33 (carrera) | integración | login con `createIfPasswordCurrent` → false (contraseña cambiada o cuenta borrada durante bcrypt) → 401 y rollback, sin `Set-Cookie` | repo espiado |
 | AC-9, AC-33 | unidad (`deleteAccount`) + integración | la transacción incluye el borrado de sesiones; la respuesta termina con el `Set-Cookie` de borrado (se lee el **último**) | cliente de transacción falso |
-| AC-37 (retención, a sumar a la spec) | unidad (`sessionPurge`) + staging | cada hora llama a `purgeExpired` con los cortes; si la base rechaza, registra el error y el proceso sigue (sin `unhandledRejection`); en staging, una fila vencida desaparece tras correr la purga | timers falsos; repo que rechaza |
+| AC-37 (retención) | unidad (`sessionPurge`) + staging | cada hora llama a `purgeExpired` con los cortes; si la base rechaza, registra el error y el proceso sigue (sin `unhandledRejection`); en staging, una fila vencida desaparece tras correr la purga | timers falsos; repo que rechaza |
 | AC-10 | integración | una cookie JWT con formato viejo → 401 + cookie borrada | `touchActive` → null |
 | AC-11, AC-18, AC-19, AC-32 | componente (cliente) | diálogo: nombre accesible, foco inicial, ciclo de Tab, Escape, foco de vuelta, un solo pedido, mensajes 39/35/éxito con su rol | `fetch` simulado |
 | AC-13 | integración | `DELETE /api/me/other-sessions` sin `Origin` → 403 y el repo no se llama | — |
@@ -409,7 +409,7 @@ la feature.
 
 - Renovación con umbral (R3): se cierra con la medición en staging del paso 9.
 
-**Enmiendas a la spec que este plan necesita** (pendientes de la aprobación de Hernán, antes de `tasks`):
+**Enmiendas a la spec que este plan necesitaba** (aprobadas por Hernán el 2026-11-18 y ya aplicadas en la spec):
 
 - *What it must respect → Contraseñas* dice que "la huella de la contraseña de 5c no cambia de forma"; este plan
   la elimina (D14) y la reemplaza por el borrado de las otras sesiones. Se corrige ese renglón.
