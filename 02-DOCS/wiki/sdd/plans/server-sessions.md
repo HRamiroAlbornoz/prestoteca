@@ -367,7 +367,9 @@ Dos PR, server primero (el cliente viejo sigue funcionando: sin `remember` → m
 de `error-codes.md` sin tocar el cliente, y `client/src/errors/messages.test.ts:104` ("finds the 38 rows") lee esa
 tabla: hoy falla 1 de 91. Arreglo: `OTHER_SESSIONS_CLOSE_FAILED` con el texto de la fila 39 en `messages.ts` y en
 `CLIENT_ONLY_CODES`, `ROW_TO_CODE[39]` y "39 rows" en la prueba. Va antes que todo, para que el `verify` de
-cualquier PR encuentre las dos suites en verde.
+cualquier PR encuentre las dos suites en verde. **Hecho el 2026-11-18** en la rama `docs/server-sessions-plan`
+(rojo comprobado en la fila 39 antes del código; después cliente 20 archivos, 486/486, `tsc -b` y oxlint en 0;
+tier 1, un revisor sin contexto: Approved).
 
 **PR 1 — server (`feat/server-sessions-server`)**
 
