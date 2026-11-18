@@ -1,7 +1,7 @@
 ---
 author: HRamiroAlbornoz
 branch: main
-status: in-progress
+status: done
 ---
 # Cuentas de prueba en producción: limpiar y dejar una fija
 
@@ -34,8 +34,9 @@ correo es de prueba y cuántas herramientas y préstamos tiene cada cuenta. Nunc
 - [x] **P2 — Decisiones de Hernán:** qué hacer con las cuentas del seed, con los préstamos abiertos y cómo se crea la
   cuenta fija.
 - [x] **P3 — Borrado.** Se prueba contando de nuevo, en solo lectura, las cuentas activas antes y después.
-- [ ] **P4 — Cuenta fija.** Se prueba con un login 200, `/api/me` 200 y la vista con sesión en producción.
-- [ ] **P5 — Wiki.** El backlog y el índice de la wiki actualizados.
+- [x] **P4 — Cuenta fija.** Se prueba contando en solo lectura: exactamente 1 cuenta activa, creada por Hernán. El
+  login y la vista con sesión los prueba Hernán, porque solo él conoce la contraseña.
+- [x] **P5 — Wiki.** El índice de la wiki actualizado.
 
 ## Evidence
 
@@ -91,10 +92,24 @@ Quien pide puede cancelar un préstamo `pendiente` o `aceptado` (`loanService.ts
 - Los scripts quedaron fuera del repo, en la carpeta temporal de la sesión. Los que corrieron en el contenedor no
   dejaron archivos ahí: se pasaron por `node -e`.
 
+**P4 (2026-11-18):** Hernán registró la cuenta fija desde `/register` en producción. Lectura de solo lectura:
+`{"active":1,"deleted":18}`. La cuenta es de hoy, su dominio no es de prueba (es el correo de Hernán), y tiene 0
+herramientas y 0 préstamos. Claude no vio ni el correo ni la contraseña.
+
+**Cómo se usa la cuenta fija:**
+- Es la única cuenta de prueba de producción. Sus datos los tiene Hernán en su gestor de contraseñas y no se escriben
+  en el repo ni en la wiki.
+- Sirve para probar la vista con sesión en producción después de un deploy.
+- Una prueba que necesite **dos** cuentas (por ejemplo, un préstamo entre dueño y quien pide) sigue creando una cuenta
+  temporal y la borra al terminar (`DELETE /api/me/account` → 204, y después el login da 401).
+- Lo que se cree con la cuenta fija para probar (herramientas, préstamos) se borra al terminar la prueba, así el
+  catálogo público no muestra datos de prueba.
+
+**P5 (2026-11-18):** fila nueva en `02-DOCS/wiki/index.md`.
+
 ## Next
 
-P4: Hernán crea la cuenta fija desde `/register` en producción. Después, Claude cuenta en solo lectura (tiene que dar
-1 cuenta activa), y Hernán prueba la vista con sesión. Luego P5 y cierre.
+**FTD cerrado.** Queda en el backlog el ítem 5g (token corto + token de refresco, ASDD).
 
 **Plan de escritura en producción (aprobado y hecho, pasos 1 a 3):**
 1. **Por la API, cuentas del seed (1, 2 y 3):** login con la contraseña del repo, cancelar los 3 préstamos de la tabla,
