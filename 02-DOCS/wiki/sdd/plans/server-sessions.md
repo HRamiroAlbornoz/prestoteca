@@ -30,7 +30,8 @@ Valores exactos que toda tarea respeta. El revisor de cada tarea los lee primero
 - **Formato de la cookie entrante:** se acepta solo si es un `string` que cumple `^[A-Za-z0-9_-]{43}$`. Cualquier
   otra cosa (un JWT viejo, un objeto que `cookie-parser` armó desde un valor `j:…`, basura) cuenta como **sesión
   desconocida**, sin consultar la base: el middleware responde 401 y borra la cookie; el logout responde 204 y la
-  borra.
+  borra; login y registro simplemente no intentan anularla (no llaman a `deleteByTokenHash`). Una sola función
+  (`readSessionCookie(req) -> string | null`) aplica la regla en los cuatro lugares.
 - **Plazos sin uso:** con "Recordarme" 7 días (`604 800 000` ms); sin él 12 horas (`43 200 000` ms). Una sesión
   vence cuando `ahora - último_uso >= plazo` (exactamente 7 días o 12 h ya es vencida, spec *Behaviour → Bordes*).
 - **Una sola regla del plazo:** `idleCutoffs(now)` devuelve dos fechas, `rememberCutoff = now - 7 d` y
@@ -226,6 +227,8 @@ POST /api/auth/login    body { email, password, remember? }
   rechazado (400/401/429) → no toca la sesión entrante (AC-28)
 POST /api/auth/register body { name, email, password, neighborhood }   // sin remember, pantalla sin cambios
   creado → misma transacción que login con remember = false (AC-24, AC-34); 201 igual que hoy
+  createIfPasswordCurrent → false justo después de crear (cuenta borrada en esos milisegundos, o falla) →
+    500 INTERNAL_ERROR (camino R7), nunca INVALID_CREDENTIALS: la pantalla de registro no muestra la fila 7
   rechazado → no toca la sesión entrante
 POST /api/auth/logout
   sin cookie, cookie con otro formato (§0) o sesión desconocida → clearSessionCookie; 204 (AC-12)
@@ -255,10 +258,18 @@ OtherSessionsSection (nuevo componente, dentro de la pestaña "Configuración" d
     aria-describedby → texto; al abrir, foco en "Cancelar"; Tab/Shift+Tab ciclan dentro; Escape = Cancelar;
     al cerrar, foco vuelve al botón que lo abrió
   confirmar → DELETE /api/me/other-sessions (un solo pedido; botón deshabilitado mientras espera)
-    204 → cierra, mensaje de éxito en role="status"
-    401 → flujo de sesión terminada (fila 8 + login) vía useApiError
-    429 → fila 35 en role="alert"; red caída / 5xx / respuesta rara → fila 39 en role="alert"
-messages.ts: OTHER_SESSIONS_CLOSE_FAILED (fila 39), código del cliente como LOGOUT_FAILED (fila 10)
+    204 → cierra, mensaje de éxito en la región role="status" de la sección
+    error con code SESSION_REQUIRED → useApiError.handle (fila 8 + login, igual que el resto de la app)
+    error con code RATE_LIMITED → fila 35 en la región role="alert" de la sección
+    cualquier otro caso → fila 39 en la región role="alert": INTERNAL_ERROR, ORIGIN_NOT_ALLOWED, UNKNOWN_ERROR,
+      cuerpo que no es JSON, y fallo de red (fetchFailureCode → NETWORK_ERROR, que acá NO muestra la fila 36)
+    AbortError (la persona se fue de la página) → nada
+  regiones vivas: OtherSessionsSection tiene su propio estado y sus dos regiones (status y alert), **siempre
+    montadas** y vacías por defecto, dentro de la sección (no en la tarjeta de "Cambiar contraseña",
+    ProfilePage.tsx:464-475). Al empezar cada pedido las dos se vacían; así el mismo texto de éxito se vuelve a
+    anunciar en el segundo intento (AC-18 lo pide siempre). El foco vuelve al botón después de escribir el texto.
+messages.ts: OTHER_SESSIONS_CLOSE_FAILED (fila 39), código del cliente como LOGOUT_FAILED (fila 10), en
+  CLIENT_ONLY_CODES
 ```
 
 - El diálogo es propio y no el `<dialog>` nativo: jsdom 30.1.3 (el entorno de pruebas del cliente) no implementa
@@ -276,13 +287,13 @@ messages.ts: OTHER_SESSIONS_CLOSE_FAILED (fila 39), código del cliente como LOG
 
 **Flujo principal** (login con "Recordarme" y uso días después)
 
-1. `POST /api/auth/login` con `remember: true` → `originChecker` → límite de auth → `AuthService.login` valida
-   credenciales (bcrypt, igual que hoy) y devuelve el `userId`.
+1. `POST /api/auth/login` con `remember: true` → límite de auth → `originChecker` → `AuthService.login` valida
+   credenciales (bcrypt, igual que hoy) y devuelve `{ userId, passwordHash }`.
 2. La ruta genera `token = newSessionToken()`, abre una transacción:
    `createIfPasswordCurrent(userId, passwordHash, hash(token), true, now)` y, si llegó una cookie,
    `deleteByTokenHash(hash(cookie))`. Commit.
 3. `setSessionCookie(res, token, true)` → `Set-Cookie: token=…; Max-Age=604800; HttpOnly; SameSite=Lax; Secure`.
-4. Día 5: `GET /api/me` → middleware `touchActive(hash, now)` → fila actualizada (`last_used_at` = día 5) → reenvía
+4. Día 5: `GET /api/me` → middleware `touchActive(hash, now, idleCutoffs(now))` → fila actualizada (`last_used_at` = día 5) → reenvía
    la cookie con 7 días nuevos → la ruta responde.
 5. Día 13 sin uso desde el día 5 → `touchActive` no encuentra fila vigente → 401 + cookie borrada → la app, al
    cargar, se muestra sin sesión (AC-29).
@@ -292,9 +303,13 @@ messages.ts: OTHER_SESSIONS_CLOSE_FAILED (fila 39), código del cliente como LOG
   de esa transacción (como hoy): si la sesión falla después, la cuenta existe y la persona puede iniciar sesión
   (riesgo R7).
 - **Migración:** `005_create_sessions.sql`, aditiva (`CREATE TABLE IF NOT EXISTS` + índice); `down` comentado:
-  `DROP TABLE IF EXISTS sessions`. El código viejo la ignora, así que se aplica antes del deploy. Se corre como la 004:
-  desde el contenedor de la app en staging y después en producción, comprobando la tabla con una consulta de solo
-  lectura (`security-hardening.md`, T9).
+  `DROP TABLE IF EXISTS sessions`. El código viejo la ignora, así que se aplica antes del deploy. **No** se puede
+  correr como la 004 (desde el contenedor de la app): ese contenedor tiene el código viejo de `main`, sin el archivo
+  005, y en la PC no hay `psql`. Procedimiento: `railway ssh -s Postgres -e <entorno>` y `psql` **dentro** del
+  contenedor de Postgres, con el SQL del archivo enviado por la entrada estándar; después, una consulta a
+  `information_schema.columns` que liste las columnas de `sessions`. Siempre con `-e staging` / `-e production`
+  explícito (la CLI está enlazada a producción). Si `railway ssh` falla (ya pasó, `security-hardening.md`), se
+  reintenta; no hay atajo que se salte la comprobación.
 - **Transición del deploy:** las cookies JWT viejas se llaman igual (`token`); su valor, hasheado, no está en la
   tabla → 401 + cookie borrada (AC-10). Nadie queda con un 500.
 
@@ -304,6 +319,9 @@ No hay Postgres local: las pruebas del server corren contra la app real (`create
 espiados (patrón de `server/tests/sessionWiring.test.ts`). Como `createApp` usa el `getPool()` real apuntado a una
 base inválida, las rutas con transacción (login, registro, contraseña, borrado) necesitan además
 `vi.spyOn(Pool.prototype, 'connect')` devolviendo un cliente falso que registra `BEGIN`/`COMMIT`/`ROLLBACK`. El
+falso tiene que soportar **las dos formas** de `connect`: con callback (`pool.query` de `pg-pool` llama
+`this.connect(cb)`, `node_modules/pg-pool/index.js:449`) y con promesa; si no, una consulta que alguien olvidó
+espiar cuelga hasta el timeout en vez de fallar. Se instala solo en las pruebas que necesitan transacción. El
 reloj se controla con `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime`. La SQL de `SessionRepository`
 se prueba (a) en unidad, verificando texto y parámetros (sobre todo que los cortes de `idleCutoffs` llegan como
 parámetros y que no aparece `now()` de SQL), y (b) **contra el Postgres real de staging** al cierre (§6, paso 9).
@@ -329,7 +347,10 @@ parámetros y que no aparece `now()` de SQL), y (b) **contra el Postgres real de
 | AC-24, AC-26, AC-25 | integración | registro y login sin `remember` → sin `Max-Age`; `remember: "si"` y `remember: null` → 400 `BAD_REQUEST` sin crear sesión | repo espiado |
 | AC-28, AC-34 | integración | login/registro correctos borran el hash de la cookie entrante; rechazados (401, 429, 400) no | repo espiado |
 | AC-29, AC-31 | componente (cliente) | al cargar con `/api/me` → 401: sin mensaje ni redirección en una pública; en una privada, login con `returnTo` | `fetch` simulado |
-| AC-35 | unidad | dos `newSessionToken()` distintos, 43 caracteres base64url; `create` recibe el hash, nunca el valor; el valor no contiene el id | — |
+| AC-35 | unidad | dos `newSessionToken()` distintos, 43 caracteres base64url; `createIfPasswordCurrent` recibe el hash, nunca el valor; el valor no contiene el id | — |
+| AC-28, AC-34 (cookie rara) | integración | login y registro correctos con una cookie `j:{}` entrante → 200/201 sin llamar a `deleteByTokenHash` | repo espiado |
+| AC-24 (carrera en registro) | integración | registro con `createIfPasswordCurrent` → false → 500 `INTERNAL_ERROR`, no 401 | repo espiado |
+| AC-11, AC-32 (mapeo) | componente | respuesta 500, `ORIGIN_NOT_ALLOWED`, cuerpo no JSON y fallo de red → fila 39; `RATE_LIMITED` → fila 35; `AbortError` → nada | `fetch` simulado |
 | AC-36 | contrato + staging | anular es `DELETE` y renovar es `UPDATE` que no crea filas; en staging, logout mientras corre un pedido → la cookie da 401 después | — |
 
 - **Lo que tiene que ser real:** la app entera (`createApp`) en las pruebas de integración, para cazar errores de
@@ -342,12 +363,22 @@ parámetros y que no aparece `now()` de SQL), y (b) **contra el Postgres real de
 
 Dos PR, server primero (el cliente viejo sigue funcionando: sin `remember` → modo corto, AC-26).
 
+**Paso 0 — arreglo previo (la suite del cliente ya está en rojo en `main`).** El PR #48 agregó la fila 39 a la tabla
+de `error-codes.md` sin tocar el cliente, y `client/src/errors/messages.test.ts:104` ("finds the 38 rows") lee esa
+tabla: hoy falla 1 de 91. Arreglo: `OTHER_SESSIONS_CLOSE_FAILED` con el texto de la fila 39 en `messages.ts` y en
+`CLIENT_ONLY_CODES`, `ROW_TO_CODE[39]` y "39 rows" en la prueba. Va antes que todo, para que el `verify` de
+cualquier PR encuentre las dos suites en verde.
+
 **PR 1 — server (`feat/server-sessions-server`)**
 
 Cada paso termina con toda la suite en verde (`npm test` en `server/`), `tsc -b` sin errores y su commit. Por eso
 el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos intermedios en rojo.
 
-1. Migración `005_create_sessions.sql` + prueba de esquema en `migrations.test.ts` — depende de: nada — serial.
+1. Migración `005_create_sessions.sql` + prueba de esquema en `migrations.test.ts`, que afirma también lo que podría
+   fallar en silencio: `user_id UUID NOT NULL REFERENCES users(id)` **sin** `CASCADE`, `token_hash CHAR(64) NOT NULL
+   UNIQUE`, `remember BOOLEAN NOT NULL`, el índice por `user_id`, ninguna columna con `DEFAULT now()` (la hora la
+   pone la app), y el `down` solo en comentario (sin `DROP` activo, como la prueba de la 004) — depende de: nada —
+   serial.
 2. `sessionToken`: se **agregan** `newSessionToken`, `hashSessionToken`, `idleCutoffs`, `setSessionCookie(res,
    token, remember)` nueva y `clearSessionCookie`, sin quitar todavía lo del JWT — pruebas en
    `sessionToken.test.ts` — depende de: nada — paralelizable con 1.
@@ -377,16 +408,22 @@ el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos int
    del server que no haya quedado probado en 1-6 — depende de: 1-6.
 8. Cierre del PR 1 en local: `verify` (cobertura por archivo), `rsc risk`, panel de 3 lentes, `branch:` de la spec
    apuntando a la rama.
-9. **Staging:** migración 005 desde el contenedor de staging (comprobada con una consulta de solo lectura) →
+9. **Staging:** migración 005 con el procedimiento de §4 (psql dentro del contenedor de Postgres de staging) →
    `railway up -e staging --service prestoteca --ci` desde el checkout de la rama → lista de deploys de staging y
    de producción (producción no tiene que haber cambiado) → comprobaciones de abajo → medición de latencia (R3).
+   Las comprobaciones de bordes y de purga **escriben** en la base de staging (solo sobre sesiones de una cuenta de
+   prueba `qa-sessions-*@example.com`), por el mismo `psql`.
 10. Aprobación de Hernán → PR → migración 005 en **producción** (comprobada) → merge (el deploy de producción sale
     de `main`) → lista de deploys de los dos entornos → smoke en producción.
 
 **PR 2 — cliente (`feat/server-sessions-client`)**
 
-11. Fila 39 en `messages.ts` + casilla "Recordarme" en `LoginPage` — depende de: PR 1 en producción — serial.
-12. `ConfirmDialog` + `OtherSessionsSection` en el perfil — depende de: 11 (usa la fila 39) — serial.
+11. Casilla "Recordarme" en `LoginPage` — **pruebas que se reescriben:** `authPages.test.tsx:250-258` (el cuerpo
+    exacto del login suma `remember: false`), y las de etiqueta y axe del login en `accessibility.test.tsx` — depende
+    de: PR 1 en producción — serial. *(La fila 39 en `messages.ts` ya no va acá: ver paso 0.)*
+12. `ConfirmDialog` + `OtherSessionsSection` en el perfil — **pruebas que se reescriben:** las ~18 búsquedas de un
+    solo `getByRole('alert')` / `getByRole('status')` de `profilePage.test.tsx`, acotadas con `within()` a su
+    tarjeta, porque la sección nueva deja sus regiones siempre montadas — depende de: 11 — serial.
 13. Cierre del PR 2: `verify`, panel, staging con `railway up` (casilla, diálogo con teclado, dos navegadores), PR,
     deploy, smoke.
 
@@ -401,7 +438,8 @@ el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos int
   da 401 y A sigue.
 - 20 pedidos simultáneos con A → 20 × 200.
 - Cookie JWT vieja → 401 y `Set-Cookie` de borrado.
-- Purga: una fila vencida a mano desaparece al correr `purgeExpired`.
+- Purga: una fila de la cuenta de prueba con `last_used_at` puesto a hace 8 días desaparece después de reiniciar el
+  servicio de staging (`railway restart -e staging --service prestoteca`; la purga corre al arrancar).
 - Consulta de solo lectura: `token_hash` de 64 caracteres, ninguna columna de dispositivo, ninguna fila con el
   valor de una cookie.
 
@@ -468,3 +506,13 @@ backlog, no se toca acá.
   firma nueva de `deleteAccount`; `AuthRequest.sessionTokenHash` con 401 si falta; la condición de vigencia como un
   solo fragmento SQL; la purga corre al arrancar y vive en su propio archivo; `Secure` probado con
   `NODE_ENV=production`.
+- **2026-11-18 — tercera revisión con ojos frescos (foco en el cliente).** Diez ajustes: **paso 0** — la suite del
+  cliente ya estaba en rojo en `main` (`messages.test.ts`, 38 vs 39 filas) por el PR #48, que agregó la fila 39 solo
+  a la spec; lista de pruebas del login que se reescriben (`authPages.test.tsx:250-258`, `accessibility.test.tsx`);
+  regiones vivas propias de la sección, siempre montadas y vaciadas antes de cada pedido, con las pruebas del perfil
+  acotadas con `within()`; mapeo exacto de errores de la acción nueva (solo `SESSION_REQUIRED` va a `useApiError`, la
+  red muestra la fila 39 y no la 36); el `connect` falso soporta callback; formato de cookie también en login y
+  registro (`readSessionCookie`); registro con `createIfPasswordCurrent` → false da 500; procedimiento real de la
+  migración y de las escrituras en staging (psql dentro del contenedor de Postgres, purga probada reiniciando);
+  nombres viejos corregidos en §4 y §5; la prueba de la migración afirma FK sin `CASCADE`, unicidad, índice y `down`
+  comentado.
