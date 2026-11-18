@@ -122,3 +122,10 @@ la posición del `import`.
 `8f6e8c3`). Cuando entregue: copiar los archivos de `src/` y la spec antes de tocar nada, comparar `it(` y `expect`
 contra la base, revisar los finales de línea con `file`, rojo, M1-M5 deshechos desde la copia, las dos suites, `tsc -b`
 y lint, `rsc risk` y la revisión que pida.
+**Entrega de Qwen (2026-11-18):** terminó el trabajo, pero se quedó sin memoria de contexto antes de avisar que había
+terminado. Revisado por Claude, con los archivos copiados antes de tocar nada: el código y la spec son los del pedido;
+los 7 archivos CRLF siguen en CRLF; servidor 34 archivos y **675/675**, cliente 20 y **484/484**, `tsc -b` 0 en los
+dos, lint 0. Los 5 mutantes fallan donde dice el pedido (M1: N1a ×3; M2: la fila `'centro'` de N1a y N2a; M3: N1b,
+N2a y N2b; M4: N2b; M5: N1d y 7 tests viejos de campos faltantes), y los 3 archivos volvieron iguales a la copia
+(`cmp`). **Desvío chico:** N2a quedó en 3 `it` en vez de 1 (por eso 675 y no 673), y los nombres de los tests de N2
+no llevan el ID. `rsc risk`: **tier 2** (clase `auth`), 3 revisores y aprobación de Hernán; panel lanzado.
