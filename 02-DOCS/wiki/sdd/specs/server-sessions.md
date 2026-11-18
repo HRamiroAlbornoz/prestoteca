@@ -158,7 +158,9 @@ de los botones existentes de Configuración):
   borrada no solo dejan de servir, **dejan de estar guardadas**. No queda registro de cuándo usó la app.
 - **El identificador de sesión es la única llave:** no se puede adivinar, ni deducir de otro identificador, y una
   copia de lo que el servidor guarda sobre las sesiones no alcanza para usar ninguna. El plan decide cómo.
-- **Contraseñas:** el sistema de hash y la huella de la contraseña de 5c no cambian de forma.
+- **Contraseñas:** el sistema de hash no cambia. *(Enmendado el 2026-11-18, aprobado por Hernán: antes decía que
+  también la huella de la contraseña de 5c se mantenía; el plan la elimina — decisión D14 — y el resultado de 5c,
+  "cambiar la contraseña cierra las otras sesiones", se cumple borrándolas, AC-8.)*
 
 ## How it proves it
 
@@ -309,6 +311,8 @@ de los botones existentes de Configuración):
   sesiones, un pedido protegido no se puede hacer pasar por ninguna de ellas.
 - **AC-36.** Given una sesión, When un pedido protegido con ella y "Salir" se procesan al mismo tiempo, Then después de
   que "Salir" respondió `204`, esa cookie recibe `401 SESSION_REQUIRED` en todo pedido posterior.
+- **AC-37.** Given una sesión vencida (por cualquiera de sus dos plazos), When pasa una hora desde que venció, Then ya
+  no está guardada. *(Agregado el 2026-11-18 desde el plan, aprobado por Hernán.)*
 
 ## Points to clarify
 
@@ -341,7 +345,7 @@ de los botones existentes de Configuración):
   `GET /api/me` que la app hace al abrir. *Base:* "7 días sin usarla" quiere decir sin abrir la app. *Riesgo:* una
   pestaña que quede abierta y haga pedidos sola mantendría la sesión viva. Hoy la app no hace pedidos en segundo plano.
 - **suposición tomada** — Las sesiones vencidas o anuladas no se guardan para siempre: se descartan pasado un tiempo
-  que fija el plan; el plan agrega el criterio de aceptación correspondiente cuando fije ese plazo. *Base:* no hay ninguna pantalla que las muestre, y guardarlas sin uso es acumular sin motivo cuándo
+  que fija el plan (fijado: a más tardar una hora después de vencer, AC-37). *Base:* no hay ninguna pantalla que las muestre, y guardarlas sin uso es acumular sin motivo cuándo
   usó alguien la app. *Riesgo:* si más adelante se quiere una lista de dispositivos o una auditoría, falta el
   historial.
 - **decisión diferida** — Lista de sesiones activas por dispositivo, con cierre puntual. Fuera de este ciclo.
@@ -385,3 +389,6 @@ de los botones existentes de Configuración):
   identificador no se puede adivinar ni usar desde una copia del servidor (AC-35); un pedido simultáneo con "Salir"
   nunca revive la sesión (AC-36); la renovación del vencimiento de la cookie pasa a *Behaviour*; el aviso de la
   casilla es su descripción accesible (AC-20); el plazo de descarte de sesiones vencidas lleva su criterio en el plan.
+- **2026-11-18 — enmiendas pedidas por el plan, aprobadas por Hernán** ("Apruebo esas dos enmiendas"): la huella de
+  la contraseña de 5c deja de ser una restricción (el plan la elimina, D14; AC-8 sigue igual); nuevo **AC-37**: una
+  sesión vencida deja de estar guardada a más tardar una hora después.
