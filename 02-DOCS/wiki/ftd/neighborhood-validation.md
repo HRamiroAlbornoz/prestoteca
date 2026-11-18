@@ -75,7 +75,7 @@ checks, revisa el diff, prueba mutantes y aplica la revisión que pida `rsc risk
   verdad, así que comprueban que todo coincida.
 - [x] **Controles:** `npx vitest run` y `npx tsc -b` en `server/` y en `client/`, más `npm run lint` en `client/`; `rsc
   risk` y la revisión que pida.
-- [ ] **Staging:** registrarse con `'Palermo'` → 400 `REGISTER_NEIGHBORHOOD_INVALID`; con `'Centro'` → 201 (la cuenta se
+- [x] **Staging:** registrarse con `'Palermo'` → 400 `REGISTER_NEIGHBORHOOD_INVALID`; con `'Centro'` → 201 (la cuenta se
   borra al final); en la app, el registro sigue funcionando eligiendo un barrio del menú.
 
 ## Evidence
@@ -158,5 +158,8 @@ cierre.
 **Commit `66b7ddc`** (Hernán), **push `8f6e8c3..0e35db0`**; Railway desplegó producción (`fd2ac096`, SUCCESS).
 **Producción (2026-11-18):** `/api/health` 200 con la base conectada; registrarse con `'Palermo'` → 400
 `REGISTER_NEIGHBORHOOD_INVALID` (no crea nada); con el OK de Hernán, una cuenta de prueba con `'Centro'` → 201, borrada
-enseguida (204), y después el login da 401. **FTD cerrado.** Sigue sin probarse a mano el registro desde la pantalla
-(ver arriba).
+enseguida (204), y después el login da 401. **FTD cerrado.**
+**Registro desde la pantalla, en staging (2026-11-18, a pedido de Hernán):** en `/register`, el menú muestra los 8
+barrios de la lista; se eligió «Villa Luján» (el caso con acento), se envió el formulario y la app pasó al inicio con la
+sesión abierta (`/api/me` 200). El servidor lo aceptó, así que la pantalla manda el texto exacto de la lista. La cuenta
+de prueba se borró (204) y después el login da 401.
