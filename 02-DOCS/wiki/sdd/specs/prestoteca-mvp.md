@@ -110,7 +110,9 @@ Una misma persona puede ser dueña y solicitante a la vez.
 - Dado que un usuario se loguea con email y contraseña incorrectos, entonces el login se rechaza.
 - Dado que un usuario intenta loguearse más de 5 veces en un minuto desde la misma IP, entonces recibe error 429.
 - Dado que un usuario intenta registrarse más de 5 veces en un minuto desde la misma IP, entonces recibe error 429.
-- Dado que un usuario se loguea, entonces se crea una cookie de sesión que expira en 1 hora.
+- ~~Dado que un usuario se loguea, entonces se crea una cookie de sesión que expira en 1 hora.~~ *Reemplazado el
+  2026-11-18 por [server-sessions](./server-sessions.md): la sesión vence a los 7 días sin uso con "Recordarme" y a
+  las 12 h sin uso sin él (AC-1 a AC-3, AC-20 a AC-24 de esa spec).*
 - Dado que un usuario hace logout, entonces la cookie de sesión se borra.
 - Dado que un usuario intenta acceder a una ruta privada sin sesión o con sesión vencida, entonces se redirige al login y vuelve a la ruta original (que es interna, empieza con `/`).
 - Dado que un usuario está logueado, cuando cambia su contraseña desde su perfil con una nueva contraseña válida (8–72 caracteres, no solo espacios), entonces la nueva contraseña se guarda y la anterior deja de funcionar.
@@ -181,7 +183,7 @@ Una misma persona puede ser dueña y solicitante a la vez.
 - **suposición tomada** — La zona horaria para todas las comparaciones de fechas es `America/Argentina/Tucuman`. *Base:* el brief la especifica explícitamente. *Riesgo:* si se cambia, las comparaciones de "hoy" y el vencimiento fallan.
 - **suposición tomada** — Los barrios son un texto fijo de 8 opciones que el usuario elige al registrarse. *Base:* el brief lista los 8 barrios y zonas. *Riesgo:* si se necesita editar la lista, hay que definir quién la edita y cómo.
 - **suposición tomada** — Las categorías son un texto fijo de 6 opciones. *Base:* el brief lista las 6 categorías. *Riesgo:* si se necesita editar la lista, hay que definir quién la edita y cómo.
-- **suposición tomada** — La sesión dura 1 hora. *Base:* el brief lo especifica. *Riesgo:* si se necesita renovar sesión sin re-login, hay que agregar un refresh token.
+- ~~**suposición tomada** — La sesión dura 1 hora. *Base:* el brief lo especifica. *Riesgo:* si se necesita renovar sesión sin re-login, hay que agregar un refresh token.~~ *Reemplazada el 2026-11-18 por [server-sessions](./server-sessions.md): sesión que el servidor recuerda y puede anular, en vez de un refresh token (decisión D10).*
 - **suposición tomada** — El barrio se elige de una lista fija al registrarse, no se escribe libremente. *Base:* el brief dice "barrio elegido de la lista de barrios y zonas". *Riesgo:* limita la flexibilidad si el barrio del usuario no está en la lista.
 - **suposición tomada** — La búsqueda por nombre no distingue mayúsculas y escapa comodines SQL. *Base:* el brief lo especifica en RF-14. *Riesgo:* si se necesita búsqueda más avanzada (fuzzy, stemming), hay que evaluar un motor de búsqueda.
 - **suposición tomada** — El vencimiento de un préstamo ("vencido") se marca automáticamente (por un proceso en segundo plano que revisa las fechas). *Base:* el brief dice "pasa a vencido si no se devolvió en la fecha de fin". *Riesgo:* si se hace manual, el dueño tiene que recordar marcarlo.
@@ -190,3 +192,10 @@ Una misma persona puede ser dueña y solicitante a la vez.
 - **decisión tomada** — Los préstamos vencidos quedan en estado "vencido" (final) sin proceso de reclamo dentro del MVP. *Base:* el brief solo define el estado "vencido". *Motivo:* el dueño resuelve offline con el solicitante; agregar un estado "reclamado" añade complejidad sin resolver el problema real.
 - **decisión tomada** — Un usuario puede eliminar su cuenta. Sus herramientas se marcan como borradas (borrado lógico) y sus préstamos mantienen su historial pero el nombre del usuario se borra. *Motivo:* cumplimiento con regulaciones de privacidad.
 - **decisión tomada** — Un usuario logueado puede cambiar su contraseña desde su perfil. No requiere email ni recuperación — solo ingresa la actual y la nueva. *Motivo:* caso de uso básico de usabilidad.
+
+## Revisions
+
+- **2026-11-18 — enmienda por [server-sessions](./server-sessions.md)** (aprobada por Hernán): el criterio "la cookie
+  de sesión expira en 1 hora" y la suposición "La sesión dura 1 hora" quedan tachados y reemplazados por esa spec. El
+  criterio de logout ("la cookie de sesión se borra") sigue valiendo; server-sessions le suma que la sesión además
+  queda anulada en el servidor. Decisión D10.

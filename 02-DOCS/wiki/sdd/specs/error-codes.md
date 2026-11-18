@@ -109,6 +109,7 @@ implementación la copia tal cual. Los nombres técnicos de los códigos no van 
 | 8 | No hay sesión, venció o no es válida (en una acción que la requiere) | Tu sesión terminó. Iniciá sesión para continuar. *(y la app lleva al login)* |
 | 9 | *(fusionada con la 8 el 2026-11-03: ver Revisions)* | — |
 | 10 | "Salir" falla (sin conexión, o el server lo rechaza) | No pudimos cerrar tu sesión. Revisá tu conexión e intentá de nuevo en un momento. |
+| 39 | "Cerrar sesión en los otros dispositivos" falla (sin conexión, o error del server; un `429` muestra la 35) | No pudimos cerrar la sesión en tus otros dispositivos. Revisá tu conexión e intentá de nuevo en un momento. |
 | **Cuenta** |||
 | 11 | Falta la contraseña actual o la nueva | Completá la contraseña actual y la nueva. |
 | 12 | La contraseña actual no coincide | La contraseña actual no es correcta. Revisala e intentá de nuevo. |
@@ -189,9 +190,11 @@ formato) → 34. En el inicio, la 34 reemplaza a la 37.
   - Registro: falta algún dato; el nombre no tiene entre 2 y 50 caracteres; la contraseña no tiene entre 8 y 72; el
     email es demasiado largo; el email ya está registrado; el barrio no es de la lista fija (solo con un pedido hecho a mano: la pantalla ofrece la lista). (La pantalla de registro no valida antes de enviar, así que estos casos llegan al usuario tal cual.)
   - Sesión: falta el email o la contraseña (al iniciar sesión); email o contraseña incorrectos (al iniciar sesión);
-    no hay sesión, venció o no es válida. Estos tres son una sola situación para el usuario: la cookie de sesión dura
-    lo mismo que la sesión (1 hora), así que cuando la sesión vence el navegador ya la descartó y el server solo ve
-    "no hay sesión". En esa situación, además del mensaje, la app lleva al usuario a iniciar sesión y, al entrar, lo
+    no hay sesión, venció o no es válida. Estos tres son una sola situación para el usuario. *(Enmendado el
+    2026-11-18 por [server-sessions](./server-sessions.md): antes decía que la cookie dura lo mismo que la sesión,
+    1 hora; ahora la cookie puede sobrevivir a la sesión — sin "Recordarme" con un navegador que la conserva, o tras
+    cerrar las otras sesiones desde otro dispositivo — y la situación sigue unificada a propósito: vencida, anulada o
+    desconocida se ven igual.)* En esa situación, además del mensaje, la app lleva al usuario a iniciar sesión y, al entrar, lo
     devuelve a la pantalla donde estaba, **también desde las pantallas públicas**. Hoy eso falla en el detalle de una
     herramienta: "Iniciar sesión para pedir" y "Pedir prestada" mandan al login con un parámetro que el login no lee,
     y la persona termina en el inicio. Arreglarlo entra en este cambio.
@@ -290,11 +293,16 @@ formato) → 34. En el inicio, la 34 reemplaza a la 37.
   (respuesta de Hernán, 2026-11-03, a la pregunta abierta de la primera versión). *Base:* las páginas privadas ya
   hacen eso al entrar sin sesión (`/login?returnTo=…`, PR #26); el detalle de una herramienta usa hoy `returnUrl`,
   que el login no lee, y se arregla en este cambio. *Riesgo:* si una pantalla tiene un formulario a medio llenar, lo
-  escrito se pierde al ir al login; con sesiones de 1 hora puede pasar. Guardarlo queda fuera de este ciclo.
+  escrito se pierde al ir al login; con sesiones de 1 hora puede pasar (desde [server-sessions](./server-sessions.md)
+  la sesión dura 7 días o 12 h sin uso, así que pasa menos). Guardarlo queda fuera de este ciclo.
 - **suposición tomada** — "No hay sesión", "venció" y "no es válida" son una sola situación con un solo mensaje (8).
   *Base:* la cookie dura lo mismo que la sesión (1 hora), así que al vencer el server solo ve "no hay sesión"; un
   token inválido solo aparece con una cookie adulterada. *Riesgo:* si en el futuro la cookie dura más que la sesión
-  (por ejemplo, para renovarla), conviene separarlas de nuevo.
+  (por ejemplo, para renovarla), conviene separarlas de nuevo. *Revisado el 2026-11-18 por
+  [server-sessions](./server-sessions.md):* la base de 1 hora ya no vale (la cookie puede sobrevivir a la sesión),
+  pero se decidió **no** separarlas: la respuesta no revela si la sesión venció, fue anulada o nunca existió, y la
+  app muestra el mismo mensaje solo ante una acción (al cargar, una cookie que ya no sirve cuenta como "sin sesión",
+  sin mensaje).
 - **suposición tomada** — "Salir" que falla (sin conexión o rechazado por el server) deja la sesión abierta y lo dice
   (mensaje 10), en vez de mostrarla cerrada. *Base:* hoy la app la muestra cerrada pero el server la mantiene, y al
   recargar vuelve: eso confunde. *Riesgo:* bajo; si se prefiere cerrarla igual en la app, cambia AC-13.
@@ -371,3 +379,9 @@ formato) → 34. En el inicio, la 34 reemplaza a la 37.
 - 2026-11-17 — Fila 38 nueva, aprobada por Hernán (FTD `neighborhood-validation`): el registro con un barrio fuera
   de la lista fija responde `REGISTER_NEIGHBORHOOD_INVALID` con el mensaje «Elegí un barrio de la lista.». La tabla
   pasa de 37 a 38 mensajes.
+- 2026-11-18 — Enmiendas que obliga la spec [server-sessions](./server-sessions.md), aprobada por Hernán: (1) fila 39
+  nueva («No pudimos cerrar la sesión en tus otros dispositivos. Revisá tu conexión e intentá de nuevo en un
+  momento.»); un `429` de esa acción muestra la 35; el nombre del código lo fija el plan de server-sessions. La tabla
+  pasa de 38 a 39 mensajes. (2) Los tres lugares que razonaban con "la cookie dura 1 hora" (*Behaviour → Sesión*, la
+  suposición de la fila 8, la nota del formulario a medio llenar) quedan anotados: la fila 8 sigue unificada a
+  propósito.
