@@ -193,5 +193,19 @@ timestamp: 2026-10-04T00:00:00Z
   la consulta por pedido ya se paga desde 5c.
 - **Consecuencias:**
   - ✅ Logout y "Cerrar todas" anulan sesiones en el servidor; nadie vuelve al login cada hora.
-  - ⚠️ Se aparta de la letra del checklist de autenticación (no hay permiso de 15 min). Enmienda pendiente del
-    principio 8 de la constitución ("(1h expiry)") y del criterio de 1 h de la spec MVP.
+  - ⚠️ Se aparta de la letra del checklist de autenticación (no hay permiso de 15 min). Enmienda del principio 8 de
+    la constitución: hecha en v1.2.0 (2026-11-18). Pendiente: los "1 hora" de las specs MVP y error-codes.
+
+## D11 — `main` abierta pasa a ser la regla escrita (constitución v1.2.0, principio 10)
+
+- **Fecha:** 2026-11-18
+- **Contexto:** al enmendar el principio 8, la revisión de contradicciones encontró que el principio 10 decía "rama +
+  PR, no se permite push directo a `main`", mientras que desde 5b los cambios se suben directo a `main` y
+  `rsc main status` da `closed: false`.
+- **Opciones:** enmendar el principio a `main` abierta; volver a ramas y PR desde 5g; dejar la contradicción abierta.
+- **Decisión:** enmendar a `main` abierta: push directo después de `verify`; un cambio tier 2 necesita además su
+  panel de 3 lentes y la aprobación de Hernán antes del push. Elegido por Hernán ("Enmendarlo a main abierta").
+- **Por qué:** una regla que el proyecto no cumple enseña a ignorar las reglas (mismo motivo que D8).
+- **Consecuencias:**
+  - ✅ La *Definition of Done* se puede cumplir tal como está escrita.
+  - ⚠️ Sin protección de `main` en GitHub, el único freno antes del push es `verify` + el guard de rsc para tier 2.
