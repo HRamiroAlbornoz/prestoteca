@@ -29,8 +29,19 @@ Valores exactos que toda tarea respeta. El revisor de cada tarea los lee primero
   email ni nada de la cuenta. **El servidor guarda solo su SHA-256 en hex (64 caracteres)**, nunca el valor.
 - **Plazos sin uso:** con "Recordarme" 7 días (`604 800 000` ms); sin él 12 horas (`43 200 000` ms). Una sesión
   vence cuando `ahora - último_uso >= plazo` (exactamente 7 días o 12 h ya es vencida, spec *Behaviour → Bordes*).
-- **Reloj:** toda comparación y todo "último uso" usa el reloj de la app, inyectable (`now: () => Date`), nunca el
-  `now()` de Postgres. Las pruebas controlan el tiempo con ese reloj.
+- **Una sola regla del plazo:** `idleCutoffs(now)` devuelve dos fechas, `rememberCutoff = now - 7 d` y
+  `shortCutoff = now - 12 h`. **Toda** sentencia que decide si una sesión sigue vigente las recibe como parámetros:
+  vigente ⇔ `last_used_at > CASE WHEN remember THEN <rememberCutoff> ELSE <shortCutoff> END` (estricto: igual al
+  corte ya es vencida); la purga borra el complemento (`<=`). Ninguna otra copia de la regla (ni en JS ni en SQL).
+- **Reloj:** toda comparación y todo "último uso" usa el reloj de la app (`Date`), nunca el `now()` de Postgres. Las
+  pruebas controlan el tiempo con `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime`.
+- **"Recordarme" en el cuerpo del login:** ausente (`undefined`) → `false`; `true`/`false` → ese valor; cualquier otro
+  valor, **incluido `null`** → 400 `BAD_REQUEST`.
+- **Deploy a staging:** siempre `railway up -e staging --service prestoteca --ci` desde el checkout de la rama.
+  **Nunca** `railway service source connect` (la fuente del servicio es una sola para los dos entornos: movería
+  producción). Después de cada deploy se listan los deploys de **los dos** entornos.
+- **`JWT_SECRET` en Railway:** la variable se **conserva** en los dos entornos hasta que el PR 2 lleve una semana
+  estable en producción, aunque el código ya no la lea (rollback, §7).
 - **Anular = borrar la fila.** No hay columna "anulada". Logout, cerrar las otras, cambio de contraseña y cuenta
   borrada **borran** filas de `sessions`.
 - **La sesión no guarda** IP, navegador, ubicación ni ningún dato del dispositivo (spec *Non-goals*).
@@ -74,7 +85,8 @@ Valores exactos que toda tarea respeta. El revisor de cada tarea los lee primero
 ## 2. Architecture
 
 ```text
- navegador ──cookie token──▶ originChecker ─▶ rate limiters ─▶ authMiddleware ──▶ rutas protegidas
+ navegador ──cookie token──▶ límites de pedidos ⇄ originChecker ─▶ authMiddleware ──▶ rutas protegidas
+                             (en /api/auth el límite estricto corre antes del origen: index.ts:46, routes.ts:31)
     ▲                                              │                │
     │ Set-Cookie (login, registro,                 │                ▼
     │ renovación, borrado)                         │        SessionRepository ──▶ Postgres: sessions ─┐
@@ -127,32 +139,49 @@ hashSessionToken(token: string) -> string        // SHA-256 en hex, 64 caractere
 setSessionCookie(res, token, remember: boolean)  // atributos de §0; maxAge 7 días solo si remember
 clearSessionCookie(res)                          // mismos atributos, sin maxAge
 IDLE_MS = { remember: 604_800_000, short: 43_200_000 }
-isExpired(lastUsedAt: Date, remember: boolean, now: Date) -> boolean   // now - lastUsedAt >= plazo
+idleCutoffs(now: Date) -> { rememberCutoff: Date, shortCutoff: Date }   // now - 7 d, now - 12 h
 ```
 
-- Se eliminan `passwordFingerprint` y `signSessionToken` (y con ellos `jsonwebtoken`).
+- `idleCutoffs` es la única fuente del plazo; las sentencias de §3.2 reciben sus dos fechas (§0).
+- Se eliminan `passwordFingerprint` y `signSessionToken` (y con ellos `jsonwebtoken`). La comprobación "la
+  contraseña cambió" pasa a ser el borrado explícito de las otras sesiones (D14).
 
 ### 3.2 `SessionRepository`
 
 ```text
-create(userId, tokenHash, remember, now, db?) -> void
-touchActive(tokenHash, now) -> { userId, remember } | null
-  - una sola sentencia: actualiza last_used_at = now SOLO si la fila existe, no está vencida según su modo y la
+createIfPasswordCurrent(userId, expectedPasswordHash, tokenHash, remember, now, db?) -> boolean
+  - INSERT … SELECT … FROM users WHERE id = userId AND password_hash = expectedPasswordHash AND deleted_at IS NULL
+  - false (0 filas) = la contraseña cambió o la cuenta se borró mientras corría bcrypt (~200 ms): no queda sesión
+    de una contraseña vieja ni de una cuenta borrada (AC-8, AC-33). La ruta responde como credenciales inválidas.
+touchActive(tokenHash, now, cutoffs) -> { userId, remember } | null
+  - una sola sentencia UPDATE … RETURNING: last_used_at = now SOLO si la fila existe, sigue vigente según §0 y la
     cuenta tiene deleted_at IS NULL; devuelve user_id y remember
   - nunca crea filas
 deleteByTokenHash(tokenHash, db?) -> void                    // idempotente: 0 filas no es error
 deleteOthers(userId, keepTokenHash, db?) -> number           // borra todas las de la cuenta menos keepTokenHash
 deleteAllForUser(userId, db) -> number                       // dentro de la transacción de borrado de cuenta
-purgeExpired(now) -> number                                  // borra todas las vencidas según su modo
+purgeExpired(cutoffs) -> number                              // borra el complemento de "vigente" (§0)
 ```
 
 - `db?` = un cliente de transacción de `withTransaction` (`server/src/modules/db/transaction.ts`); sin él usa el pool.
+
+### 3.2b Firmas que cambian (hoy reciben el secreto del JWT)
+
+```text
+UserRepository.updatePassword(id, passwordHash, db?) -> boolean   // hoy abre su propia conexión (userRepo.ts:160)
+AuthService(userRepo)                                              // hoy (userRepo, jwtSecret, jwtIssuer)
+  login({ email, password }) -> { userId, passwordHash }           // hoy devuelve { token }
+  register(input) -> { userId, passwordHash }                      // hoy devuelve { token }
+authRoutes(userRepo, sessionRepo, pool)                            // hoy (userRepo, jwtSecret, jwtIssuer)
+meAccountRoutes(userRepo, sessionRepo, pool)                       // hoy (userRepo, pool, jwtSecret, jwtIssuer)
+createAuthMiddleware(sessionRepo)                                  // hoy (userRepo, jwtSecret)
+```
 - Toda SQL parametrizada. Todos los errores de la base suben como excepción (no se tragan).
 
 ### 3.3 `authMiddleware` (reemplaza `createAuthMiddleware(userRepo, jwtSecret)`)
 
 ```text
-createAuthMiddleware(sessionRepo, now = () => new Date())
+createAuthMiddleware(sessionRepo)        // hora: new Date(); plazos: idleCutoffs(ahora)
   sin cookie                         -> 401 SESSION_REQUIRED
   touchActive -> null                -> 401 SESSION_REQUIRED + clearSessionCookie (AC-29)
   touchActive lanza                  -> sendError(...) → 500 INTERNAL_ERROR, nunca next() (AC-17)
@@ -168,8 +197,10 @@ createAuthMiddleware(sessionRepo, now = () => new Date())
 
 ```text
 POST /api/auth/login    body { email, password, remember? }
-  remember ausente → false (AC-26); boolean → ese valor; otro tipo → 400 BAD_REQUEST, sin sesión (AC-25)
-  credenciales OK → en UNA transacción: create(nueva) + deleteByTokenHash(hash de la cookie entrante, si había);
+  remember ausente → false (AC-26); boolean → ese valor; otro valor, incluido null → 400 BAD_REQUEST, sin sesión
+  (AC-25)
+  credenciales OK → en UNA transacción: createIfPasswordCurrent(nueva) + deleteByTokenHash(hash de la cookie
+                    entrante, si había); false → 401 INVALID_CREDENTIALS y rollback;
                     setSessionCookie(nuevo, remember); 200 { message } (igual que hoy)
   rechazado (400/401/429) → no toca la sesión entrante (AC-28)
 POST /api/auth/register body { name, email, password, neighborhood }   // sin remember, pantalla sin cambios
@@ -180,10 +211,13 @@ POST /api/auth/logout
   con cookie → deleteByTokenHash; OK → clearSessionCookie; 204 (AC-4)
               falla de la base → 500 INTERNAL_ERROR, la cookie NO se borra (AC-30)
 PATCH /api/me/password  (protegida)
-  en UNA transacción: updatePassword + deleteOthers(userId, req.sessionTokenHash) (AC-8)
-  ya no emite cookie nueva: la sesión actual conserva valor y modo (AC-27); 204 igual que hoy
+  en UNA transacción: updatePassword(…, db) + deleteOthers(userId, req.sessionTokenHash, db) (AC-8)
+  la ruta no emite cookie propia: la sesión actual conserva valor y modo (AC-27); el único Set-Cookie posible es la
+  renovación del middleware en modo "Recordarme", con el mismo valor; 204 igual que hoy
 DELETE /api/me/account  (protegida)
   deleteAccount agrega deleteAllForUser dentro de su transacción (AC-9, AC-33); clearSessionCookie; 204
+  (en modo "Recordarme" la respuesta lleva dos Set-Cookie: la renovación del middleware y después el borrado; el
+  navegador aplica el último)
 DELETE /api/me/other-sessions  (nueva, protegida, límite general, chequeo de Origin por ser DELETE)
   deleteOthers(userId, req.sessionTokenHash) → 204 (también si borró 0, AC-19)
   sin sesión → 401 (AC-16); Origin no permitido → 403 ORIGIN_NOT_ALLOWED antes de tocar nada (AC-13)
@@ -223,8 +257,9 @@ messages.ts: OTHER_SESSIONS_CLOSE_FAILED (fila 39), código del cliente como LOG
 
 1. `POST /api/auth/login` con `remember: true` → `originChecker` → límite de auth → `AuthService.login` valida
    credenciales (bcrypt, igual que hoy) y devuelve el `userId`.
-2. La ruta genera `token = newSessionToken()`, abre una transacción: `create(userId, hash(token), true, now)` y, si
-   llegó una cookie, `deleteByTokenHash(hash(cookie))`. Commit.
+2. La ruta genera `token = newSessionToken()`, abre una transacción:
+   `createIfPasswordCurrent(userId, passwordHash, hash(token), true, now)` y, si llegó una cookie,
+   `deleteByTokenHash(hash(cookie))`. Commit.
 3. `setSessionCookie(res, token, true)` → `Set-Cookie: token=…; Max-Age=604800; HttpOnly; SameSite=Lax; Secure`.
 4. Día 5: `GET /api/me` → middleware `touchActive(hash, now)` → fila actualizada (`last_used_at` = día 5) → reenvía
    la cookie con 7 días nuevos → la ruta responde.
@@ -245,17 +280,22 @@ messages.ts: OTHER_SESSIONS_CLOSE_FAILED (fila 39), código del cliente como LOG
 ## 5. Testing strategy
 
 No hay Postgres local: las pruebas del server corren contra la app real (`createApp`) con los repositorios
-espiados (patrón de `server/tests/sessionWiring.test.ts`). La SQL de `SessionRepository` se prueba (a) en unidad,
-verificando texto y parámetros de cada sentencia, y (b) **contra el Postgres real de staging** al cierre, con el
-comprobación en staging del §6 (paso 11). El reloj se inyecta.
+espiados (patrón de `server/tests/sessionWiring.test.ts`). Como `createApp` usa el `getPool()` real apuntado a una
+base inválida, las rutas con transacción (login, registro, contraseña, borrado) necesitan además
+`vi.spyOn(Pool.prototype, 'connect')` devolviendo un cliente falso que registra `BEGIN`/`COMMIT`/`ROLLBACK`. El
+reloj se controla con `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime`. La SQL de `SessionRepository`
+se prueba (a) en unidad, verificando texto y parámetros (sobre todo que los cortes de `idleCutoffs` llegan como
+parámetros y que no aparece `now()` de SQL), y (b) **contra el Postgres real de staging** al cierre (§6, paso 9).
 
 | Criterio | Nivel | Afirma | Falsea |
 | --- | --- | --- | --- |
-| AC-1, AC-2, AC-3, AC-23 | unidad (`isExpired`) + integración (middleware con reloj) | bordes exactos: 6 d 23 h pasa, 7 d no; 11 h 59 min pasa, 12 h no; uso el día 5 corre el plazo | reloj; `touchActive` simulado con la regla de `isExpired` |
+| AC-1, AC-2, AC-3, AC-23 | unidad (`idleCutoffs`, sentencia de `touchActive`) + **staging** | `idleCutoffs` en los bordes exactos; la sentencia usa `>` contra los dos cortes por parámetro; en staging, `last_used_at` puesto por SQL a 6 d 23 h / 7 d y 11 h 59 min / 12 h → `curl` da 200 / 401 / 200 / 401; uso el día 5 corre el plazo | reloj |
 | AC-4, AC-12, AC-30 | integración (app real) | logout borra por hash y limpia la cookie; sin cookie 204; base caída → 500 y sin `Set-Cookie` de borrado | repo espiado (lanza en AC-30) |
 | AC-5, AC-6, AC-7, AC-19 | integración | `deleteOthers` recibe `userId` y el hash de **esta** sesión; 204 también con 0 borradas | repo espiado |
-| AC-8, AC-27 | integración | cambio de contraseña llama a `deleteOthers` en la misma transacción y **no** emite `Set-Cookie` | repo + transacción espiados |
-| AC-9, AC-33 | unidad (`deleteAccount`) | la transacción incluye el borrado de sesiones de la cuenta | cliente de transacción falso |
+| AC-8, AC-27 | integración | cambio de contraseña: `updatePassword` y `deleteOthers` en la misma transacción; el valor de la cookie no cambia; `Max-Age` aparece solo si la sesión es "Recordarme" | repo + `Pool.prototype.connect` espiados |
+| AC-8, AC-33 (carrera) | integración | login con `createIfPasswordCurrent` → false (contraseña cambiada o cuenta borrada durante bcrypt) → 401 y rollback, sin `Set-Cookie` | repo espiado |
+| AC-9, AC-33 | unidad (`deleteAccount`) + integración | la transacción incluye el borrado de sesiones; la respuesta termina con el `Set-Cookie` de borrado (se lee el **último**) | cliente de transacción falso |
+| AC-37 (retención, a sumar a la spec) | unidad (`sessionPurge`) + staging | cada hora llama a `purgeExpired` con los cortes; si la base rechaza, registra el error y el proceso sigue (sin `unhandledRejection`); en staging, una fila vencida desaparece tras correr la purga | timers falsos; repo que rechaza |
 | AC-10 | integración | una cookie JWT con formato viejo → 401 + cookie borrada | `touchActive` → null |
 | AC-11, AC-18, AC-19, AC-32 | componente (cliente) | diálogo: nombre accesible, foco inicial, ciclo de Tab, Escape, foco de vuelta, un solo pedido, mensajes 39/35/éxito con su rol | `fetch` simulado |
 | AC-13 | integración | `DELETE /api/me/other-sessions` sin `Origin` → 403 y el repo no se llama | — |
@@ -264,7 +304,7 @@ comprobación en staging del §6 (paso 11). El reloj se inyecta.
 | AC-16 | integración | sin cookie → 401 y el repo no se llama | — |
 | AC-17 | integración | `touchActive` lanza → 500 `INTERNAL_ERROR`, la ruta no corre | repo lanza |
 | AC-20 | componente | casilla con etiqueta, desmarcada, Tab + Espacio, descripción accesible | — |
-| AC-24, AC-26, AC-25 | integración | registro y login sin `remember` → sin `Max-Age`; `remember: "si"` → 400 `BAD_REQUEST` sin `create` | repo espiado |
+| AC-24, AC-26, AC-25 | integración | registro y login sin `remember` → sin `Max-Age`; `remember: "si"` y `remember: null` → 400 `BAD_REQUEST` sin crear sesión | repo espiado |
 | AC-28, AC-34 | integración | login/registro correctos borran el hash de la cookie entrante; rechazados (401, 429, 400) no | repo espiado |
 | AC-29, AC-31 | componente (cliente) | al cargar con `/api/me` → 401: sin mensaje ni redirección en una pública; en una privada, login con `returnTo` | `fetch` simulado |
 | AC-35 | unidad | dos `newSessionToken()` distintos, 43 caracteres base64url; `create` recibe el hash, nunca el valor; el valor no contiene el id | — |
@@ -282,35 +322,61 @@ Dos PR, server primero (el cliente viejo sigue funcionando: sin `remember` → m
 
 **PR 1 — server (`feat/server-sessions-server`)**
 
+Cada paso termina con toda la suite en verde (`npm test` en `server/`), `tsc -b` sin errores y su commit. Por eso
+el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos intermedios en rojo.
+
 1. Migración `005_create_sessions.sql` + prueba de esquema en `migrations.test.ts` — depende de: nada — serial.
-2. `sessionToken` nuevo (§3.1) con pruebas — depende de: nada — paralelizable con 1.
-3. `SessionRepository` (§3.2) con pruebas de SQL — depende de: 1, 2 — serial.
-4. `authMiddleware` nuevo (§3.3) y su cableado en `routes.ts` — depende de: 3 — serial.
-5. Login, registro y logout (§3.4) — depende de: 3, 4 — serial.
-6. Cambio de contraseña y borrado de cuenta (§3.4) — depende de: 3, 4 — paralelizable con 5 (archivos distintos).
-7. `DELETE /api/me/other-sessions` — depende de: 4 — paralelizable con 5 y 6.
-8. `sessionPurge` cada hora, arrancado junto a `app.listen` en `index.ts` (con `unref`, para no frenar la salida
-   del proceso ni las pruebas) — depende de: 3 — paralelizable.
-9. Limpieza: quitar `jsonwebtoken` y `@types/jsonwebtoken` (comando para Hernán), `JWT_SECRET` y `JWT_EXPIRES_IN`
-   del esquema de `env.ts`, y la huella `pwf` — depende de: 4-7 — serial, último del PR.
-10. Barrido de criterios del server en la app real (`server/tests/serverSessions.test.ts`) — depende de: 1-9.
-11. Cierre del PR 1: `verify`, panel de 3 lentes, migración 005 en staging, deploy de staging, comprobaciones con
-    `curl` y SQL real (detalle abajo), aprobación de Hernán, PR, migración en producción, deploy, smoke.
+2. `sessionToken`: se **agregan** `newSessionToken`, `hashSessionToken`, `idleCutoffs`, `setSessionCookie(res,
+   token, remember)` nueva y `clearSessionCookie`, sin quitar todavía lo del JWT — pruebas en
+   `sessionToken.test.ts` — depende de: nada — paralelizable con 1.
+3. `SessionRepository` (§3.2) + `updatePassword(id, hash, db?)` — pruebas de SQL nuevas (`sessionRepo.test.ts`) y
+   `userRepo.test.ts` — depende de: 1, 2 — serial.
+4. **El cambio**: `createAuthMiddleware(sessionRepo)`, `AuthService(userRepo)`, `authRoutes` y `meAccountRoutes`
+   con las firmas de §3.2b, login/registro/logout, cambio de contraseña, borrado de cuenta (`deleteAccount`),
+   `DELETE /api/me/other-sessions`, cableado en `routes.ts`; se quitan `signSessionToken`, `passwordFingerprint` y
+   `pwf`. **Pruebas que se reescriben en este paso:** `middleware.test.ts`, `authService.test.ts`,
+   `meAccountRoutes.test.ts`, `sessionToken.test.ts` (lo del JWT), `sessionWiring.test.ts` (W3, W4),
+   `errors.test.ts` (`jwt.sign` en :136 y :172), `health.test.ts`, `originWiring.test.ts`,
+   `accountDeletion.test.ts`. `loansRoutes.test.ts` no cambia (usa su propio middleware falso) — depende de: 2, 3 —
+   serial. `tasks` puede partirlo en subtareas, pero se commitea entero y en verde.
+5. `sessionPurge` cada hora, arrancado junto a `app.listen` en `index.ts`, con `unref` y con `catch` que registra
+   el error (nunca una promesa rechazada sin atender, que tumbaría Node) — depende de: 3 — paralelizable con 4.
+6. Limpieza: quitar `jsonwebtoken` y `@types/jsonwebtoken` (comando para Hernán) y `JWT_SECRET`/`JWT_EXPIRES_IN`
+   del esquema de `env.ts`, reescribiendo `env.test.ts:30-41`. La variable **sigue** en Railway (§0) — depende de: 4
+   — serial.
+7. Barrido de criterios del server en la app real (`server/tests/serverSessions.test.ts`): un caso por criterio
+   del server que no haya quedado probado en 1-6 — depende de: 1-6.
+8. Cierre del PR 1 en local: `verify` (cobertura por archivo), `rsc risk`, panel de 3 lentes, `branch:` de la spec
+   apuntando a la rama.
+9. **Staging:** migración 005 desde el contenedor de staging (comprobada con una consulta de solo lectura) →
+   `railway up -e staging --service prestoteca --ci` desde el checkout de la rama → lista de deploys de staging y
+   de producción (producción no tiene que haber cambiado) → comprobaciones de abajo → medición de latencia (R3).
+10. Aprobación de Hernán → PR → migración 005 en **producción** (comprobada) → merge (el deploy de producción sale
+    de `main`) → lista de deploys de los dos entornos → smoke en producción.
 
 **PR 2 — cliente (`feat/server-sessions-client`)**
 
-12. Fila 39 en `messages.ts` + casilla "Recordarme" en `LoginPage` — depende de: PR 1 en producción — serial.
-13. `ConfirmDialog` + `OtherSessionsSection` en el perfil — depende de: 12 (usa la fila 39) — serial.
-14. Cierre del PR 2: `verify`, panel, staging a mano (casilla, diálogo con teclado, dos navegadores), PR, deploy,
-    smoke.
+11. Fila 39 en `messages.ts` + casilla "Recordarme" en `LoginPage` — depende de: PR 1 en producción — serial.
+12. `ConfirmDialog` + `OtherSessionsSection` en el perfil — depende de: 11 (usa la fila 39) — serial.
+13. Cierre del PR 2: `verify`, panel, staging con `railway up` (casilla, diálogo con teclado, dos navegadores), PR,
+    deploy, smoke.
 
-**Comprobación en staging del PR 1 (paso 11), por escrito en la verificación:** login A con "Recordarme", login B
-sin; `Set-Cookie` de cada uno; pedido protegido con A renueva `Max-Age`; logout de B → B da 401 y A sigue; desde A,
-`DELETE /api/me/other-sessions` con una tercera cookie C abierta → C da 401 y A sigue; 20 pedidos simultáneos con
-A → 20 × 200; cookie JWT vieja → 401; consulta de solo lectura: `token_hash` de 64 caracteres, ninguna columna de
-dispositivo, ninguna fila con el valor de la cookie.
+**Comprobación en staging del PR 1 (paso 9), por escrito en la verificación:**
 
-- **Delegación:** pasos mecánicos (1, 2, 8, 12) candidatos a Qwen en worktree de Orca; 3-7, 9, 10 y 13 los hace
+- Login A con "Recordarme" y login B sin: `Set-Cookie` de cada uno (con y sin `Max-Age`, `HttpOnly`,
+  `SameSite=Lax`, `Secure`).
+- Un pedido protegido con A reenvía `Max-Age=604800`.
+- Bordes con SQL sobre una sesión de prueba: `last_used_at` a 6 d 23 h → 200; a 7 d → 401; en modo corto a 11 h
+  59 min → 200; a 12 h → 401.
+- Logout de B → B da 401 y A sigue. Desde A, `DELETE /api/me/other-sessions` con una tercera cookie C abierta → C
+  da 401 y A sigue.
+- 20 pedidos simultáneos con A → 20 × 200.
+- Cookie JWT vieja → 401 y `Set-Cookie` de borrado.
+- Purga: una fila vencida a mano desaparece al correr `purgeExpired`.
+- Consulta de solo lectura: `token_hash` de 64 caracteres, ninguna columna de dispositivo, ninguna fila con el
+  valor de una cookie.
+
+- **Delegación:** pasos mecánicos (1, 2, 5, 11) candidatos a Qwen en worktree de Orca; 3, 4, 6, 7 y 12 los hace
   Claude o Qwen con revisión estricta — se pregunta a Hernán antes de lanzar cada uno.
 - **Orden duro:** la migración en cada entorno **antes** del deploy que la usa (sin la tabla, todo pedido protegido
   daría 500); el PR 1 en producción antes del PR 2 (el botón necesita la ruta).
@@ -325,18 +391,30 @@ dispositivo, ninguna fila con el valor de la cookie.
 | R2 — La cookie no se borra | `clearSessionCookie` con atributos distintos de los de `setSessionCookie` | logout "anda" en el server pero el navegador conserva una cookie inútil | una sola función con los atributos; prueba que compara los dos `Set-Cookie` |
 | R3 — Escritura en cada pedido | `touchActive` actualiza la fila siempre | más carga en la base | medir en staging contra la mediana de 5c (292 ms); si sube de forma medible, renovar solo si el último uso tiene más de 60 s (decisión abierta, no se construye sin medición) |
 | R4 — Diálogo propio con huecos de accesibilidad | foco o lectura en pantalla mal resueltos | quien usa teclado o lector queda atrapado o sin contexto | pruebas de componente de AC-18 + revisión a mano con teclado en staging; `checklist-accesibilidad` |
-| R5 — Cableado roto entre piezas | una ruta usa el middleware viejo o se olvida `deleteOthers` | un criterio pasa en unidad y falla en la app | barrido del paso 10 contra `createApp` (lección de 5c) |
+| R5 — Cableado roto entre piezas | una ruta usa el middleware viejo o se olvida `deleteOthers` | un criterio pasa en unidad y falla en la app | barrido del paso 7 contra `createApp` (lección de 5c) |
 | R6 — Reloj de la app y de la base distintos | alguien usa `now()` de SQL en una sentencia | bordes de 7 d / 12 h corridos | §0 lo prohíbe; la prueba de SQL verifica que la hora llega como parámetro |
+| R6b — La regla del plazo vive en SQL | `>` en vez de `>=` o un `CASE` mal escrito | sesiones que duran de más o de menos | una sola fuente (`idleCutoffs`) + bordes probados con SQL real en staging (paso 9) |
+| R9 — Staging desplegado moviendo producción | se usa `railway service source connect` para staging | el PR 1 llega a producción antes de la 005 → R1 | §0: solo `railway up -e staging`; lista de deploys de los dos entornos después de cada uno |
 | R7 — Registro con sesión fallida | la base falla entre crear el usuario y crear la sesión | la cuenta existe pero la respuesta es 500 | se acepta (la persona inicia sesión); igual que hoy con el JWT si fallara la firma |
 | R8 — Logout comparte el límite estricto | 5 pedidos por minuto en `/api/auth` | "Salir" después de varios logins da 429 → fila 10 | sin cambios respecto de hoy (error-codes ya lo cubre) |
 
 **Rollback:** revertir el PR 1 deja el código JWT; la tabla `sessions` queda sin uso y no molesta (aditiva). Las
-cookies opacas no pasan la verificación del JWT → 401 → la gente vuelve a iniciar sesión una vez. Se borra la tabla
-solo si se abandona la feature.
+cookies opacas no pasan la verificación del JWT → 401 → la gente vuelve a iniciar sesión una vez. El código viejo
+exige `JWT_SECRET` (≥ 32 caracteres, `env.ts:13`) al arrancar: por eso la variable sigue en Railway (§0). **Antes de
+volver a desplegar hacia adelante** después de un rollback se corre `DELETE FROM sessions`: los logouts hechos
+durante el rollback no borraron filas, y sin limpiar esas sesiones revivirían. Se borra la tabla solo si se abandona
+la feature.
 
 **Decisiones abiertas**
 
-- Renovación con umbral (R3): se cierra con la medición en staging del paso 11.
+- Renovación con umbral (R3): se cierra con la medición en staging del paso 9.
+
+**Enmiendas a la spec que este plan necesita** (pendientes de la aprobación de Hernán, antes de `tasks`):
+
+- *What it must respect → Contraseñas* dice que "la huella de la contraseña de 5c no cambia de forma"; este plan
+  la elimina (D14) y la reemplaza por el borrado de las otras sesiones. Se corrige ese renglón.
+- *Points to clarify* pide que el plan agregue el criterio de la retención: **AC-37** — "Given una sesión vencida,
+  When pasa una hora, Then ya no está guardada".
 
 **Hallazgo al margen (no es de este plan):** `createLoanScan` (`server/src/modules/loans/loanScan.ts`) no aparece
 llamado en `server/src/index.ts`. Hay que confirmar si el escaneo de préstamos vencidos corre por otro camino; va al
@@ -345,3 +423,11 @@ backlog, no se toca acá.
 ## Revisions
 
 - **2026-11-18 — primera versión.**
+- **2026-11-18 — revisión con ojos frescos (con lectura del código).** Doce ajustes: la regla del plazo pasa a una
+  sola fuente (`idleCutoffs`) cuyos cortes reciben las sentencias como parámetros, con bordes probados en SQL real;
+  deploy de staging solo con `railway up` y lista de deploys de los dos entornos; contratos de las firmas que
+  cambian (§3.2b) y `updatePassword(…, db?)`; método de prueba con `Pool.prototype.connect` espiado y fecha falsa;
+  aserciones de `Set-Cookie` corregidas (renovación del middleware, se lee el último); el cambio JWT → sesiones es
+  un solo paso con la lista de pruebas que reescribe; purga con `catch` y AC-37; rollback con `JWT_SECRET`
+  conservado y limpieza al volver; `createIfPasswordCurrent` cierra la carrera login/cambio de contraseña;
+  `remember: null` → 400; orden real de límite y origen en el diagrama; dos enmiendas de spec propuestas.
