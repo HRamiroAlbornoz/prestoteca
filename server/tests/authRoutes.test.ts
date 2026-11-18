@@ -173,7 +173,7 @@ describe('auth routes', () => {
 
       const res = await request(app)
         .post('/api/auth/register')
-        .send({ name: 'Ana López', email: 'ana@example.com', password: 'ana45678', neighborhood: 'Norte' })
+        .send({ name: 'Ana López', email: 'ana@example.com', password: 'ana45678', neighborhood: 'Barrio Norte' })
 
       expect(res.status).toBe(409)
       expect(res.body).toEqual({ error: { code: 'EMAIL_TAKEN', message: 'Email already exists' } })
@@ -185,7 +185,7 @@ describe('auth routes', () => {
       // Register first
       await request(app)
         .post('/api/auth/register')
-        .send({ name: 'Carlos', email: 'carlos@example.com', password: 'carlos123', neighborhood: 'Norte' })
+        .send({ name: 'Carlos', email: 'carlos@example.com', password: 'carlos123', neighborhood: 'Barrio Norte' })
 
       const res = await request(app)
         .post('/api/auth/login')
@@ -199,7 +199,7 @@ describe('auth routes', () => {
     it('returns 401 on wrong password', async () => {
       await request(app)
         .post('/api/auth/register')
-        .send({ name: 'Maria', email: 'maria@example.com', password: 'maria123', neighborhood: 'Sur' })
+        .send({ name: 'Maria', email: 'maria@example.com', password: 'maria123', neighborhood: 'Barrio Sur' })
 
       const res = await request(app)
         .post('/api/auth/login')

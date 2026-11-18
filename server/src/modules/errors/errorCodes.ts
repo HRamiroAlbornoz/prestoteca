@@ -13,6 +13,7 @@ export const ERROR_CODES = {
   REGISTER_NAME_LENGTH: { status: 400 }, // row 2: name not between 2 and 50 characters
   REGISTER_PASSWORD_LENGTH: { status: 400 }, // row 3: password not between 8 and 72 characters
   REGISTER_EMAIL_TOO_LONG: { status: 400 }, // row 4: email longer than 254 characters
+  REGISTER_NEIGHBORHOOD_INVALID: { status: 400 }, // row 38: the neighborhood is not in the fixed list
   EMAIL_TAKEN: { status: 409 }, // row 5: an account with that email already exists
 
   // --- Login and session ---

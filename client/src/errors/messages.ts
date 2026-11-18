@@ -28,6 +28,7 @@ export const MESSAGES: Record<ClientErrorCode, string> = {
   REGISTER_NAME_LENGTH: 'El nombre tiene que tener entre 2 y 50 caracteres.', // row 2
   REGISTER_PASSWORD_LENGTH: 'La contraseña tiene que tener entre 8 y 72 caracteres.', // row 3
   REGISTER_EMAIL_TOO_LONG: 'El email es demasiado largo.', // row 4
+  REGISTER_NEIGHBORHOOD_INVALID: 'Elegí un barrio de la lista.', // row 38
   EMAIL_TAKEN: 'Ya hay una cuenta con ese email. Iniciá sesión o usá otro email.', // row 5
 
   // --- Session ---

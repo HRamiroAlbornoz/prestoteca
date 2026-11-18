@@ -4,6 +4,7 @@ import type { UserRepository } from './userRepo.js'
 import { AuthService } from './authService.js'
 import { sendError, sendErrorCode } from '../errors/AppError.js'
 import { setSessionCookie } from './sessionToken.js'
+import { isValidNeighborhood } from './neighborhoods.js'
 
 export function authRoutes(
   userRepo: UserRepository,
@@ -45,6 +46,12 @@ export function authRoutes(
     // Email length validation (RFC 5321: max 254 chars)
     if (trimmedEmail.length > 254) {
       sendErrorCode(res, 'REGISTER_EMAIL_TOO_LONG', 'Email demasiado largo')
+      return
+    }
+
+    // Only the neighborhoods of the fixed list (the register screen offers the same ones)
+    if (!isValidNeighborhood(trimmedNeighborhood)) {
+      sendErrorCode(res, 'REGISTER_NEIGHBORHOOD_INVALID', 'Neighborhood must be one of the fixed list')
       return
     }
 

@@ -102,6 +102,7 @@ implementación la copia tal cual. Los nombres técnicos de los códigos no van 
 | 3 | La contraseña no tiene entre 8 y 72 caracteres | La contraseña tiene que tener entre 8 y 72 caracteres. |
 | 4 | El email tiene más de 254 caracteres | El email es demasiado largo. |
 | 5 | El email ya está registrado | Ya hay una cuenta con ese email. Iniciá sesión o usá otro email. |
+| 38 | El barrio no está en la lista fija | Elegí un barrio de la lista. |
 | **Sesión** |||
 | 6 | Al iniciar sesión, falta el email o la contraseña | Escribí tu email y tu contraseña. |
 | 7 | Al iniciar sesión, email o contraseña incorrectos | El email o la contraseña no son correctos. |
@@ -186,8 +187,7 @@ formato) → 34. En el inicio, la 34 reemplaza a la 37.
   español propio de esa situación. Si puede hacer algo, el mensaje lo dice. Ejemplos de situaciones que se
   distinguen entre sí:
   - Registro: falta algún dato; el nombre no tiene entre 2 y 50 caracteres; la contraseña no tiene entre 8 y 72; el
-    email es demasiado largo; el email ya está registrado. (La pantalla de registro no valida antes de enviar, así
-    que estos casos llegan al usuario tal cual.)
+    email es demasiado largo; el email ya está registrado; el barrio no es de la lista fija (solo con un pedido hecho a mano: la pantalla ofrece la lista). (La pantalla de registro no valida antes de enviar, así que estos casos llegan al usuario tal cual.)
   - Sesión: falta el email o la contraseña (al iniciar sesión); email o contraseña incorrectos (al iniciar sesión);
     no hay sesión, venció o no es válida. Estos tres son una sola situación para el usuario: la cookie de sesión dura
     lo mismo que la sesión (1 hora), así que cuando la sesión vence el navegador ya la descartó y el server solo ve
@@ -368,3 +368,6 @@ formato) → 34. En el inicio, la 34 reemplaza a la 37.
   responde 403, no 401; (3) *Behaviour* suma la regla de las pantallas que cargan dos cosas a la vez (si una falla,
   error de carga; la sesión terminada gana; si la persona ya se fue, no pasa nada), que estaba solo en el plan. La
   tabla de mensajes no cambia.
+- 2026-11-17 — Fila 38 nueva, aprobada por Hernán (FTD `neighborhood-validation`): el registro con un barrio fuera
+  de la lista fija responde `REGISTER_NEIGHBORHOOD_INVALID` con el mensaje «Elegí un barrio de la lista.». La tabla
+  pasa de 37 a 38 mensajes.
