@@ -116,5 +116,9 @@ prohíbe editar archivos existentes con `sed`, `awk` o heredoc, lista los 7 arch
 y detalles: qué tests viejos fallan a propósito mientras se trabaja (las guardas de los catálogos), cuándo usar
 `it.each`, el lint no imprime nada si está limpio, M4 se corre en la suite del servidor, dónde mover el bloque en M5, y
 la posición del `import`.
-**Hernán mantuvo la autorización** de mandarle las correcciones a Qwen sin preguntar antes. Siguiente: lanzarlo en el
-worktree nuevo `n-neighborhood` cuando Hernán diga que sí.
+**Hernán mantuvo la autorización** de mandarle las correcciones a Qwen sin preguntar antes. **Lanzado a Qwen el 2026-11-18** (run nuevo
+`run_6c7db590ca86`, dispatch `ctx_9874081ef68e`, task `task_783a2b467f26`, worktree
+`C:/Users/hralb/orca/workspaces/prestoteca/n-neighborhood`, base `088feee`, con el código y la spec iguales a
+`8f6e8c3`). Cuando entregue: copiar los archivos de `src/` y la spec antes de tocar nada, comparar `it(` y `expect`
+contra la base, revisar los finales de línea con `file`, rojo, M1-M5 deshechos desde la copia, las dos suites, `tsc -b`
+y lint, `rsc risk` y la revisión que pida.
