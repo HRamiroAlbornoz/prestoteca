@@ -209,3 +209,21 @@ timestamp: 2026-10-04T00:00:00Z
 - **Consecuencias:**
   - ✅ La *Definition of Done* se puede cumplir tal como está escrita.
   - ⚠️ Sin protección de `main` en GitHub, el único freno antes del push es `verify` + el guard de rsc para tier 2.
+  - **Revertida el mismo día por D12.**
+
+## D12 — `main` protegida: rama + PR también para el agente y para docs (constitución v1.3.0)
+
+- **Fecha:** 2026-11-18
+- **Contexto:** D11 había dejado `main` abierta. Hernán la revirtió: quiere `main` protegida, en línea con su regla
+  global de proteger `main` en GitHub. La protección de GitHub existente solo impedía force push y borrado; no exigía PR,
+  por eso los push directos pasaban.
+- **Opciones:** volver a rama + PR con doble cierre (GitHub + rsc); solo GitHub; solo rsc.
+- **Decisión:** doble cierre. GitHub exige PR en `main` (admins incluidos, 0 aprobaciones porque el autor no puede
+  aprobar su propio PR) y `rsc main lock` cierra `main` para el agente. Los cambios de docs siguen el mismo camino.
+  Pedido por Hernán: "Que el principio 10 vuelva a 'rama + PR'. Quiero que main esté protegida."
+- **Por qué:** GitHub frena cualquier push directo, también uno manual; rsc hace que el agente pregunte dónde va cada
+  cambio antes de escribirlo, en vez de enterarse en el push.
+- **Consecuencias:**
+  - ✅ Ningún cambio llega a `main` sin PR.
+  - ⚠️ Los commits `docs(auto)` que el hook de rsc hace en `main` local tienen que moverse a una rama antes de subir.
+  - ⚠️ Cada cambio de docs suma un PR.

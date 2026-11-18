@@ -5,12 +5,12 @@ description: The non-negotiable principles every rsc-sdd phase obeys.
 tags: [sdd, constitution]
 timestamp: 2026-10-04T00:00:00Z
 topic: sdd
-version: v1.2.0
+version: v1.3.0
 ---
 
 # Prestoteca — Constitution
 
-> Version: v1.2.0 · Ratified: 2026-10-04 · Last amended: 2026-11-18
+> Version: v1.3.0 · Ratified: 2026-10-04 · Last amended: 2026-11-18
 > The non-negotiable principles every rsc-sdd phase obeys. Stack mechanics live in
 > `02-DOCS/wiki/stack/*`; this file ratifies the principle and links the detail.
 
@@ -47,12 +47,11 @@ version: v1.2.0
 
 ## 4. Branching & shipping
 
-10. `main` is open (`npx @ericrisco/rsc main status`): changes may be committed and pushed directly to `main`. A
-    branch + PR is used when the change needs it (parallel worktrees, a review on GitHub). Every push to `main`
-    passes `verify` first (the Definition of Done below); a tier-2 change (`rsc risk`) also needs its 3-lens panel
-    recorded and the human's approval before the push.
-    *Superseded in v1.2.0: "Work happens on a branch off `main`; merge via PR. Direct pushes to `main` are not
-    allowed."*
+10. Work happens on a branch off `main`; merge via PR. Direct pushes to `main` are not allowed. Enforced twice:
+    GitHub branch protection on `main` requires a pull request (admins included, no force push, no deletion), and
+    rsc keeps `main` closed for the agent (`npx @ericrisco/rsc main status` → `closed: true`). Docs-only changes
+    follow the same path.
+    *Superseded in v1.3.0: the v1.2.0 text "`main` is open … direct pushes allowed after `verify`".*
 11. **Git authorship is the human's.** No `Co-Authored-By` an AI, no "generated with" footer.
      Enforced at the `ship` phase.
 
@@ -81,8 +80,7 @@ A change ships only when ALL hold:
 - [ ] Type checker passes (principle 5).
 - [ ] Tests pass; coverage floor met on changed code (principle 6).
 - [ ] Conventions followed (principles 7-9).
-- [ ] Pushed per principle 10 (verify before the push; tier 2 with panel + human approval), authored by the human
-      (principles 10-11).
+- [ ] On a branch, merged via PR, authored by the human (principles 10-11).
 - [ ] No secret committed; security baseline met (principles 12-13).
 - [ ] Accessibility / performance budgets met where they apply (principles 14-15).
 - [ ] Significant decisions logged (principle 16).
@@ -96,3 +94,4 @@ A change ships only when ALL hold:
 | 2026-10-04 | v1.0.2 | Pinned versions: Express 5.2.1, Node >= 18, React 19.2.7, Vite 8.1.0, TS ~6.0.2, React Router 7.x, Helmet 8+. Added `app.disable('x-powered-by')`, `trust proxy`, bcrypt 12 rounds, Zod safeParse. | Context7 library docs consultation. |
 | 2026-11-03 | v1.1.0 | Principle 4 rewritten to the real tooling: oxlint in the client, no server linter yet (open debt), no Prettier, no pre-commit; check runs in `verify`. Principle 6: coverage measured per changed file with `@vitest/coverage-v8`. DoD updated. | `analyze` of error-codes (H3, H2): the old text asked for tools the repo never had, so no change could meet the DoD. Approved by Hernán ("aplicá todo"). Decision D8. |
 | 2026-11-18 | v1.2.0 | Principle 8: session is an opaque, server-revocable identifier in an httpOnly cookie (7 days idle with "Recordarme", 12 h idle without), replacing "JWT in httpOnly cookie (1h expiry)". Principle 10: `main` is open, direct pushes allowed after `verify` (tier 2 also needs panel + human approval), replacing "branch + PR only". DoD updated. | Principle 8: approved spec `server-sessions`; since 5c every protected request already checks the account in the database, so a short JWT adds no revocation (decision D10). Principle 10: the text contradicted how the project works since 5b (direct pushes, `rsc main` open), found during this amendment (decision D11). Ratified by Hernán ("Ratifico tal cual"; principle 10: "Enmendarlo a main abierta"). |
+| 2026-11-18 | v1.3.0 | Principle 10 back to branch + PR, tightened: GitHub protection on `main` requires a PR (admins included) and rsc keeps `main` closed for the agent; docs-only changes too. DoD restored. | Hernán: "Que el principio 10 vuelva a 'rama + PR'. Quiero que main esté protegida." Matches his global rule to protect `main` on GitHub. Decision D12 (reverses D11). |

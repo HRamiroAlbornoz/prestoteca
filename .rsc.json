@@ -55,7 +55,9 @@
   "ownSkills": [],
   "catalogVersion": "4.1.8",
   "tier": null,
-  "optOuts": [],
+  "optOuts": [
+    "trunk-open"
+  ],
   "onboarding": {
     "schemaVersion": 1,
     "acceptedPlanId": "dcc8525cea0648661354974837490f0f2d130e48a9847451594c4e9bc706681a",
