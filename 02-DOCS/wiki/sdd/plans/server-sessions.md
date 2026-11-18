@@ -673,19 +673,27 @@ y AC-32 se prueban en el cliente; el resto en el server. AC-29 y AC-19 tienen mi
 
 | Tarea | Quién | Por qué |
 | --- | --- | --- |
+Hernán pidió (2026-11-18) darle a Qwen todo lo que se pueda, para ahorrar tokens de Claude. Criterio: va a Qwen
+toda tarea cuyo contenido ya está escrito en el plan (copia, no diseña); se queda en Claude lo que no entra en el
+contexto de Qwen (~67K) o donde ya falló antes en el mismo tipo de archivo.
+
+| Tarea | Quién | Por qué |
+| --- | --- | --- |
 | T001 | Qwen | mecánica: un archivo SQL y sus aserciones de texto |
 | T002 | Qwen | funciones chicas y puras, con bordes de prueba listados |
-| T003 | Claude | SQL delicada (`FOR SHARE`, casts, el fragmento compartido) que solo se prueba de verdad en staging |
-| T004 | Claude | el cambio grande: 7 archivos de código y ~11 de pruebas en un solo commit verde |
+| T003 | Qwen | cada sentencia SQL ya está escrita en el plan con sus casts y su `FOR SHARE`; el brief las pega enteras y la prueba afirma cada pieza; la SQL real se prueba en staging (T009) |
+| T004 | Claude | 7 archivos de código y ~11 de pruebas en un solo commit verde: no entra en el contexto de Qwen (se le agotó en el punto 6 con algo más chico) y partirla deja la suite en rojo |
 | T005 | Qwen | módulo chico y aislado; patrón de `loanScan.ts` |
 | T006 | Qwen | limpieza guiada por `grep` |
-| T007 | Claude | el barrido decide qué falta probar; necesita el plan entero |
-| T008-T010 | Claude + Hernán | revisores, staging, producción |
+| T007 | Qwen | guiado por el `grep` de ids: una prueba por id que falte, contra `createApp`, con el patrón de `sessionWiring.test.ts` |
+| T008 | Qwen (correr y reportar) + Claude (revisores) | Qwen corre suite, `tsc`, lint y cobertura por archivo y escribe el reporte (su mejor entrega, T016 de error-codes); Claude vuelve a correr los números clave y lanza el panel de 3 que exige la puerta |
+| T009, T010 | Claude + Hernán | comandos de Railway con OK de Hernán, escrituras en staging, producción |
 | T011 | Hernán | instalación de una dependencia |
 | T012 | Qwen | casilla en un formulario existente |
 | T013 | Qwen | componente aislado con lista cerrada de pruebas de teclado |
-| T014 | Claude | estado, regiones vivas y mapeo de errores; reescribe ~18 pruebas del perfil |
-| T015, T016 | Claude + Hernán | cierre |
+| T014 | Claude | reescribe ~18 pruebas de `profilePage.test.tsx`: en ese archivo Qwen mockeó `useState` y quedó en loop 5 h (T015 de error-codes) |
+| T015 | Claude + Hernán | panel, staging y producción del PR 2 |
+| T016 | Qwen (correr y reportar) + Claude (confirma) | mismo esquema que T008 |
 
 Cada brief para Qwen sigue lo aprendido en error-codes y 5b-6: checklist de cada prueba obligatoria pegada entera,
 `grep` de los ids, prohibido mockear `react-router-dom` o `useState`, prohibido escribir en `src/` desde una prueba,
