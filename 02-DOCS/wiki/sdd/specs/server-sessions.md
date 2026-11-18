@@ -75,6 +75,9 @@ letra del checklist (no hay un permiso de 15 min). Cumple su intención: una ses
   mantiene igual.
 - **Cambiar la lógica de redirección al login** con regreso a la página original. Se mantiene igual.
 - **Sesión en apps nativas o de terceros** (permisos por encabezado en vez de cookie). La app es solo web.
+- **Datos del dispositivo o de la ubicación** (IP, navegador, ciudad) asociados a la sesión. Solo los necesitaría la
+  lista de dispositivos, que está diferida. En este ciclo una sesión guarda únicamente lo que hace falta para vencerla
+  y anularla.
 
 ## Users & context
 
@@ -108,9 +111,11 @@ de los botones existentes de Configuración):
 
 ## What it must respect
 
-- **Constitución, principio 8:** sesión en cookie `httpOnly`. Se mantiene la cookie `httpOnly`. La parte "(1h
-  expiry)" se **enmienda** a "7 días sin uso, anulable desde el servidor". La enmienda pasa por `constitution` antes
-  del plan.
+- **Constitución, principio 8:** hoy dice "auth via JWT in httpOnly cookie (1h expiry)". Se mantiene la cookie
+  `httpOnly`. La frase entera "JWT in httpOnly cookie (1h expiry)" se **enmienda** a "identificador de sesión opaco en
+  cookie httpOnly, vence a los 7 días sin uso, anulable desde el servidor": un JWT con datos de la cuenta contradiría
+  AC-14. La enmienda pasa por `constitution` antes del plan y se anota en su registro de enmiendas y en
+  `decisions.md`.
 - **Spec MVP, criterio "la cookie de sesión expira en 1 hora"** (`prestoteca-mvp.md`, *Acceptance criteria*): queda
   reemplazado por esta spec. Se anota la enmienda en la spec MVP.
 - **Spec MVP, redirección:** sin sesión o con sesión vencida, se redirige al login y vuelve a la ruta original
@@ -172,7 +177,8 @@ de los botones existentes de Configuración):
 - **AC-5.** Given la misma cuenta con sesión en los dispositivos A y B, When A toca "Salir", Then B sigue respondiendo
   normal.
 - **AC-6.** Given la misma cuenta con sesión en A y B, When A toca "Cerrar sesión en todos los dispositivos", Then B
-  recibe `401 SESSION_REQUIRED` en su próximo pedido (A: según la respuesta en *Points to clarify*).
+  recibe `401 SESSION_REQUIRED` en su próximo pedido. *El resultado para A se fija en `clarify` (primera pregunta
+  abierta) y se reescribe acá antes del plan.*
 - **AC-7.** Given las cuentas X e Y con sesión, When X cierra todas sus sesiones, Then las sesiones de Y siguen
   respondiendo normal.
 - **AC-8.** Given sesiones en A y B, When A cambia la contraseña, Then B recibe `401` y A sigue respondiendo normal
@@ -182,12 +188,19 @@ de los botones existentes de Configuración):
   Then recibe `401 SESSION_REQUIRED`.
 - **AC-11.** Given "Cerrar todas" falla (sin conexión o error del servidor), When la persona toca el botón, Then ve un
   mensaje en español en Configuración, anunciado a lectores de pantalla (`role="alert"`), sin texto del servidor, y
-  sigue logueada.
+  sigue logueada. *El código y el texto del mensaje se fijan en `clarify` (tercera pregunta abierta); si es un código
+  nuevo, se agrega también a la spec [error-codes](./error-codes.md).*
 - **AC-12.** Given una sesión anulada o vencida, When se toca "Salir", Then responde `204`.
 - **AC-13.** Given un pedido de "Cerrar todas" sin el origen permitido, When llega al servidor, Then responde
   `ORIGIN_NOT_ALLOWED` y no cierra ninguna sesión.
 - **AC-14.** Given la cookie de sesión, When se inspecciona, Then es `httpOnly`, `SameSite=Lax`, `Secure` en
   producción, y su valor no contiene datos de la cuenta (ni id, ni email).
+- **AC-15.** Given una sesión válida, When se mandan dos pedidos protegidos a la vez con la misma cookie, Then los dos
+  responden normal y la sesión sigue válida para un tercer pedido.
+- **AC-16.** Given ninguna cookie de sesión, When se pide "Cerrar todas", Then responde `401 SESSION_REQUIRED` y no
+  cierra ninguna sesión.
+- **AC-17.** Given la base de datos no responde, When llega un pedido protegido con una cookie de sesión, Then el
+  pedido no se cumple y la respuesta es un error del servidor (`INTERNAL_ERROR`), nunca un acceso concedido.
 
 ## Points to clarify
 
@@ -208,9 +221,9 @@ de los botones existentes de Configuración):
   `GET /api/me` que la app hace al abrir. *Base:* "7 días sin usarla" quiere decir sin abrir la app. *Riesgo:* una
   pestaña que quede abierta y haga pedidos sola mantendría la sesión viva. Hoy la app no hace pedidos en segundo plano.
 - **suposición tomada** — Las sesiones vencidas o anuladas no se guardan para siempre: se descartan pasado un tiempo
-  que fija el plan. *Base:* no hay ninguna pantalla que las muestre y guardarlas sin uso es acumular datos personales
-  (cuándo y desde dónde entró alguien) sin motivo. *Riesgo:* si más adelante se quiere una lista de dispositivos o una
-  auditoría, falta el historial.
+  que fija el plan. *Base:* no hay ninguna pantalla que las muestre, y guardarlas sin uso es acumular sin motivo cuándo
+  usó alguien la app. *Riesgo:* si más adelante se quiere una lista de dispositivos o una auditoría, falta el
+  historial.
 - **decisión diferida** — Lista de sesiones activas por dispositivo, con cierre puntual. Fuera de este ciclo.
 - **decisión diferida** — Tope absoluto de duración de la sesión. Fuera de este ciclo.
 - **área no formulable** — Qué pasa con la sesión si el barrio empieza a usar la app desde compus públicas de forma
@@ -224,3 +237,7 @@ de los botones existentes de Configuración):
   la sesión que el servidor recuerda (dirección B), 7 días contados desde el último uso, y sumar "Cerrar sesión en
   todos los dispositivos". La letra del checklist de autenticación (15 min + 7 días) queda sin cumplir a propósito;
   su intención (sesión larga y revocable, logout que invalida) sí.
+- **2026-11-18 — revisión con ojos frescos.** Cuatro ajustes: la enmienda del principio 8 reemplaza también "JWT"
+  (no solo "1h"); AC-6 y AC-11 dicen explícitamente que se cierran en `clarify`; los bordes de pedidos simultáneos,
+  "Cerrar todas" sin sesión y base caída pasan a AC-15, AC-16 y AC-17; la sesión no guarda datos de dispositivo ni
+  ubicación (nuevo non-goal).
