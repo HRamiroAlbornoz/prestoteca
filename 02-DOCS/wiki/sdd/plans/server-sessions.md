@@ -24,7 +24,9 @@ Valores exactos que toda tarea respeta. El revisor de cada tarea los lee primero
   `secure: process.env.NODE_ENV === 'production'`, `path: '/'`. **Con "Recordarme":** `maxAge` = 7 días
   (604 800 000 ms), reenviada en cada pedido protegido que pasa. **Sin "Recordarme":** sin `maxAge` ni `expires`
   (cookie de sesión del navegador). Para borrarla se usa la **misma** función con los mismos atributos (Express 5
-  `clearCookie` solo ignora `maxAge`/`expires`; `secure` y `sameSite` tienen que coincidir).
+  `clearCookie` solo ignora `maxAge`/`expires`; `secure` y `sameSite` tienen que coincidir). Los atributos se arman
+  **dentro** de `setSessionCookie`/`clearSessionCookie` en cada llamada (nunca en una constante del módulo), para
+  que `secure` lea `NODE_ENV` en ese momento; la prueba con producción usa `vi.stubEnv('NODE_ENV', 'production')`.
 - **Valor de la cookie:** 32 bytes al azar de `crypto.randomBytes`, en base64url (43 caracteres). Nunca contiene id,
   email ni nada de la cuenta. **El servidor guarda solo su SHA-256 en hex (64 caracteres)**, nunca el valor.
 - **Formato de la cookie entrante:** se acepta solo si es un `string` que cumple `^[A-Za-z0-9_-]{43}$`. Cualquier
@@ -188,6 +190,8 @@ purgeExpired(cutoffs) -> number                              // borra el complem
 ```
 
 - `db?` = un cliente de transacción de `withTransaction` (`server/src/modules/db/transaction.ts`); sin él usa el pool.
+- `pg` tipa `rowCount` como `number | null`: los conteos devuelven `rowCount ?? 0` y `createIfPasswordCurrent`
+  devuelve `(rowCount ?? 0) === 1` (si no, `tsc -b` falla).
 - Archivo: `server/src/modules/auth/sessionRepo.ts`, `class SessionRepository { constructor(pool: Pool) }`, igual
   que `UserRepository`. Prueba: `server/tests/sessionRepo.test.ts`.
 - Purga: `server/src/modules/auth/sessionPurge.ts`, `startSessionPurge(pool, intervalMs?) -> { stop() }`. Prueba:
@@ -328,9 +332,13 @@ messages.ts: OTHER_SESSIONS_CLOSE_FAILED (fila 39), código del cliente como LOG
 - **Migración:** `005_create_sessions.sql`, aditiva (`CREATE TABLE IF NOT EXISTS` + índice); `down` comentado:
   `DROP TABLE IF EXISTS sessions`. El código viejo la ignora, así que se aplica antes del deploy. **No** se puede
   correr como la 004 (desde el contenedor de la app): ese contenedor tiene el código viejo de `main`, sin el archivo
-  005, y en la PC no hay `psql`. Procedimiento: `railway ssh -s Postgres -e <entorno>` y `psql` **dentro** del
-  contenedor de Postgres, con el SQL del archivo enviado por la entrada estándar; después, una consulta a
-  `information_schema.columns` que liste las columnas de `sessions`. Siempre con `-e staging` / `-e production`
+  005, y en la PC no hay `psql`. Procedimiento: `railway ssh -s Postgres -e <entorno>` y
+  `psql -v ON_ERROR_STOP=1 -1` **dentro** del contenedor de Postgres, con el SQL del archivo enviado por la entrada
+  estándar (`ON_ERROR_STOP` corta en el primer error y devuelve un código distinto de 0; `-1` lo corre todo en una
+  transacción: o queda todo o nada). El archivo es repetible (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT
+  EXISTS`), así que un reintento después de un `railway ssh` cortado no falla. Comprobación después: las columnas en
+  `information_schema.columns`, el `UNIQUE` y la FK en `information_schema.table_constraints`, y el índice en
+  `pg_indexes`, todo para la tabla `sessions`. Siempre con `-e staging` / `-e production`
   explícito (la CLI está enlazada a producción). Si `railway ssh` falla (ya pasó, `security-hardening.md`), se
   reintenta; no hay atajo que se salte la comprobación.
 - **Transición del deploy:** las cookies JWT viejas se llaman igual (`token`); su valor, hasheado, no está en la
@@ -421,7 +429,8 @@ el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos int
 
 1. Migración `005_create_sessions.sql` + prueba de esquema en `migrations.test.ts`, que afirma también lo que podría
    fallar en silencio: `user_id UUID NOT NULL REFERENCES users(id)` **sin** `CASCADE`, `token_hash CHAR(64) NOT NULL
-   UNIQUE`, `remember BOOLEAN NOT NULL`, el índice por `user_id`, ninguna columna con `DEFAULT now()` (la hora la
+   UNIQUE`, `remember BOOLEAN NOT NULL`, el índice por `user_id` con `CREATE INDEX IF NOT EXISTS` (repetible),
+   `CREATE TABLE IF NOT EXISTS`, ninguna columna con `DEFAULT now()` (la hora la
    pone la app), y el `down` solo en comentario (sin `DROP` activo, como la prueba de la 004) — depende de: nada —
    serial.
 2. `sessionToken`: se **agregan** solo nombres nuevos — `newSessionToken`, `hashSessionToken`, `idleCutoffs`,
@@ -482,7 +491,12 @@ AC-31 (cliente, pruebas existentes renombradas); 12 → AC-11, AC-18, AC-19, AC-
 
 **PR 2 — cliente (`feat/server-sessions-client`)**
 
-11. Casilla "Recordarme" en `LoginPage` — **pruebas que se reescriben:** `authPages.test.tsx:250-258` (el cuerpo
+11. **Primero:** Hernán instala `@testing-library/user-event` en el cliente
+    (`cd client && npm install --save-dev @testing-library/user-event@14.6.1`). Hoy no está y ninguna prueba simula
+    el teclado: en jsdom, `fireEvent.keyDown(Tab)` no mueve el foco y la barra espaciadora no marca una casilla, así
+    que AC-18 y AC-20 no se podrían probar. Las pruebas usan `user.tab()`, `user.tab({ shift: true })` y
+    `user.keyboard(' ')`; el foco atrapado del diálogo hace `preventDefault` solo en los bordes.
+    Después: casilla "Recordarme" en `LoginPage` — **pruebas que se reescriben:** `authPages.test.tsx:250-258` (el cuerpo
     exacto del login suma `remember: false`), y las de etiqueta y axe del login en `accessibility.test.tsx` — depende
     de: PR 1 en producción — serial. *(La fila 39 en `messages.ts` ya no va acá: ver paso 0.)*
 12. `ConfirmDialog` + `OtherSessionsSection` en el perfil — **pruebas que se reescriben:** las ~18 búsquedas de un
@@ -622,3 +636,10 @@ backlog, no se toca acá.
   archivo de `SessionRepository`, `sessionPurge`, `ConfirmDialog` y `OtherSessionsSection`; limpieza de
   `jsonwebtoken` con done-check por `grep` y `.env.example`. Sin cambios: logout del cliente (ya cumple AC-30) y
   los dos `clearCookie` de hoy (el paso 4 los reemplaza).
+- **2026-11-18 — sexta revisión con ojos frescos (errores que solo aparecen al ejecutar).** Toda la SQL del plan
+  revisada sentencia por sentencia contra las reglas de Postgres (tipos de parámetros en `INSERT … SELECT`, `FOR
+  SHARE` en un sub-SELECT, `CHAR(64)`, `sha256`/`encode`) y el comportamiento de Express 5.3.0, cookie-parser 1.4.7
+  y pg-pool 3.14.0: sin fallas. Cuatro ajustes: `@testing-library/user-event` como primer ítem del paso 11 (sin él
+  las pruebas de teclado de AC-18 y AC-20 no pueden correr); migración con `psql -v ON_ERROR_STOP=1 -1`, `CREATE
+  INDEX IF NOT EXISTS` y comprobación de restricciones e índice; atributos de la cookie armados en cada llamada
+  (`vi.stubEnv`); `rowCount ?? 0`.
