@@ -5,12 +5,12 @@ description: The non-negotiable principles every rsc-sdd phase obeys.
 tags: [sdd, constitution]
 timestamp: 2026-10-04T00:00:00Z
 topic: sdd
-version: v1.1.0
+version: v1.3.0
 ---
 
 # Prestoteca — Constitution
 
-> Version: v1.1.0 · Ratified: 2026-10-04 · Last amended: 2026-11-03
+> Version: v1.3.0 · Ratified: 2026-10-04 · Last amended: 2026-11-18
 > The non-negotiable principles every rsc-sdd phase obeys. Stack mechanics live in
 > `02-DOCS/wiki/stack/*`; this file ratifies the principle and links the detail.
 
@@ -36,12 +36,22 @@ version: v1.1.0
 ## 3. Conventions
 
 7. Naming & structure: `server/src/modules/<module>/` and `client/src/<layer>/` as defined in the brief.
-8. API & errors: All routes under `/api`; auth via JWT in httpOnly cookie (1h expiry). Error responses use consistent shape with generic messages to client; details in logs.
+8. API & errors: All routes under `/api`. Error responses use consistent shape with generic messages to client;
+   details in logs.
+   Session: an opaque, unguessable session identifier in an httpOnly cookie (`SameSite=Lax`, `Secure` in
+   production) that carries no account data; the server can revoke any session at any time. A session expires
+   after 7 days without use when "Recordarme" was checked at login, and after 12 h without use otherwise.
+   Detail: spec `server-sessions`, decision D10.
+   *Superseded in v1.2.0: "auth via JWT in httpOnly cookie (1h expiry)".*
 9. Commit messages: Semantic (`feat:`, `fix:`, `test:`, `docs:`…).
 
 ## 4. Branching & shipping
 
-10. Work happens on a branch off `main`; merge via PR. Direct pushes to `main` are not allowed.
+10. Work happens on a branch off `main`; merge via PR. Direct pushes to `main` are not allowed. Enforced twice:
+    GitHub branch protection on `main` requires a pull request (admins included, no force push, no deletion), and
+    rsc keeps `main` closed for the agent (`npx @ericrisco/rsc main status` → `closed: true`). Docs-only changes
+    follow the same path.
+    *Superseded in v1.3.0: the v1.2.0 text "`main` is open … direct pushes allowed after `verify`".*
 11. **Git authorship is the human's.** No `Co-Authored-By` an AI, no "generated with" footer.
      Enforced at the `ship` phase.
 
@@ -83,3 +93,5 @@ A change ships only when ALL hold:
 | 2026-10-04 | v1.0.1 | Filled stack canon, quality bar, conventions, security, accessibility, performance from product brief. | Brief review. |
 | 2026-10-04 | v1.0.2 | Pinned versions: Express 5.2.1, Node >= 18, React 19.2.7, Vite 8.1.0, TS ~6.0.2, React Router 7.x, Helmet 8+. Added `app.disable('x-powered-by')`, `trust proxy`, bcrypt 12 rounds, Zod safeParse. | Context7 library docs consultation. |
 | 2026-11-03 | v1.1.0 | Principle 4 rewritten to the real tooling: oxlint in the client, no server linter yet (open debt), no Prettier, no pre-commit; check runs in `verify`. Principle 6: coverage measured per changed file with `@vitest/coverage-v8`. DoD updated. | `analyze` of error-codes (H3, H2): the old text asked for tools the repo never had, so no change could meet the DoD. Approved by Hernán ("aplicá todo"). Decision D8. |
+| 2026-11-18 | v1.2.0 | Principle 8: session is an opaque, server-revocable identifier in an httpOnly cookie (7 days idle with "Recordarme", 12 h idle without), replacing "JWT in httpOnly cookie (1h expiry)". Principle 10: `main` is open, direct pushes allowed after `verify` (tier 2 also needs panel + human approval), replacing "branch + PR only". DoD updated. | Principle 8: approved spec `server-sessions`; since 5c every protected request already checks the account in the database, so a short JWT adds no revocation (decision D10). Principle 10: the text contradicted how the project works since 5b (direct pushes, `rsc main` open), found during this amendment (decision D11). Ratified by Hernán ("Ratifico tal cual"; principle 10: "Enmendarlo a main abierta"). |
+| 2026-11-18 | v1.3.0 | Principle 10 back to branch + PR, tightened: GitHub protection on `main` requires a PR (admins included) and rsc keeps `main` closed for the agent; docs-only changes too. DoD restored. | Hernán: "Que el principio 10 vuelva a 'rama + PR'. Quiero que main esté protegida." Matches his global rule to protect `main` on GitHub. Decision D12 (reverses D11). |

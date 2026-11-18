@@ -177,3 +177,53 @@ timestamp: 2026-10-04T00:00:00Z
   - ✅ Todo pedido no-`OPTIONS` a una `/api` inexistente responde JSON; los `OPTIONS` conservan su status de antes.
   - ⚠️ Una excepción consciente a "toda respuesta de error es JSON" (§0 del plan) para `OPTIONS` de rutas inexistentes,
     y otra a "ningún status cambia" (D7) para `/API` en mayúsculas.
+
+## D10 — Sesión recordada por el servidor en vez de acceso corto + renovación (server-sessions)
+
+- **Fecha:** 2026-11-18
+- **Contexto:** el punto 5g del backlog pedía el diseño del checklist de autenticación: permiso de acceso de 15 min +
+  permiso de renovación de 7 días con rotación y renovación automática en el cliente. Desde 5c el servidor ya consulta
+  la cuenta en cada pedido protegido, así que la revocación ya es inmediata para cambio de contraseña y cuenta borrada.
+  Lo que faltaba: sesiones de más de 1 h y un logout que anule la sesión en el servidor.
+- **Opciones:** A) acceso 15 min + renovación (checklist literal); B) sesión que el servidor recuerda y puede anular;
+  C) JWT que se reemite + lista de tokens anulados; D) solo arreglar el logout (FTD).
+- **Decisión:** B, con 7 días contados desde el último uso y un botón "Cerrar sesión en todos los dispositivos".
+  Elegido por Hernán el 2026-11-18 en `specify`.
+- **Por qué:** da los dos resultados buscados sin la renovación del cliente ni las carreras entre pedidos simultáneos;
+  la consulta por pedido ya se paga desde 5c.
+- **Consecuencias:**
+  - ✅ Logout y "Cerrar todas" anulan sesiones en el servidor; nadie vuelve al login cada hora.
+  - ⚠️ Se aparta de la letra del checklist de autenticación (no hay permiso de 15 min). Enmienda del principio 8 de
+    la constitución: hecha en v1.2.0 (2026-11-18). Pendiente: los "1 hora" de las specs MVP y error-codes.
+
+## D11 — `main` abierta pasa a ser la regla escrita (constitución v1.2.0, principio 10)
+
+- **Fecha:** 2026-11-18
+- **Contexto:** al enmendar el principio 8, la revisión de contradicciones encontró que el principio 10 decía "rama +
+  PR, no se permite push directo a `main`", mientras que desde 5b los cambios se suben directo a `main` y
+  `rsc main status` da `closed: false`.
+- **Opciones:** enmendar el principio a `main` abierta; volver a ramas y PR desde 5g; dejar la contradicción abierta.
+- **Decisión:** enmendar a `main` abierta: push directo después de `verify`; un cambio tier 2 necesita además su
+  panel de 3 lentes y la aprobación de Hernán antes del push. Elegido por Hernán ("Enmendarlo a main abierta").
+- **Por qué:** una regla que el proyecto no cumple enseña a ignorar las reglas (mismo motivo que D8).
+- **Consecuencias:**
+  - ✅ La *Definition of Done* se puede cumplir tal como está escrita.
+  - ⚠️ Sin protección de `main` en GitHub, el único freno antes del push es `verify` + el guard de rsc para tier 2.
+  - **Revertida el mismo día por D12.**
+
+## D12 — `main` protegida: rama + PR también para el agente y para docs (constitución v1.3.0)
+
+- **Fecha:** 2026-11-18
+- **Contexto:** D11 había dejado `main` abierta. Hernán la revirtió: quiere `main` protegida, en línea con su regla
+  global de proteger `main` en GitHub. La protección de GitHub existente solo impedía force push y borrado; no exigía PR,
+  por eso los push directos pasaban.
+- **Opciones:** volver a rama + PR con doble cierre (GitHub + rsc); solo GitHub; solo rsc.
+- **Decisión:** doble cierre. GitHub exige PR en `main` (admins incluidos, 0 aprobaciones porque el autor no puede
+  aprobar su propio PR) y `rsc main lock` cierra `main` para el agente. Los cambios de docs siguen el mismo camino.
+  Pedido por Hernán: "Que el principio 10 vuelva a 'rama + PR'. Quiero que main esté protegida."
+- **Por qué:** GitHub frena cualquier push directo, también uno manual; rsc hace que el agente pregunte dónde va cada
+  cambio antes de escribirlo, en vez de enterarse en el push.
+- **Consecuencias:**
+  - ✅ Ningún cambio llega a `main` sin PR.
+  - ⚠️ Los commits `docs(auto)` que el hook de rsc hace en `main` local tienen que moverse a una rama antes de subir.
+  - ⚠️ Cada cambio de docs suma un PR.
