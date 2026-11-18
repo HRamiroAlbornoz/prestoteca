@@ -71,6 +71,7 @@ const ROW_TO_CODE: Record<number, ClientErrorCode> = {
   36: 'NETWORK_ERROR',
   37: 'UNKNOWN_ERROR',
   38: 'REGISTER_NEIGHBORHOOD_INVALID',
+  39: 'OTHER_SESSIONS_CLOSE_FAILED',
 }
 
 // Codes that show the generic row 37: only a bug or a broken client produces them
@@ -101,8 +102,8 @@ function specRows(): Map<number, string> {
 describe('AC-14: every message is the text of its row in the spec', () => {
   const rows = specRows()
 
-  it('finds the 38 rows of the table', () => {
-    expect([...rows.keys()].sort((a, b) => a - b)).toEqual(Array.from({ length: 38 }, (_, i) => i + 1))
+  it('finds the 39 rows of the table', () => {
+    expect([...rows.keys()].sort((a, b) => a - b)).toEqual(Array.from({ length: 39 }, (_, i) => i + 1))
   })
 
   // The row and the code go into the compared object, so a failure says which row differs

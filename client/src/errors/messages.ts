@@ -12,6 +12,7 @@ export const CLIENT_ONLY_CODES = [
   'NETWORK_ERROR', // row 36: no connection, or the server does not answer
   'UNKNOWN_ERROR', // row 37: a code the client does not know, or a body without the expected shape
   'LOGOUT_FAILED', // row 10: "Salir" did not close the session
+  'OTHER_SESSIONS_CLOSE_FAILED', // row 39: "Cerrar sesión en los otros dispositivos" did not close them
   'TOOLS_LOAD_FAILED', // row 34: the tool list could not be loaded
 ] as const
 
@@ -36,6 +37,8 @@ export const MESSAGES: Record<ClientErrorCode, string> = {
   INVALID_CREDENTIALS: 'El email o la contraseña no son correctos.', // row 7
   SESSION_REQUIRED: 'Tu sesión terminó. Iniciá sesión para continuar.', // row 8
   LOGOUT_FAILED: 'No pudimos cerrar tu sesión. Revisá tu conexión e intentá de nuevo en un momento.', // row 10
+  OTHER_SESSIONS_CLOSE_FAILED:
+    'No pudimos cerrar la sesión en tus otros dispositivos. Revisá tu conexión e intentá de nuevo en un momento.', // row 39
 
   // --- Account ---
   PASSWORD_CHANGE_MISSING_FIELDS: 'Completá la contraseña actual y la nueva.', // row 11
