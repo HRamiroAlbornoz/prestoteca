@@ -2,7 +2,10 @@
 author: HRamiroAlbornoz
 branch: main
 spec: error-codes
-status: in-progress
+status: done
+merged: 2026-11-18
+merged_by: HRamiroAlbornoz
+pushed: 0e35db0
 ---
 # El servidor valida el barrio del registro contra la lista fija
 
@@ -152,3 +155,8 @@ y **484/484**, `tsc -b` 0 en los dos, lint 0. **Staging** (`railway up -e stagin
 **No probado todavía:** el registro desde la pantalla de la app eligiendo un barrio del menú (la app no cambió fuera del
 mensaje nuevo, y el menú manda el mismo texto que la lista). Falta: commit de Hernán, push, prueba en producción y
 cierre.
+**Commit `66b7ddc`** (Hernán), **push `8f6e8c3..0e35db0`**; Railway desplegó producción (`fd2ac096`, SUCCESS).
+**Producción (2026-11-18):** `/api/health` 200 con la base conectada; registrarse con `'Palermo'` → 400
+`REGISTER_NEIGHBORHOOD_INVALID` (no crea nada); con el OK de Hernán, una cuenta de prueba con `'Centro'` → 201, borrada
+enseguida (204), y después el login da 401. **FTD cerrado.** Sigue sin probarse a mano el registro desde la pantalla
+(ver arriba).
