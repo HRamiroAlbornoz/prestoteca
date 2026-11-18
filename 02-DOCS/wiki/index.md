@@ -22,6 +22,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Decisions | Prestoteca — Decision Records | [02-DOCS/wiki/sdd/decisions.md](./sdd/decisions.md) |
 | Analysis | Prestoteca — Consistency Gate | [02-DOCS/wiki/sdd/analysis/prestoteca-mvp.md](./sdd/analysis/prestoteca-mvp.md) |
 | Analysis | error-codes — control cruzado (PASS 2026-11-03, 2.ª corrida) | [02-DOCS/wiki/sdd/analysis/error-codes.md](./sdd/analysis/error-codes.md) |
+| Analysis | server-sessions — control cruzado (PASS 2026-11-18, 2.ª corrida) | [02-DOCS/wiki/sdd/analysis/server-sessions.md](./sdd/analysis/server-sessions.md) |
 | Progress | error-codes — avance de implement | [02-DOCS/wiki/sdd/progress/error-codes.md](./sdd/progress/error-codes.md) |
 | Review | error-codes — revisión de cierre PR 3 (APPROVE WITH NITS 2026-11-12, tier 2, panel de 3) | [02-DOCS/wiki/sdd/reviews/error-codes.md](./sdd/reviews/error-codes.md) |
 | Verification | error-codes — cierre T016 (PASS 2026-11-12: done-checks, cobertura 34/34 ≥ 80 %, staging) | [02-DOCS/wiki/sdd/verifications/error-codes-2026-11-12.md](./sdd/verifications/error-codes-2026-11-12.md) |

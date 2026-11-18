@@ -254,3 +254,21 @@ timestamp: 2026-10-04T00:00:00Z
 - **Consecuencias:**
   - ✅ AC-15 y AC-36 salen de la forma de la sentencia, no de un bloqueo extra.
   - ⚠️ Una escritura por pedido protegido: se mide en staging (riesgo R3 del plan).
+
+## D15 — Validación con Zod en las rutas: excepción aceptada en server-sessions, feature propia después
+
+- **Fecha:** 2026-11-18
+- **Contexto:** `analyze` de server-sessions (F1, CRITICAL): el principio 13 de la constitución pide validar todo dato
+  externo en el server con Zod (`safeParse`). Ninguna ruta del server lo hace hoy (Zod solo valida las variables de
+  entorno, `server/src/modules/config/env.ts`); el plan suma el campo `remember` al login con chequeos `typeof`, como
+  el resto de `authRoutes.ts`.
+- **Opciones:** A) enmendar el principio a la práctica real; B) Zod en login y registro dentro de T004; C) aceptar la
+  excepción en este ciclo y hacer "Zod en todas las rutas" como cambio propio.
+- **Decisión:** C. Elegido por Hernán ("C: Zod después, como feature").
+- **Por qué:** T004 ya es la tarea más grande y no conviene mezclarla con un refactor de validación; enmendar el
+  principio debilitaría la regla por escrito.
+- **Consecuencias:**
+  - ✅ server-sessions valida `remember` con un chequeo de tipo explícito (`undefined` → `false`, booleano → ese
+    valor, cualquier otro → 400 `BAD_REQUEST`), probado en AC-25.
+  - ⚠️ El principio 13 sigue sin cumplirse en las rutas hasta la feature nueva (backlog); `analyze` de otras features
+    lo va a volver a marcar hasta entonces.
