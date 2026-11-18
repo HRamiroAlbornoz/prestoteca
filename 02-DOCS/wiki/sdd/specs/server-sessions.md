@@ -9,6 +9,7 @@ slug: server-sessions
 status: approved
 approved: 2026-11-18
 approved_by: Hernán — "Apruebo la spec." (aprobada ítem por ítem, no en autopiloto, tras clarify y cuatro revisiones con ojos frescos)
+branch: feat/server-sessions-server
 ---
 
 # Spec — Sesiones de 7 días que el logout anula de verdad
