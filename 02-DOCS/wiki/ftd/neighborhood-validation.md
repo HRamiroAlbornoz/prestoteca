@@ -106,5 +106,15 @@ avisa que es lo esperado; (5) de los 4 tests con `'Norte'`/`'Sur'`, 3 se rompen 
 se cambian los 4, y se explica por qué; (6) la oración de la spec que dice que la pantalla no valida antes de enviar se
 aclara para el barrio (la pantalla ofrece la lista). Verificado: cada texto donde se edita aparece una sola vez en su
 archivo; finales de línea: la spec usa LF y los 4 archivos de código, CRLF.
+**Tercera revisión (2026-11-18, otro agente de contexto fresco, a pedido de Hernán): hizo el trabajo de Qwen de punta
+a punta** en una copia completa fuera del proyecto, siguiendo el pedido al pie de la letra. Todo salió como dice el
+pedido: antes del arreglo fallan N1a y N2 y pasan N1b-N1d; al final, servidor 34 archivos y **673/673**, cliente 20 y
+**484/484**, `tsc -b` y lint en 0; los 5 mutantes fallan donde dice. SEND AFTER FIXES, sin bloqueantes, todo aplicado:
+(1) **una trampa real:** editar con `sed -i` en Git Bash convierte el archivo entero de CRLF a LF sin avisar → el pedido
+prohíbe editar archivos existentes con `sed`, `awk` o heredoc, lista los 7 archivos CRLF y suma un control con `file`;
+(2) N2b es un solo `it` con dos chequeos, así la cuenta es exactamente 673; (3) `createMockApp()` va dentro de cada test;
+y detalles: qué tests viejos fallan a propósito mientras se trabaja (las guardas de los catálogos), cuándo usar
+`it.each`, el lint no imprime nada si está limpio, M4 se corre en la suite del servidor, dónde mover el bloque en M5, y
+la posición del `import`.
 **Hernán mantuvo la autorización** de mandarle las correcciones a Qwen sin preguntar antes. Siguiente: lanzarlo en el
 worktree nuevo `n-neighborhood` cuando Hernán diga que sí.
