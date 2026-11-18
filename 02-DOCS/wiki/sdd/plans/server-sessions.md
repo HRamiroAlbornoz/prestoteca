@@ -330,7 +330,9 @@ parámetros y que no aparece `now()` de SQL), y (b) **contra el Postgres real de
 | --- | --- | --- | --- |
 | AC-1, AC-2, AC-3, AC-23 | unidad (`idleCutoffs`, sentencia de `touchActive`) + **staging** | `idleCutoffs` en los bordes exactos; la sentencia usa `>` contra los dos cortes por parámetro; en staging, `last_used_at` puesto por SQL a 6 d 23 h / 7 d y 11 h 59 min / 12 h → `curl` da 200 / 401 / 200 / 401; uso el día 5 corre el plazo | reloj |
 | AC-4, AC-12, AC-30 | integración (app real) | logout borra por hash y limpia la cookie; sin cookie 204; base caída → 500 y sin `Set-Cookie` de borrado | repo espiado (lanza en AC-30) |
-| AC-5, AC-6, AC-7, AC-19 | integración | `deleteOthers` recibe `userId` y el hash de **esta** sesión; 204 también con 0 borradas | repo espiado |
+| AC-5 | integración | el logout llama **solo** a `deleteByTokenHash(hash(cookie))`, nunca a `deleteOthers` ni a `deleteAllForUser` | repo espiado |
+| AC-6, AC-19 | integración | `DELETE /api/me/other-sessions` llama a `deleteOthers` con `userId` y el hash de **esta** sesión; 204 también con 0 borradas | repo espiado |
+| AC-7 | unidad (SQL) + staging | la sentencia de `deleteOthers` filtra `user_id = $1 AND token_hash <> $2`; en staging, la sesión de otra cuenta sigue | — |
 | AC-8, AC-27 | integración | cambio de contraseña: `updatePassword` y `deleteOthers` en la misma transacción; el valor de la cookie no cambia; `Max-Age` aparece solo si la sesión es "Recordarme" | repo + `Pool.prototype.connect` espiados |
 | AC-8, AC-33 (carrera) | integración + unidad (SQL) | login con `createIfPasswordCurrent` → false (contraseña cambiada o cuenta borrada durante bcrypt) → 401 y rollback, sin `Set-Cookie`; la sentencia contiene `FOR SHARE` y compara `password_hash` y `deleted_at` | repo espiado |
 | AC-9, AC-33 | unidad (`deleteAccount`) + integración | la transacción incluye el borrado de sesiones; la respuesta termina con el `Set-Cookie` de borrado (se lee el **último**) | cliente de transacción falso |
@@ -340,8 +342,9 @@ parámetros y que no aparece `now()` de SQL), y (b) **contra el Postgres real de
 | AC-11, AC-18, AC-19, AC-32 | componente (cliente) | diálogo: nombre accesible, foco inicial, ciclo de Tab, Escape, foco de vuelta, un solo pedido, mensajes 39/35/éxito con su rol | `fetch` simulado |
 | AC-13 | integración | `DELETE /api/me/other-sessions` sin `Origin` → 403 y el repo no se llama | — |
 | AC-14, AC-21, AC-22 | integración + unidad | atributos de `Set-Cookie` en login con y sin "Recordarme" y en un pedido protegido de "Recordarme"; con `NODE_ENV=production`, `setSessionCookie` y `clearSessionCookie` llevan los dos `Secure`, `HttpOnly`, `SameSite=Lax` y `Path=/` iguales | repo espiado |
-| AC-15 | contrato (SQL) + staging | la sentencia es un único `UPDATE … RETURNING`; en staging, 20 pedidos simultáneos con la misma cookie dan 200 | — |
+| AC-15 | contrato (SQL) + staging | la sentencia es un único `UPDATE … RETURNING`; en staging, 5 pedidos simultáneos con la misma cookie dan 200 y la sesión sigue | — |
 | AC-16 | integración | sin cookie → 401 y el repo no se llama | — |
+| AC-29 (lado server) | integración | cookie con formato válido pero `touchActive` → null → 401 **y** un `Set-Cookie` que la borra | repo espiado |
 | AC-17 | integración | `touchActive` lanza → 500 `INTERNAL_ERROR`, la ruta no corre | repo lanza |
 | AC-20 | componente | casilla con etiqueta, desmarcada, Tab + Espacio, descripción accesible | — |
 | AC-24, AC-26, AC-25 | integración | registro y login sin `remember` → sin `Max-Age`; `remember: "si"` y `remember: null` → 400 `BAD_REQUEST` sin crear sesión | repo espiado |
@@ -371,6 +374,23 @@ cualquier PR encuentre las dos suites en verde. **Hecho el 2026-11-18** en la ra
 (rojo comprobado en la fila 39 antes del código; después cliente 20 archivos, 486/486, `tsc -b` y oxlint en 0;
 tier 1, un revisor sin contexto: Approved).
 
+**Paso 0b — PR de este plan.** La rama `docs/server-sessions-plan` (plan, enmiendas de spec, D13-D14 y el paso 0) se
+mergea por PR a `main` **antes** de abrir `feat/server-sessions-server`, y esa rama sale del `main` actualizado. Si
+saliera del `main` anterior, la suite del cliente volvería a estar en rojo (38 vs 39 filas).
+
+**Puerta de push de tier 2 (la misma en los dos PR, constitución principio 10 + guard de rsc):**
+
+1. En la spec, `branch: <rama del PR>` en el frontmatter (hoy la spec no tiene la clave; el PR 1 la agrega y el PR 2
+   la cambia a `feat/server-sessions-client`).
+2. `verify` (suite, `tsc -b`, lint, cobertura ≥ 80 % por archivo cambiado).
+3. `npx @ericrisco/rsc risk --base origin/main` (se espera tier 2).
+4. `npx @ericrisco/rsc spec gate 02-DOCS/wiki/sdd/specs/server-sessions.md` en PASS (si falla por CRLF, correrlo
+   sobre una copia LF, como en error-codes).
+5. Los 3 revisores sobre la rama entera y
+   `npx @ericrisco/rsc review ledger panel server-sessions/<pr1-server|pr2-client> --lenses correctness,security,tests`
+   registrado **después** del último commit de código.
+6. Aprobación explícita de Hernán; recién ahí push y PR.
+
 **PR 1 — server (`feat/server-sessions-server`)**
 
 Cada paso termina con toda la suite en verde (`npm test` en `server/`), `tsc -b` sin errores y su commit. Por eso
@@ -398,24 +418,26 @@ el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos int
    las rutas de cuenta (sus middlewares falsos no cambian); `health.test.ts` y `originWiring.test.ts` solo ponen
    `JWT_SECRET` y siguen pasando; `loansRoutes.test.ts` no cambia (middleware falso propio) — depende de: 2, 3
    — serial. `tasks` puede partirlo en subtareas, pero se commitea entero y en verde.
-5. `sessionPurge.ts` con `startSessionPurge(sessionRepo, intervalMs = 1 h)`: corre **una vez al arrancar** (cada
+5. `sessionPurge.ts` con `startSessionPurge(pool, intervalMs = 1 h)`, que arma su propio `SessionRepository` (así
+   `index.ts` suma exactamente una línea sin cubrir: hoy está en 85,7 % de líneas): corre **una vez al arrancar** (cada
    deploy reinicia el temporizador) y después cada hora, con `unref` y con `catch` que registra el error (nunca una
    promesa rechazada sin atender, que tumbaría Node). En `index.ts` se agrega **una sola línea** que lo llama, dentro
    del bloque que hace `app.listen` (ese bloque no lo corren las pruebas; la lógica vive en `sessionPurge.ts`, que sí
    se prueba, para no romper la cobertura por archivo) — depende de: 3 — paralelizable con 4.
 6. Limpieza: quitar `jsonwebtoken` y `@types/jsonwebtoken` (comando para Hernán) y `JWT_SECRET`/`JWT_EXPIRES_IN`
-   del esquema de `env.ts`, reescribiendo `env.test.ts:30-41`. La variable **sigue** en Railway (§0) — depende de: 4
+   del esquema de `env.ts`, reescribiendo `env.test.ts:30-41`. Antes, ninguna prueba puede seguir usando `jwt.sign`:
+   la "cookie JWT vieja" de AC-10 se escribe como un texto fijo con forma de JWT (tres partes separadas por puntos). La variable **sigue** en Railway (§0) — depende de: 4
    — serial.
 7. Barrido de criterios del server en la app real (`server/tests/serverSessions.test.ts`): un caso por criterio
    del server que no haya quedado probado en 1-6 — depende de: 1-6.
-8. Cierre del PR 1 en local: `verify` (cobertura por archivo), `rsc risk`, panel de 3 lentes, `branch:` de la spec
-   apuntando a la rama.
+8. Cierre del PR 1 en local: pasos 1 a 5 de la **puerta de push de tier 2** (arriba), con
+   `branch: feat/server-sessions-server` en la spec.
 9. **Staging:** migración 005 con el procedimiento de §4 (psql dentro del contenedor de Postgres de staging) →
    `railway up -e staging --service prestoteca --ci` desde el checkout de la rama → lista de deploys de staging y
    de producción (producción no tiene que haber cambiado) → comprobaciones de abajo → medición de latencia (R3).
    Las comprobaciones de bordes y de purga **escriben** en la base de staging (solo sobre sesiones de una cuenta de
    prueba `qa-sessions-*@example.com`), por el mismo `psql`.
-10. Aprobación de Hernán → PR → migración 005 en **producción** (comprobada) → merge (el deploy de producción sale
+10. Paso 6 de la puerta (aprobación de Hernán) → push → PR → migración 005 en **producción** (comprobada) → merge (el deploy de producción sale
     de `main`) → lista de deploys de los dos entornos → smoke en producción.
 
 **PR 2 — cliente (`feat/server-sessions-client`)**
@@ -426,19 +448,38 @@ el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos int
 12. `ConfirmDialog` + `OtherSessionsSection` en el perfil — **pruebas que se reescriben:** las ~18 búsquedas de un
     solo `getByRole('alert')` / `getByRole('status')` de `profilePage.test.tsx`, acotadas con `within()` a su
     tarjeta, porque la sección nueva deja sus regiones siempre montadas — depende de: 11 — serial.
-13. Cierre del PR 2: `verify`, panel, staging con `railway up` (casilla, diálogo con teclado, dos navegadores), PR,
-    deploy, smoke.
+13. Cierre del PR 2: la **puerta de push de tier 2** completa (pasos 1 a 6, con
+    `branch: feat/server-sessions-client`), staging con `railway up -e staging` (casilla, diálogo con teclado, dos
+    navegadores) y lista de deploys de los dos entornos, PR, merge, smoke en producción.
 
 **Comprobación en staging del PR 1 (paso 9), por escrito en la verificación:**
 
-- Login A con "Recordarme" y login B sin: `Set-Cookie` de cada uno (con y sin `Max-Age`, `HttpOnly`,
+*Mecánica (si no, las pruebas pasan por casualidad o chocan con los límites):*
+
+- Cada cookie se guarda como texto literal al recibirla y se manda con `-H "Cookie: token=<valor>"`, **nunca** con
+  un archivo de cookies de `curl` (`-c`/`-b`): un 401 del middleware borra la cookie del archivo y "la copia da 401"
+  pasaría aunque la sesión siguiera viva.
+- Todo `POST`/`DELETE` lleva `-H "Origin: <CORS_ORIGIN de staging>"` (`origin.ts:17` rechaza el pedido sin `Origin`
+  con 403).
+- Las filas de los bordes se eligen con `WHERE token_hash = encode(sha256('<valor>'::bytea), 'hex')`.
+- Límites: el general es 30 pedidos/min por IP (`rateLimit.ts:17`) y el de `/api/auth` 5/min (`index.ts:46`), todo
+  desde la misma PC. Las comprobaciones van en tandas de **a lo sumo 25 pedidos generales y 4 de auth**, con **61 s**
+  entre tandas. Un 429 invalida la tanda: se espera y se repite, no se interpreta.
+- En el archivo de verificación nunca va el valor de una cookie: solo los 6 primeros caracteres o su hash.
+
+*Qué se comprueba (cuentas de prueba X e Y, `qa-sessions-*@example.com`):*
+
+- Login A (X) con "Recordarme" y login B (X) sin: `Set-Cookie` de cada uno (con y sin `Max-Age`, `HttpOnly`,
   `SameSite=Lax`, `Secure`).
 - Un pedido protegido con A reenvía `Max-Age=604800`.
 - Bordes con SQL sobre una sesión de prueba: `last_used_at` a 6 d 23 h → 200; a 7 d → 401; en modo corto a 11 h
   59 min → 200; a 12 h → 401.
-- Logout de B → B da 401 y A sigue. Desde A, `DELETE /api/me/other-sessions` con una tercera cookie C abierta → C
-  da 401 y A sigue.
-- 20 pedidos simultáneos con A → 20 × 200.
+- Renovación (AC-3): `last_used_at` a 6 d → pedido protegido → 200 → la fila muestra `last_used_at` de ahora.
+- Logout de B → B da 401 y A sigue. Desde A, `DELETE /api/me/other-sessions` con una tercera cookie C (X) abierta y
+  una sesión D de la cuenta Y → C da 401, A sigue y **D sigue** (AC-7).
+- 5 pedidos simultáneos con A → 5 × 200 (AC-15 pide dos).
+- Logout durante un pedido (AC-36): con la sesión E, se lanzan juntos un pedido protegido y el logout; después del
+  204 del logout, E da 401 en tres pedidos seguidos.
 - Cookie JWT vieja → 401 y `Set-Cookie` de borrado.
 - Purga: una fila de la cuenta de prueba con `last_used_at` puesto a hace 8 días desaparece después de reiniciar el
   servicio de staging (`railway restart -e staging --service prestoteca`; la purga corre al arrancar).
@@ -518,3 +559,11 @@ backlog, no se toca acá.
   migración y de las escrituras en staging (psql dentro del contenedor de Postgres, purga probada reiniciando);
   nombres viejos corregidos en §4 y §5; la prueba de la migración afirma FK sin `CASCADE`, unicidad, índice y `down`
   comentado.
+- **2026-11-18 — cuarta revisión con ojos frescos (trazabilidad, puerta de push, operación).** Nueve ajustes:
+  **paso 0b** — este PR de docs se mergea antes de abrir la rama del PR 1; **puerta de push de tier 2** escrita
+  completa para los dos PR (`branch:` que hoy falta en la spec, `verify`, `rsc risk`, `spec gate`, panel en el ledger,
+  aprobación); mecánica de las comprobaciones de staging (cookie literal en vez de archivo de `curl`, `Origin` en
+  todo `POST`/`DELETE`, tandas bajo los límites de 30 y 5 por minuto, 5 pedidos simultáneos en vez de 20, sin
+  valores de cookie en la verificación); AC-5 prueba que el logout borra solo su sesión; AC-7 con aserción de SQL y
+  una segunda cuenta en staging; AC-3 y AC-36 agregados a la comprobación de staging; AC-29 del lado del server;
+  `startSessionPurge(pool)` para que `index.ts` sume una sola línea sin cubrir; AC-10 sin `jwt.sign`.
