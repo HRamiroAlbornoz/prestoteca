@@ -27,12 +27,18 @@ Valores exactos que toda tarea respeta. El revisor de cada tarea los lee primero
   `clearCookie` solo ignora `maxAge`/`expires`; `secure` y `sameSite` tienen que coincidir).
 - **Valor de la cookie:** 32 bytes al azar de `crypto.randomBytes`, en base64url (43 caracteres). Nunca contiene id,
   email ni nada de la cuenta. **El servidor guarda solo su SHA-256 en hex (64 caracteres)**, nunca el valor.
+- **Formato de la cookie entrante:** se acepta solo si es un `string` que cumple `^[A-Za-z0-9_-]{43}$`. Cualquier
+  otra cosa (un JWT viejo, un objeto que `cookie-parser` armó desde un valor `j:…`, basura) cuenta como **sesión
+  desconocida**, sin consultar la base: el middleware responde 401 y borra la cookie; el logout responde 204 y la
+  borra.
 - **Plazos sin uso:** con "Recordarme" 7 días (`604 800 000` ms); sin él 12 horas (`43 200 000` ms). Una sesión
   vence cuando `ahora - último_uso >= plazo` (exactamente 7 días o 12 h ya es vencida, spec *Behaviour → Bordes*).
 - **Una sola regla del plazo:** `idleCutoffs(now)` devuelve dos fechas, `rememberCutoff = now - 7 d` y
   `shortCutoff = now - 12 h`. **Toda** sentencia que decide si una sesión sigue vigente las recibe como parámetros:
   vigente ⇔ `last_used_at > CASE WHEN remember THEN <rememberCutoff> ELSE <shortCutoff> END` (estricto: igual al
-  corte ya es vencida); la purga borra el complemento (`<=`). Ninguna otra copia de la regla (ni en JS ni en SQL).
+  corte ya es vencida); la purga borra el complemento (`NOT (…)`). La condición se escribe **una sola vez**, como un
+  fragmento SQL exportado por `SessionRepository` que `touchActive` y `purgeExpired` reutilizan (la prueba de SQL
+  afirma que las dos sentencias lo contienen). Ninguna otra copia de la regla (ni en JS ni en SQL).
 - **Reloj:** toda comparación y todo "último uso" usa el reloj de la app (`Date`), nunca el `now()` de Postgres. Las
   pruebas controlan el tiempo con `vi.useFakeTimers({ toFake: ['Date'] })` + `vi.setSystemTime`.
 - **"Recordarme" en el cuerpo del login:** ausente (`undefined`) → `false`; `true`/`false` → ese valor; cualquier otro
@@ -151,8 +157,15 @@ idleCutoffs(now: Date) -> { rememberCutoff: Date, shortCutoff: Date }   // now -
 ```text
 createIfPasswordCurrent(userId, expectedPasswordHash, tokenHash, remember, now, db?) -> boolean
   - INSERT … SELECT … FROM users WHERE id = userId AND password_hash = expectedPasswordHash AND deleted_at IS NULL
+    **FOR SHARE**
   - false (0 filas) = la contraseña cambió o la cuenta se borró mientras corría bcrypt (~200 ms): no queda sesión
     de una contraseña vieja ni de una cuenta borrada (AC-8, AC-33). La ruta responde como credenciales inválidas.
+  - `FOR SHARE` es obligatorio: en READ COMMITTED, sin él la sentencia lee la fila confirmada vieja aunque un cambio
+    de contraseña o un borrado de cuenta (que bloquea con `FOR UPDATE`, `accountDeletion.ts:25`) esté a mitad de
+    camino, y la sesión vieja sobrevive. Con `FOR SHARE`, Postgres espera a esa transacción y vuelve a evaluar el
+    `WHERE` sobre la versión nueva → 0 filas (documentación de Postgres, *Read Committed Isolation Level*). En el
+    orden inverso (el login confirma primero), el `UPDATE` de la contraseña espera al login y su `deleteOthers`
+    posterior ya ve y borra esa sesión.
 touchActive(tokenHash, now, cutoffs) -> { userId, remember } | null
   - una sola sentencia UPDATE … RETURNING: last_used_at = now SOLO si la fila existe, sigue vigente según §0 y la
     cuenta tiene deleted_at IS NULL; devuelve user_id y remember
@@ -175,7 +188,14 @@ AuthService(userRepo)                                              // hoy (userR
 authRoutes(userRepo, sessionRepo, pool)                            // hoy (userRepo, jwtSecret, jwtIssuer)
 meAccountRoutes(userRepo, sessionRepo, pool)                       // hoy (userRepo, pool, jwtSecret, jwtIssuer)
 createAuthMiddleware(sessionRepo)                                  // hoy (userRepo, jwtSecret)
+deleteAccount(pool, sessionRepo, userId, replacementHash)          // hoy (pool, userId, replacementHash)
+AuthRequest { userId?: string; sessionTokenHash?: string }         // hoy solo userId (middleware/auth.ts:7)
 ```
+
+- `sessionTokenHash` lo carga **solo** el middleware real. `PATCH /api/me/password` y
+  `DELETE /api/me/other-sessions` responden 401 `SESSION_REQUIRED` si falta: con `undefined`, `token_hash <> NULL`
+  no borraría nada y devolvería 204 (éxito falso), y un `IS DISTINCT FROM` borraría también la sesión actual. Los
+  middlewares falsos de las pruebas tienen que cargarlo.
 - Toda SQL parametrizada. Todos los errores de la base suben como excepción (no se tragan).
 
 ### 3.3 `authMiddleware` (reemplaza `createAuthMiddleware(userRepo, jwtSecret)`)
@@ -183,6 +203,7 @@ createAuthMiddleware(sessionRepo)                                  // hoy (userR
 ```text
 createAuthMiddleware(sessionRepo)        // hora: new Date(); plazos: idleCutoffs(ahora)
   sin cookie                         -> 401 SESSION_REQUIRED
+  cookie con otro formato (§0)       -> 401 SESSION_REQUIRED + clearSessionCookie, sin tocar la base (AC-10)
   touchActive -> null                -> 401 SESSION_REQUIRED + clearSessionCookie (AC-29)
   touchActive lanza                  -> sendError(...) → 500 INTERNAL_ERROR, nunca next() (AC-17)
   touchActive -> { userId, remember }-> req.userId = userId, req.sessionTokenHash = hash;
@@ -207,7 +228,7 @@ POST /api/auth/register body { name, email, password, neighborhood }   // sin re
   creado → misma transacción que login con remember = false (AC-24, AC-34); 201 igual que hoy
   rechazado → no toca la sesión entrante
 POST /api/auth/logout
-  sin cookie o sesión desconocida → clearSessionCookie; 204 (AC-12)
+  sin cookie, cookie con otro formato (§0) o sesión desconocida → clearSessionCookie; 204 (AC-12)
   con cookie → deleteByTokenHash; OK → clearSessionCookie; 204 (AC-4)
               falla de la base → 500 INTERNAL_ERROR, la cookie NO se borra (AC-30)
 PATCH /api/me/password  (protegida)
@@ -293,13 +314,14 @@ parámetros y que no aparece `now()` de SQL), y (b) **contra el Postgres real de
 | AC-4, AC-12, AC-30 | integración (app real) | logout borra por hash y limpia la cookie; sin cookie 204; base caída → 500 y sin `Set-Cookie` de borrado | repo espiado (lanza en AC-30) |
 | AC-5, AC-6, AC-7, AC-19 | integración | `deleteOthers` recibe `userId` y el hash de **esta** sesión; 204 también con 0 borradas | repo espiado |
 | AC-8, AC-27 | integración | cambio de contraseña: `updatePassword` y `deleteOthers` en la misma transacción; el valor de la cookie no cambia; `Max-Age` aparece solo si la sesión es "Recordarme" | repo + `Pool.prototype.connect` espiados |
-| AC-8, AC-33 (carrera) | integración | login con `createIfPasswordCurrent` → false (contraseña cambiada o cuenta borrada durante bcrypt) → 401 y rollback, sin `Set-Cookie` | repo espiado |
+| AC-8, AC-33 (carrera) | integración + unidad (SQL) | login con `createIfPasswordCurrent` → false (contraseña cambiada o cuenta borrada durante bcrypt) → 401 y rollback, sin `Set-Cookie`; la sentencia contiene `FOR SHARE` y compara `password_hash` y `deleted_at` | repo espiado |
 | AC-9, AC-33 | unidad (`deleteAccount`) + integración | la transacción incluye el borrado de sesiones; la respuesta termina con el `Set-Cookie` de borrado (se lee el **último**) | cliente de transacción falso |
 | AC-37 (retención) | unidad (`sessionPurge`) + staging | cada hora llama a `purgeExpired` con los cortes; si la base rechaza, registra el error y el proceso sigue (sin `unhandledRejection`); en staging, una fila vencida desaparece tras correr la purga | timers falsos; repo que rechaza |
-| AC-10 | integración | una cookie JWT con formato viejo → 401 + cookie borrada | `touchActive` → null |
+| AC-10 | integración | una cookie JWT con formato viejo, y una `j:{}` → 401 + cookie borrada, **sin** llamar a `touchActive`; en logout, las mismas → 204 | repo espiado (se afirma que no se llamó) |
+| AC-6, AC-8 (guardia) | integración | `PATCH /api/me/password` y `DELETE /api/me/other-sessions` sin `sessionTokenHash` en el pedido → 401 y el repo no se llama | middleware falso que solo carga `userId` |
 | AC-11, AC-18, AC-19, AC-32 | componente (cliente) | diálogo: nombre accesible, foco inicial, ciclo de Tab, Escape, foco de vuelta, un solo pedido, mensajes 39/35/éxito con su rol | `fetch` simulado |
 | AC-13 | integración | `DELETE /api/me/other-sessions` sin `Origin` → 403 y el repo no se llama | — |
-| AC-14, AC-21, AC-22 | integración | atributos de `Set-Cookie` en login con y sin "Recordarme" y en un pedido protegido de "Recordarme" | repo espiado |
+| AC-14, AC-21, AC-22 | integración + unidad | atributos de `Set-Cookie` en login con y sin "Recordarme" y en un pedido protegido de "Recordarme"; con `NODE_ENV=production`, `setSessionCookie` y `clearSessionCookie` llevan los dos `Secure`, `HttpOnly`, `SameSite=Lax` y `Path=/` iguales | repo espiado |
 | AC-15 | contrato (SQL) + staging | la sentencia es un único `UPDATE … RETURNING`; en staging, 20 pedidos simultáneos con la misma cookie dan 200 | — |
 | AC-16 | integración | sin cookie → 401 y el repo no se llama | — |
 | AC-17 | integración | `touchActive` lanza → 500 `INTERNAL_ERROR`, la ruta no corre | repo lanza |
@@ -334,13 +356,20 @@ el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos int
 4. **El cambio**: `createAuthMiddleware(sessionRepo)`, `AuthService(userRepo)`, `authRoutes` y `meAccountRoutes`
    con las firmas de §3.2b, login/registro/logout, cambio de contraseña, borrado de cuenta (`deleteAccount`),
    `DELETE /api/me/other-sessions`, cableado en `routes.ts`; se quitan `signSessionToken`, `passwordFingerprint` y
-   `pwf`. **Pruebas que se reescriben en este paso:** `middleware.test.ts`, `authService.test.ts`,
-   `meAccountRoutes.test.ts`, `sessionToken.test.ts` (lo del JWT), `sessionWiring.test.ts` (W3, W4),
-   `errors.test.ts` (`jwt.sign` en :136 y :172), `health.test.ts`, `originWiring.test.ts`,
-   `accountDeletion.test.ts`. `loansRoutes.test.ts` no cambia (usa su propio middleware falso) — depende de: 2, 3 —
-   serial. `tasks` puede partirlo en subtareas, pero se commitea entero y en verde.
-5. `sessionPurge` cada hora, arrancado junto a `app.listen` en `index.ts`, con `unref` y con `catch` que registra
-   el error (nunca una promesa rechazada sin atender, que tumbaría Node) — depende de: 3 — paralelizable con 4.
+   `pwf`; `AuthRequest` suma `sessionTokenHash`. **Pruebas que se reescriben en este paso:** `middleware.test.ts`,
+   `authService.test.ts`, `authRoutes.test.ts` (:40, firma nueva y `Pool.prototype.connect`),
+   `authValidation.test.ts` (:40, ídem), `meAccountRoutes.test.ts` (:84, y su middleware falso de :79 carga
+   `sessionTokenHash`), `meRoutes.test.ts` (:58, firma), `accountDeletion.test.ts` (:99, :123, :137, :150 firma de
+   `deleteAccount`; :162 firma de `meAccountRoutes`), `sessionToken.test.ts` (lo del JWT), `sessionWiring.test.ts`
+   (W3, W4) y `errors.test.ts` (`jwt.sign` en :136 y :172). `securityAc.test.ts` y `t030_routes.test.ts` no montan
+   las rutas de cuenta (sus middlewares falsos no cambian); `health.test.ts` y `originWiring.test.ts` solo ponen
+   `JWT_SECRET` y siguen pasando; `loansRoutes.test.ts` no cambia (middleware falso propio) — depende de: 2, 3
+   — serial. `tasks` puede partirlo en subtareas, pero se commitea entero y en verde.
+5. `sessionPurge.ts` con `startSessionPurge(sessionRepo, intervalMs = 1 h)`: corre **una vez al arrancar** (cada
+   deploy reinicia el temporizador) y después cada hora, con `unref` y con `catch` que registra el error (nunca una
+   promesa rechazada sin atender, que tumbaría Node). En `index.ts` se agrega **una sola línea** que lo llama, dentro
+   del bloque que hace `app.listen` (ese bloque no lo corren las pruebas; la lógica vive en `sessionPurge.ts`, que sí
+   se prueba, para no romper la cobertura por archivo) — depende de: 3 — paralelizable con 4.
 6. Limpieza: quitar `jsonwebtoken` y `@types/jsonwebtoken` (comando para Hernán) y `JWT_SECRET`/`JWT_EXPIRES_IN`
    del esquema de `env.ts`, reescribiendo `env.test.ts:30-41`. La variable **sigue** en Railway (§0) — depende de: 4
    — serial.
@@ -431,3 +460,11 @@ backlog, no se toca acá.
   un solo paso con la lista de pruebas que reescribe; purga con `catch` y AC-37; rollback con `JWT_SECRET`
   conservado y limpieza al volver; `createIfPasswordCurrent` cierra la carrera login/cambio de contraseña;
   `remember: null` → 400; orden real de límite y origen en el diagrama; dos enmiendas de spec propuestas.
+- **2026-11-18 — segunda revisión con ojos frescos.** Ocho ajustes: `FOR SHARE` en `createIfPasswordCurrent` (sin
+  él la carrera con el cambio de contraseña y el borrado de cuenta seguía abierta en READ COMMITTED; verificado en
+  la documentación de Postgres); formato de la cookie entrante validado antes de tocar la base (`cookie-parser`
+  convierte `j:…` en objeto y haría fallar el hash); lista correcta de pruebas que reescribe el paso 4
+  (`authRoutes`, `authValidation`, `meRoutes`, `accountDeletion:162`; `health` y `originWiring` no se rompen);
+  firma nueva de `deleteAccount`; `AuthRequest.sessionTokenHash` con 401 si falta; la condición de vigencia como un
+  solo fragmento SQL; la purga corre al arrancar y vive en su propio archivo; `Secure` probado con
+  `NODE_ENV=production`.
