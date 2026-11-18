@@ -636,7 +636,8 @@ y AC-32 se prueban en el cliente; el resto en el server. AC-29 y AC-19 tienen mi
 - Produce: tabla `sessions(id UUID PK DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES users(id),
   token_hash CHAR(64) NOT NULL UNIQUE, remember BOOLEAN NOT NULL, created_at TIMESTAMPTZ NOT NULL, last_used_at
   TIMESTAMPTZ NOT NULL)` + `CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)`; comentario
-  `-- Down: DROP TABLE IF EXISTS sessions;`.
+  `down` comentado en dos líneas, como la 004 (`-- Down (manual rollback, only if ever needed):` y
+  `-- DROP TABLE IF EXISTS sessions;`).
 
 **T002 — Interfaces**
 - Produce (en `server/src/modules/auth/sessionToken.ts`): `newSessionToken(): string`,
