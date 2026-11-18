@@ -57,20 +57,20 @@ checks, revisa el diff, prueba mutantes y aplica la revisión que pida `rsc risk
 
 ## Checklist
 
-- [ ] **N1 — La regla en el registro.** Tests en `server/tests/authValidation.test.ts` (o el archivo de tests del
+- [x] **N1 — La regla en el registro.** Tests en `server/tests/authValidation.test.ts` (o el archivo de tests del
   registro que corresponda):
   - N1a: registrarse con un barrio que no está (`'Palermo'`), con otra mayúscula (`'centro'`) y sin acento
     (`'Villa Lujan'`) → 400 `REGISTER_NEIGHBORHOOD_INVALID` y no se crea la cuenta.
   - N1b: registrarse con cada uno de los 8 barrios de la lista → 201.
   - N1c: un barrio de la lista con espacios alrededor (`'  Centro  '`) → 201 (se recorta, como hoy).
   - N1d: un barrio vacío sigue dando `REGISTER_MISSING_FIELDS`, como hoy (la regla nueva no lo pisa).
-- [ ] **N2 — La lista.** Tests en `server/tests/neighborhoods.test.ts` (nuevo):
+- [x] **N2 — La lista.** Tests en `server/tests/neighborhoods.test.ts` (nuevo):
   - N2a: la lista del servidor tiene exactamente los 8 barrios, en orden.
   - N2b: la guarda: los barrios de `client/src/pages/RegisterPage.tsx` son exactamente los del servidor.
-- [ ] **N3 — El código nuevo.** `errorCodes.test.ts` (servidor) suma `REGISTER_NEIGHBORHOOD_INVALID: 400`;
+- [x] **N3 — El código nuevo.** `errorCodes.test.ts` (servidor) suma `REGISTER_NEIGHBORHOOD_INVALID: 400`;
   `messages.test.ts` (app) suma la fila 38 y pasa de «37 filas» a «38 filas». Los dos leen el catálogo o la spec de
   verdad, así que comprueban que todo coincida.
-- [ ] **Controles:** `npx vitest run` y `npx tsc -b` en `server/` y en `client/`, más `npm run lint` en `client/`; `rsc
+- [x] **Controles:** `npx vitest run` y `npx tsc -b` en `server/` y en `client/`, más `npm run lint` en `client/`; `rsc
   risk` y la revisión que pida.
 - [ ] **Staging:** registrarse con `'Palermo'` → 400 `REGISTER_NEIGHBORHOOD_INVALID`; con `'Centro'` → 201 (la cuenta se
   borra al final); en la app, el registro sigue funcionando eligiendo un barrio del menú.
@@ -139,3 +139,16 @@ está probado, los correos de N1a se arman con espacios y la guarda no dice por 
 (la vieja se quedó sin contexto y se cerró): N1a suma `'Barrio'`, `'Centro Histórico'` y `'Villa Lujan'` con el acento
 en dos caracteres, cada fila con su correo; N2a vuelve a ser un solo `it`; N2a y N2b llevan el ID en el nombre; la
 guarda dice por qué falla. Cuenta esperada: 676. Dispatch `ctx_7a86cd4d23f3`.
+**Vuelta 1 entregada y verificada por Claude (2026-11-18):** cambiaron solo los 2 archivos de tests (los otros 8 y
+`RegisterPage.tsx` son iguales a la copia, `cmp`); `authValidation.test.ts` sigue en CRLF; el acento en dos
+caracteres está escrito con el escape `́`. A Qwen le faltó poner el ID en los nombres de N2a y N2b: lo puso Claude
+(cambio de texto en dos nombres). Servidor 34 archivos y **676/676**, `tsc -b` 0. Mutantes nuevos, cada uno atrapado
+por su caso: aceptar un prefijo → falla la fila `'Barrio'`; aceptar el nombre con texto de más → falla
+`'Centro Histórico'`; normalizar a NFC → falla el acento en dos caracteres; archivo restaurado (`cmp`).
+**Hernán aprobó el tier 2 (2026-11-18).** Pasado a main copiando los 10 archivos del worktree (`cmp` sin
+diferencias; main no había tocado esos archivos desde la base). En main: servidor 34 archivos y **676/676**, cliente 20
+y **484/484**, `tsc -b` 0 en los dos, lint 0. **Staging** (`railway up -e staging`): registrarse con `'Palermo'` → 400
+`REGISTER_NEIGHBORHOOD_INVALID`; con `'Centro'` → 201; la cuenta de prueba se borró (204) y después el login da 401.
+**No probado todavía:** el registro desde la pantalla de la app eligiendo un barrio del menú (la app no cambió fuera del
+mensaje nuevo, y el menú manda el mismo texto que la lista). Falta: commit de Hernán, push, prueba en producción y
+cierre.
