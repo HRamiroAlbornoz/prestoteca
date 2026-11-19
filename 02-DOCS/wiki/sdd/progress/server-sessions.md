@@ -39,3 +39,28 @@ slug: server-sessions
   más.
 - controls: tests ✅ build ✅ (`tsc -b`) security ✅ (refutador sin hallazgos) traceability ✅ (AC-33, AC-35).
 - decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push.
+
+## T002 — 2026-11-18
+
+- status: complete (pendiente: commit de Hernán y aprobación de tier 2)
+- quién: Qwen (Orca, dispatch `ctx_beb2c2d974ab`, worktree `t002-session-token`), una ronda, con `worker_done`
+  (resumió en vez de pegar las salidas textuales; Claude re-corrió todo). Brief probado en seco antes de lanzarlo.
+  Claude agregó dos pruebas en la ronda 2 de revisión.
+- red: `npx vitest run tests/sessionToken.test.ts` → `18 failed | 9 passed (27)` con los stubs (prueba en seco).
+- green: `27 passed (27)`; tras la ronda 2 `29 passed (29)`; suite del server `34 files, 710 passed`; `tsc -b`
+  exit 0 (worktree y checkout principal).
+- verificación de Claude: los dos archivos de Qwen idénticos letra por letra a la prueba en seco; mutantes M1-M9
+  con el resumen exacto del brief; M10 (sin `typeof`) y M11 (regex sin `-`/`_`) caen con las pruebas nuevas
+  (`1 failed | 28 passed` cada uno); `cmp` limpio; las únicas líneas quitadas son los 3 imports.
+- files: `server/src/modules/auth/sessionToken.ts`, `server/tests/sessionToken.test.ts`.
+- risk: tier 2 (auth) — 3 refutadores en la ronda 1; ronda 2 tier 1 (solo pruebas), 1 revisor.
+- review: ronda 1 → seguridad APPROVE (0 hallazgos), corrección APPROVE (L80, L81 nits), pruebas APPROVE WITH NITS
+  (L82, L83 should-fix, L84 nit). L82 `typeof` sin probar (`j:["<válido>"]` pasaba como `ok`): fixed. L83 `-`/`_`
+  probados solo al azar: fixed con un valor fijo. L80 la comparación `>` se prueba en la SQL de T003: intentional.
+  L81 `req.cookies?.` da `none` sin `cookie-parser` (montado en `src/index.ts`): intentional. L84 entropía sin
+  probar (repetiría el código): intentional. Ronda 2 → APPROVE, 0 hallazgos.
+- para T004 (notas del refutador de seguridad): `malformed` nunca llega al repositorio; el `setSessionCookie` nuevo
+  reusa `sessionCookieAttributes()` (riesgo R2) para que crear y borrar no se desfasen.
+- controls: tests ✅ build ✅ (`tsc -b`) security ✅ (refutador sin hallazgos) traceability ✅ (AC-1, AC-2, AC-10,
+  AC-14, AC-23, AC-35).
+- decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push.
