@@ -101,3 +101,46 @@ slug: server-sessions
 - controls: tests ✅ build ✅ (`tsc -b`) security ✅ (dos APPROVE de seguridad) traceability ✅ (AC-3, AC-7, AC-8,
   AC-15, AC-33, AC-35, AC-36, AC-37).
 - decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push.
+
+## T004 — 2026-11-19
+
+- status: complete (pendiente: commit de Hernán y aprobación de tier 2)
+- quién: Claude, según el plan. Plan de trabajo revisado dos veces por agentes sin contexto antes del código
+  (ronda 1: 8 correcciones + 9 menores; ronda 2: 7 + 4), aprobado por Hernán (v3 en el scratchpad de la sesión).
+- red: con las pruebas nuevas y el código viejo, `75 failed` en 10 archivos.
+- green: suite del server `35 files, 778 passed`; `tsc -b` exit 0.
+- done-check: `grep -rn "signSessionToken\|passwordFingerprint\|pwf" server/src`, `grep -rn "clearCookie('token')"
+  server/src` y `grep -rn jsonwebtoken server/src server/tests` vacíos (este último adelanta parte de T006); cada id de la
+  columna Trace (AC-4, 5, 6, 8, 9, 10, 12, 13, 16, 17, 19, 21, 22, 24 a 30, 33, 34) está en el nombre de una prueba de
+  los archivos que toca T004.
+- cobertura (líneas/ramas): `authRoutes`, `authService`, `sessionToken`, `middleware/auth`, `routes` 100/100;
+  `meAccountRoutes` 98,6/100; `accountDeletion` 100/83,3; `index.ts` 85,7/80 (solo cambió un comentario).
+- mutantes: 16 de Claude (renovar siempre, `null` aceptado, sin `throw` en sesión vieja, sin anular la cookie entrante,
+  borrar la cookie si cae la base, `Max-Age` siempre, valor crudo al repo, `deleteOthers` fuera de la transacción, sin
+  `deleteAllForUser`, logout que borra la cookie con error, registro con `remember`, sin guardia de hash ×2, carrera del
+  login como 500, `remember` ignorado) + 29 del refutador de pruebas: todos caen salvo 2 equivalentes (`maxAge + 1` ms
+  redondea igual; `req.userId ??`) y n1 (ver review). `src` restaurado y comparado con la copia cada vez.
+- tipos de las pruebas (`tsc -b` no las incluye, 5b(d)): con un tsconfig temporal, los 12 errores nuevos de T004
+  arreglados; quedan 14, todos en líneas viejas.
+- files: `server/src/modules/auth/{sessionToken,authService,authRoutes}.ts`, `server/src/modules/middleware/auth.ts`,
+  `server/src/modules/me/{meAccountRoutes,accountDeletion}.ts`, `server/src/routes.ts`, `server/src/index.ts`
+  (comentario); pruebas `middleware`, `authService`, `authRoutes`, `authValidation`, `meAccountRoutes`, `meRoutes`,
+  `accountDeletion`, `sessionToken`, `sessionWiring`, `errors` y el ayudante nuevo `server/tests/fakeTransaction.ts`.
+- risk: tier 2 (auth). Ronda 1 → 3 refutadores; ronda 2 tier 1 (solo pruebas) → 1 revisor.
+- review: ronda 1 → seguridad APPROVE (0 hallazgos); corrección APPROVE WITH NITS (el registro con la base caída
+  después del `INSERT` deja la cuenta sin sesión: intentional, riesgo R7 aceptado en el plan); pruebas APPROVE WITH NITS
+  (n1 should-fix: si falla la anulación de la sesión entrante, ninguna prueba fijaba 500 + ROLLBACK + sin cookie;
+  `.catch(() => undefined)` sobrevivía → fixed con dos pruebas, AC-28 y AC-34, el mutante cae con `2 failed`; nit la
+  prueba del 429 solo fija el orden límite → ruta: intentional, comentario agregado; nit el 401 en el otro dispositivo
+  se prueba con repos simulados: intentional, la SQL la fija T003 y T007/T009 lo prueban de punta a punta). Ronda 2 →
+  APPROVE WITH NITS (el título "no new session" sin aserción: fixed, se afirma que la sesión nueva se creó con el
+  cliente de la transacción deshecha).
+- desvíos: dos archivos de pruebas se recortaron con un script en vez de Edit (contra la regla de Hernán); verificado con
+  suite y diff. Ayudante `fakeTransaction.ts` no nombrado en el plan, para no repetir el cliente falso en cuatro archivos.
+- para T006: `env.ts`, `env.test.ts`, `.env.example` y `package.json` siguen con lo del JWT; las pruebas ya no lo usan.
+- para T009: el registro que falla después de crear la cuenta (R7) no se puede forzar en staging; no hace falta.
+- anotado, fuera de alcance: un pedido que no es GET a una ruta inexistente de `/api/tools` pasa dos veces por el
+  middleware (dos `touchActive`); ya pasaba antes con `findActiveById`.
+- controls: tests ✅ build ✅ (`tsc -b`) security ✅ (refutador APPROVE sin hallazgos) traceability ✅ (columna Trace
+  de T004 completa).
+- decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push.
