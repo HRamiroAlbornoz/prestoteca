@@ -216,3 +216,54 @@ slug: server-sessions
 - después del PR 2 (+1 semana estable): borrar `JWT_SECRET` de Railway en los dos entornos.
 - controls: tests ✅ build ✅ (`tsc -b`) security ✅ (refutador APPROVE) traceability ✅ (AC-10).
 - decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push.
+
+## T007 — 2026-11-19
+
+- status: complete (pendiente: commit de Hernán)
+- quién: Qwen (Orca, dispatch `ctx_332a0b99eef9`, worktree `t007-real-app-sweep`), una ronda, con `worker_done`
+  (resumió otra vez, y contó "31 criterios" en vez de 32; Claude re-corrió todo). Claude escribió la prueba, la probó en
+  seco y la dejó en `prestoteca-briefs/T007-files/`; Qwen solo la copió. Brief revisado por dos agentes sin contexto
+  antes del lanzamiento, con Hernán viendo los hallazgos antes de lanzar.
+- hallazgo previo: todos los ids ya aparecían en `server/tests` (el `grep` del done-check pasaba antes de empezar), pero
+  23 criterios del server no pasaban por la app real (`createApp`). `middleware.test.ts` define un `createApp` **local**:
+  las pruebas de la app real son las que importan `../src/index.js`.
+- archivo: `server/tests/serverSessions.test.ts` (nuevo, solo pruebas; no toca `src`). 25 pruebas, 20 criterios por la
+  app real: AC-1, 2, 4, 5, 8, 10, 12, 14, 17, 21 a 26, 28, 29, 30, 34, 35. Patrón de `sessionWiring.test.ts` (espías en
+  los prototipos de los repositorios, pool falso con `fakeTransaction`).
+- quedan a nivel SQL/unidad + staging (T009), porque no hay Postgres local: AC-3, AC-7, AC-15, AC-36, AC-37 (la purga
+  arranca en el bloque `listen` de `index.ts`, fuera de `createApp`). Confirmado por los dos revisores del brief.
+- red: no aplica (la tarea solo agrega pruebas sobre código ya hecho); la evidencia son los mutantes.
+- green: `25 passed (25)`; suite del server `37 files, 813 passed` (788 + 25); `tsc -b` exit 0; la prueba pasa `tsc` con
+  un tsconfig temporal que la incluye (0 errores).
+- done-check: `npx vitest run tests/serverSessions.test.ts` verde; para cada id de AC-1 a AC-10, AC-12 a AC-17, AC-19,
+  AC-21 a AC-30, AC-33 a AC-37, `grep -rqE "AC-<n>\b" server/tests` encuentra al menos un archivo ("sweep done").
+- mutantes (en `src`, restaurado con `git restore` cada vez): 19 de Claude, todos caen — sin renovar "Recordarme",
+  `remember` ignorado, registro con 7 días, "Salir" borra la cookie antes de borrar la sesión, sesión vieja borrada
+  fuera de la transacción, cookie nunca `Secure`, plazos corridos 1 ms, `JWT_SECRET` exigida de nuevo, `remember: "yes"`
+  aceptado, "Salir" no borra nada, la sesión vieja nunca se borra, sin borrar la cookie con sesión nula, valor de token
+  fijo, contraseña vieja ignorada, middleware que acepta todo, sin límite de `/api/auth`, `Path=/api`, `j:{}` a la base,
+  sesión creada con `new Date(0)`. Dos mutantes de Claude estaban mal armados (sin efecto visible) y se rearmaron.
+  Revisores: 24 + 23 + 4 mutantes propios.
+- revisión del brief: ronda 1 → `Path=/` débil (`Path=/api` pasaba **toda** la suite): fixed con `/; Path=\/(;|$)/`;
+  `j:{}` nunca por la app real: fixed; caso "anulada o vencida" en AC-12 y "la cookie no lleva datos de la cuenta" en
+  AC-14: fixed; dos frases del brief. Ronda 2 → sin el límite de `/api/auth` en `index.ts` pasaba **toda** la suite (el
+  429 de AC-28 solo se probaba en una app armada a mano): fixed con una prueba en la app real; `not.toContain('ana')`
+  fallaba por azar ~1 de cada 6 400 corridas: fixed (email completo + regex de 43 caracteres); comentario en la prueba de
+  T006.
+- risk: tier 1 (solo pruebas) → 1 revisor.
+- review: ronda 1 → APPROVE WITH NITS. Should-fix: la fecha con la que login y registro crean la sesión no se afirmaba
+  (`new Date(0)` pasaba **toda** la suite): fixed por Claude (fix-and-record) con reloj falso y `createdAt` igual a la
+  hora fija; el mutante cae con `2 failed`. Nits: el comentario de cabecera prometía el control de origen (se prueba en
+  `sessionWiring`/`originWiring`): fixed; el título de AC-8 del login: fixed como "AC-8 (stale login)". Mutantes del
+  revisor que sobreviven a este archivo pero caen en la suite: `sessionTokenHash` alterado (`sessionWiring.test.ts:146`)
+  y sin `originChecker` (`sessionWiring.test.ts:162`).
+  Ronda 2 (tier 1, solo pruebas) → APPROVE, 0 blocker, 0 should-fix; 15 mutantes propios, todos caen en la suite. Nit:
+  AC-25 solo manda `remember: 'yes'` y `null` lo fija otro archivo (`authRoutes.test.ts`): intentional, la regla de
+  `null` ya está probada y este archivo prueba el cableado.
+- huecos anotados, fuera de alcance: (1) sin el límite general de 30 pedidos/min (`generalRateLimiter`) la suite sigue
+  verde: ningún criterio de esta spec lo pide; (2) `sessionToken.test.ts` (~líneas 50, 61, 235) usa el mismo
+  `toContain('Path=/')` débil; (3) la fecha de creación de la sesión solo se afirmaba como `toBeInstanceOf(Date)` en
+  `authRoutes.test.ts:379` (ahora la fija esta prueba).
+- controls: tests ✅ build ✅ (`tsc -b`) security ✅ (sin cambios en `src`) traceability ✅ (20 ids en títulos de
+  pruebas; barrido completo).
+- decision: ninguna nueva.
