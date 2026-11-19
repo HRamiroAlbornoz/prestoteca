@@ -320,3 +320,28 @@ slug: server-sessions
   5 pedidos simultáneos con la misma cookie dan 200; tras reiniciar el servicio, una sesión vencida desaparece (AC-37).
 - controls: tests ✅ build ✅ (`tsc -b`) security ✅ (panel APPROVE) traceability ✅ (todos los AC del server con prueba).
 - decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push (T010, después de staging en T009).
+
+## T009 — 2026-11-19
+
+- status: complete — **PASS**. Verificación completa en
+  [../verifications/server-sessions-2026-11-19.md](../verifications/server-sessions-2026-11-19.md).
+- quién: Claude, con OK de Hernán en cada escritura (migración, deploy, pasos 1 a 7 de las comprobaciones).
+- done-check:
+  - 005 aplicada en staging con `ON_ERROR_STOP` y `-1`; columnas, `UNIQUE`, FK `NO ACTION` (sin `CASCADE`) e índice
+    comprobados ✅
+  - `railway up -e staging --service prestoteca --ci` desde la rama ✅
+  - deploys de los dos entornos antes, después y al final: producción en `471165e` todo el tiempo ✅
+  - cada punto de la comprobación del plan §6: 41/41 en la corrida 4 ✅
+  - `smoke.mjs` → SMOKE OK ✅
+  - purga: sesión de 8 días borrada tras el reinicio (`Removed 1 expired session(s)`) ✅
+  - latencia (R3): mediana 174 ms con el método de 5c (292 ms entonces, con `curl`); dentro de la corrida, pedido
+    protegido 178 ms contra `/api/health` 170 ms → sin subida medible; la renovación con umbral no se construye ✅
+  - cuentas `qa-sessions-*` borradas desde la app y consulta de solo lectura con 0 activas ✅
+- `JWT_SECRET`: presente con 32 caracteres o más en el servicio de la app de los dos entornos (comprobado dentro de
+  cada contenedor, sin leer el valor). Se conserva hasta que el PR 2 lleve una semana estable en producción.
+- hallazgos de operación (sin cambio de código): `npx railway` corre el paquete de IaC del repo, la CLI es
+  `~/.railway/bin/railway.exe`; `railway ssh` corta a veces y se reintenta; `railway restart` puede no terminar aunque
+  reinicie (se confirma por los logs); `railway variables --json` queda bloqueado por permisos (trae los valores).
+- trazas: AC-1 a AC-10, AC-14, AC-15, AC-21 a AC-24, AC-27, AC-33, AC-35, AC-36, AC-37 contra la base real.
+- decision: ninguna nueva. Siguiente: T010 (aprobación de tier 2 de Hernán → push → PR → 005 en **producción**
+  comprobada **antes** del merge → merge → deploys de los dos entornos → smoke en producción).
