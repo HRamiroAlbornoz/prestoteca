@@ -148,6 +148,17 @@ describe('deleteAccount', () => {
     expect(removeSessions).toBeLessThan(db.statements.length - 1)
   })
 
+  it('AC-9 AC-33 locks the account row FOR UPDATE first, so a login racing the deletion waits and then finds it deleted', async () => {
+    const db = createFakePool()
+    seed(db)
+
+    await deleteAccount(db.pool, sessionRepo, 'user-1', 'new-random-hash')
+
+    // The other half of the pair is the FOR SHARE of SessionRepository.createIfPasswordCurrent (sessionRepo.test.ts)
+    const texts = db.client.query.mock.calls.map(([sql]) => sql.replace(/\s+/g, ' ').trim())
+    expect(texts[1]).toBe('SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE')
+  })
+
   it.each(['pendiente', 'aceptado', 'entregado', 'vencido'])(
     'rejects with ACCOUNT_HAS_ACTIVE_LOANS and changes nothing when the user has a %s loan',
     async (status) => {

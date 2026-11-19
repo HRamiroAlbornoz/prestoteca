@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import type { Pool } from 'pg'
 import { startSessionPurge } from '../src/modules/auth/sessionPurge.js'
 import { SessionRepository } from '../src/modules/auth/sessionRepo.js'
@@ -136,5 +138,27 @@ describe('startSessionPurge', () => {
     expect(intervalSpy).toHaveBeenCalledTimes(1)
     const timer = intervalSpy.mock.results[0]?.value as NodeJS.Timeout
     expect(timer.hasRef()).toBe(false)
+  })
+})
+
+// The purge only matters if the server starts it. That call lives in the block of index.ts that runs when the
+// file is started directly (`node dist/index.js`), which no test can run without opening a port, so its text is
+// checked instead — the same approach as migrations.test.ts. Staging (T009) proves it for real: after a restart,
+// a session idle for longer than its window is gone.
+describe('index.ts starts the purge', () => {
+  const indexSource = readFileSync(join(__dirname, '..', 'src', 'index.ts'), 'utf-8').replace(/\r\n/g, '\n')
+
+  it('AC-37 imports startSessionPurge and getPool', () => {
+    expect(indexSource).toContain("import { startSessionPurge } from './modules/auth/sessionPurge.js'")
+    expect(indexSource).toMatch(/import \{[^}]*\bgetPool\b[^}]*\} from '\.\/modules\/db\/pool\.js'/)
+  })
+
+  it('AC-37 calls startSessionPurge(getPool()) once, inside the block that starts the server', () => {
+    const startBlock = indexSource.slice(indexSource.indexOf('// Start server when run directly'))
+    expect(startBlock).toMatch(/^\/\/ Start server when run directly\nif \(process\.argv\[1\]/)
+    // Its own line, whatever the indentation (a formatting change must not break the test)
+    expect(startBlock).toMatch(/^\s*startSessionPurge\(getPool\(\)\)\s*$/m)
+    // Exactly once in the whole file, and never outside that block (it would run on every import, tests included)
+    expect(indexSource.split('startSessionPurge(').length - 1).toBe(1)
   })
 })
