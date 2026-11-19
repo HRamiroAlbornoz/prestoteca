@@ -180,3 +180,39 @@ slug: server-sessions
 - para T009: la purga en staging se prueba reiniciando el servicio (corre al arrancar).
 - controls: tests ✅ build ✅ (`tsc -b`) security ✅ (refutador APPROVE) traceability ✅ (AC-37).
 - decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push.
+
+## T006 — 2026-11-19
+
+- status: complete (pendiente: commit de Hernán y aprobación de tier 2)
+- quién: Qwen (Orca, dispatch `ctx_cd474be40080`, worktree `t006-jwt-env`), una ronda, con `worker_done` (resumió en
+  vez de pegar las salidas; Claude re-corrió todo). Claude escribió los 7 archivos, los probó en seco y los dejó en
+  `prestoteca-briefs/T006-files/`; Qwen solo los copió. Brief revisado por dos agentes sin contexto antes del
+  lanzamiento (ronda 1: 1 should-fix, el `grep` de `jsonwebtoken` faltaba, y 3 nits, entre ellos la aserción sobre
+  `envSchema.shape`; ronda 2: 0 cambios al brief).
+- uninstall (Hernán): `npm uninstall jsonwebtoken @types/jsonwebtoken --workspace server` desde la raíz (el lockfile
+  vive ahí, workspaces). Sin `--workspace` no hace nada ("up to date"); desde la terminal UCRT64 npm 11.20 falla con
+  `Cannot read properties of null (reading 'location')` porque recibe la unidad en minúscula (`e:\`); reproducido con
+  `--dry-run` (`e:` falla, `E:` quita 16 paquetes). `server/package.json` −2 líneas, `package-lock.json` −152.
+- red: con las pruebas nuevas y el `env.ts` viejo, `4 failed | 4 passed (8)`.
+- green: `8 passed (8)`; suite del server `36 files, 788 passed` (sin cambio de cantidad: 2 pruebas fuera, 2 nuevas);
+  `tsc -b` exit 0, en el worktree y en el checkout principal con el uninstall aplicado.
+- verificación de Claude: los 7 archivos de Qwen idénticos (`cmp`) a la prueba en seco; `--numstat` igual al brief.
+- done-check: `grep -rn jsonwebtoken server/src server/tests server/package.json` vacío (exit 1); `env.test.ts`
+  reescrito verde; `JWT_SECRET` fuera de `server/.env.example`; la variable **sigue** en Railway (sin tocar).
+- mutantes: 4 de Claude (`JWT_SECRET` opcional y leída, `JWT_EXPIRES_IN` con default, `JWT_SECRET` `min(32)`,
+  `JWT_SECRET` solo en el esquema) + 5 del refutador de pruebas (`looseObject`, `strictObject`, `JWT_EXPIRES_IN` con
+  regex, sin default de `CORS_ORIGIN`, `prefault` → `default`): todos caen. Equivalente conocido: `'JWT_SECRET'` solo
+  en la lista de claves (zod la descarta).
+- files: `server/src/modules/config/env.ts`, `server/.env.example`, `server/package.json`, `package-lock.json`;
+  pruebas `env`, `errors`, `health`, `originWiring`, `sessionWiring` (fuera los `vi.hoisted` que solo ponían
+  `JWT_SECRET`).
+- risk: tier 2 (clase `secrets` por `server/.env.example`) — 3 refutadores, una ronda.
+- review: corrección APPROVE (0 hallazgos; lockfile sin dependencias colgadas, `npm ls` limpio); seguridad APPROVE
+  (nit: nada dice cuándo borrar `JWT_SECRET` de Railway: intentional, el plan §0 lo fija — se conserva hasta que el
+  PR 2 lleve una semana estable en producción; queda como pendiente después del PR 2); pruebas APPROVE WITH NITS
+  (las pruebas de cableado ya no tocan `JWT_SECRET`: intentional, `env.test.ts` la borra a propósito; ninguna prueba
+  arranca `createApp` con una `JWT_SECRET` corta sobrante: va a T007, barrido en la app real).
+- para T007: un caso que arranque la app real con `JWT_SECRET='short'` en el entorno (como Railway) y responda.
+- después del PR 2 (+1 semana estable): borrar `JWT_SECRET` de Railway en los dos entornos.
+- controls: tests ✅ build ✅ (`tsc -b`) security ✅ (refutador APPROVE) traceability ✅ (AC-10).
+- decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push.
