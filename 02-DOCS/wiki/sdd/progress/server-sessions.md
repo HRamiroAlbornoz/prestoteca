@@ -172,7 +172,8 @@ slug: server-sessions
   `DELETE` es idempotente y una purga de 1 h no es realista con este volumen); corrección APPROVE (0 hallazgos, misma
   nota); pruebas APPROVE WITH NITS (`removed > 1` sobrevivía porque la prueba del log usaba 3 y 0: fixed, usa 1;
   el pool recibido nunca llegaba a una aserción, `new SessionRepository({} as Pool)` sobrevivía: fixed con una prueba
-  que pasa un pool falso con `query` y afirma el `DELETE` y los dos cortes como parámetros).
+  que pasa un pool falso con `query` y afirma el `DELETE` y los dos cortes como parámetros). Ronda 2 → APPROVE, 0
+  hallazgos (10 mutantes propios, todos caen, incluidos `removed > 1`, `removed >= 0` y otro pool).
 - incidente: la copia de respaldo de un mutante apuntaba a una carpeta del scratchpad que ya no existía; dos mutantes
   quedaron aplicados en el checkout. Se restauró `sessionPurge.ts` desde `T005-files/sessionPurge.real.ts` (comprobado
   igual a la copia de Qwen con `cmp`) y se repitió el mutante. Lección: comprobar que el respaldo existe antes de mutar.
