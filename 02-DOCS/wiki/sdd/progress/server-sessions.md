@@ -270,8 +270,8 @@ slug: server-sessions
 
 ## T008 — 2026-11-19
 
-- status: complete (pendiente: commit de Hernán de los arreglos del panel, registro del panel en el ledger y
-  aprobación de tier 2 de Hernán)
+- status: complete (pendiente: aprobación de tier 2 de Hernán). Arreglos del panel en `dee7ae2`; panel registrado con
+  `rsc review ledger panel server-sessions/pr1-server --lenses correctness,security,tests` sobre `dee7ae2` (ronda 1).
 - quién: Qwen (Orca, dispatch `ctx_d16b6949eff6`, worktree `t008-push-gate`) corrió la puerta en modo solo lectura y
   reportó con `worker_done` (resumido otra vez; Claude re-corrió los números en su worktree). Brief y script
   `prestoteca-briefs/T008-files/coverage-report.mjs` de Claude, revisados por dos agentes sin contexto antes del
