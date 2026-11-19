@@ -267,3 +267,56 @@ slug: server-sessions
 - controls: tests ✅ build ✅ (`tsc -b`) security ✅ (sin cambios en `src`) traceability ✅ (20 ids en títulos de
   pruebas; barrido completo).
 - decision: ninguna nueva.
+
+## T008 — 2026-11-19
+
+- status: complete (pendiente: aprobación de tier 2 de Hernán). Arreglos del panel en `dee7ae2`; panel registrado con
+  `rsc review ledger panel server-sessions/pr1-server --lenses correctness,security,tests` sobre `dee7ae2` (ronda 1).
+- quién: Qwen (Orca, dispatch `ctx_d16b6949eff6`, worktree `t008-push-gate`) corrió la puerta en modo solo lectura y
+  reportó con `worker_done` (resumido otra vez; Claude re-corrió los números en su worktree). Brief y script
+  `prestoteca-briefs/T008-files/coverage-report.mjs` de Claude, revisados por dos agentes sin contexto antes del
+  lanzamiento, con Hernán viendo los hallazgos (ronda 1: las herramientas escriben `dist/`, `tsbuildinfo` y
+  `coverage/`; `vitest exit` por los mínimos globales; casos borde del script. Ronda 2: paso 0 con el commit y el diff
+  vacío de `client/` como evidencia de lint; `npx --yes` en vez de esperar la pregunta; detalles de redacción).
+- antes de lanzar, por decisión de Hernán: prueba `AC-8 B2c` en `userRepo.test.ts` (`rowCount` nulo sin transacción;
+  la rama de la línea 172 era nueva de T003): ramas de `userRepo.ts` 78,37 % → 81,08 %. Revisor tier 1 APPROVE WITH NITS
+  (error de tipos de `rowCount: null`: fixed con un cast; quedan los 9 errores viejos de HEAD). Commit `0fe76b0`.
+- puerta (pasos 1 a 5 de la "Puerta de push de tier 2" del plan), sobre `0fe76b0`:
+  1. spec con `branch: feat/server-sessions-server` (línea 12) ✅
+  2. verify: suite del server `37 files, 814 passed`; `tsc -b` exit 0; `vitest --coverage` exit 0; cobertura de
+     **líneas** ≥ 80 % en los 12 archivos `.ts` de `server/src` que cambió la rama (constitución, principio 6): el más
+     bajo `index.ts` 83,33 % (funciones 66,66 %: el bloque de arranque, que las pruebas no corren); `userRepo.ts` 100 %
+     líneas / 81,08 % ramas. Lint: el server no tiene linter (principio 4, su barra es `tsc -b`) y la rama no cambia
+     nada en `client/`. Suite del cliente (por el cambio del lockfile): `20 files, 486 passed` ✅
+  3. `rsc risk --base origin/main` → tier 2 (auth, default, docs, migrations, secrets), 3 revisores, aprobación humana ✅
+  4. `rsc spec gate` → PASS (13 puntos abiertos, 10 con tipo) ✅
+  5. panel de 3 sobre toda la rama (`origin/main...HEAD`, 39 archivos) → ver review ✅ (registro en el ledger después del
+     commit de los arreglos)
+- review (panel de cierre, ronda 1): seguridad APPROVE WITH NITS (0 should-fix); corrección APPROVE WITH NITS
+  (0 should-fix; trazó carreras, bloqueos mutuos y bordes sin encontrar una sesión viva de la contraseña vieja); pruebas
+  APPROVE WITH NITS (66 mutantes; 1 should-fix).
+  - should-fix: sin `startSessionPurge(getPool())` en `index.ts` la suite seguía verde (AC-37 dependía de una línea sin
+    prueba). Hernán eligió la opción A: prueba de texto en `sessionPurge.test.ts` ("index.ts starts the purge": imports,
+    llamada en su propia línea dentro del bloque de arranque, una sola vez en el archivo). Caen: llamada borrada,
+    comentada, movida a `createApp`, con otro intervalo, después del `if`, con otro pool. Fixed.
+  - nit → fixed: sin el `FOR UPDATE` del primer `SELECT` de `accountDeletion.ts` la suite seguía verde (es la mitad del
+    par con el `FOR SHARE` del login, AC-9/AC-33); prueba que fija la SQL exacta del primer paso; caen `FOR UPDATE`
+    quitado y cambiado por `FOR SHARE`.
+  - revisor tier 1 de esos arreglos: APPROVE WITH NITS. La prueba dependía de 4 espacios de sangría: fixed con una
+    expresión por línea (con 2 espacios sigue pasando). `texts[1]` en la prueba del bloqueo: intentional, fija que el
+    bloqueo va primero. Sobreviven (aceptado): la llamada dentro del callback de `listen` (sigue corriendo solo al
+    arrancar) y una guarda cambiada a `&& false` (código de arranque estándar). Suite `37 files, 817 passed`.
+  - nits anotados, sin cambio: `touchActive` puede atrasar `last_used_at` unos ms si dos pedidos llegan en desorden
+    (arreglo posible `GREATEST(last_used_at, $3)`); si falla el propio `ROLLBACK`, `transaction.ts` pierde el error
+    original y devuelve al pool una conexión rota (código viejo, ahora en el camino del login); la purga recorre la tabla
+    sin índice por `last_used_at` (inofensivo con este volumen); "Salir" comparte el límite de 5/min del login
+    (riesgo R8, aceptado); sesiones que "reviven" tras una vuelta atrás (cubierto: plan §7, `DELETE FROM sessions` antes
+    de volver a desplegar); una sesión "Recordarme" no tiene tope total (decisión de la spec).
+- huecos fuera de alcance (código viejo, para su propio cambio): `origin.ts` separa `CORS_ORIGIN` por coma sin `trim`
+  (falla cerrado); el mínimo de 8 caracteres de la contraseña nunca se prueba con 7 (`< 7` sobrevive); sin el límite
+  general de 30/min la suite sigue verde; `sessionToken.test.ts` con `toContain('Path=/')` débil.
+- para T009 (staging), lo que solo la base real puede mostrar: el `FOR SHARE` dentro del `INSERT … SELECT` corre; los
+  `::timestamptz` dentro del `CASE` resuelven; en READ COMMITTED la contraseña se vuelve a leer después de la espera;
+  5 pedidos simultáneos con la misma cookie dan 200; tras reiniciar el servicio, una sesión vencida desaparece (AC-37).
+- controls: tests ✅ build ✅ (`tsc -b`) security ✅ (panel APPROVE) traceability ✅ (todos los AC del server con prueba).
+- decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push (T010, después de staging en T009).
