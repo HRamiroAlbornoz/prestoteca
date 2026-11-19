@@ -1,33 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import type { Request, Response } from 'express'
-import jwt from 'jsonwebtoken'
 
-// A short summary of the stored password hash. It goes inside the session token: when the password
-// changes (or the account is deleted, which replaces the hash), old tokens no longer match.
-// It reveals nothing useful: it is a summary of a bcrypt hash, which is already salted.
-export function passwordFingerprint(passwordHash: string): string {
-  return createHash('sha256').update(passwordHash).digest('hex').slice(0, 16)
-}
-
-// The session token, signed in ONE place so login, register and password change can never drift apart
-export function signSessionToken(userId: string, passwordHash: string, jwtSecret: string, jwtIssuer: string): string {
-  return jwt.sign({ id: userId, pwf: passwordFingerprint(passwordHash) }, jwtSecret, {
-    issuer: jwtIssuer,
-    expiresIn: '1h',
-  })
-}
-
-// The session cookie, the same everywhere a session starts or is renewed
-export function setSessionCookie(res: Response, token: string): void {
-  res.cookie('token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 3600000, // 1 hour, the same as the token
-  })
-}
-
-// --- server sessions (spec server-sessions, decision D14) ---------------------------------------
+// Server sessions (spec server-sessions, decision D14).
 // The browser keeps a random value in the `token` cookie; the server keeps only its SHA-256.
 
 const SESSION_COOKIE = 'token'
@@ -79,6 +53,17 @@ function sessionCookieAttributes(): { httpOnly: true; secure: boolean; sameSite:
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
+  }
+}
+
+// Sets (or renews) the session cookie. With "Recordarme" it lasts 7 days in the browser;
+// without it, it has no expiry at all, so the browser forgets it when it closes.
+export function setSessionCookie(res: Response, token: string, remember: boolean): void {
+  const attributes = sessionCookieAttributes()
+  if (remember) {
+    res.cookie(SESSION_COOKIE, token, { ...attributes, maxAge: IDLE_MS.remember })
+  } else {
+    res.cookie(SESSION_COOKIE, token, attributes)
   }
 }
 

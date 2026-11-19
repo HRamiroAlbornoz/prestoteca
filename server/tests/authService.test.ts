@@ -1,7 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import bcrypt from 'bcrypt'
 import { AuthService } from '../src/modules/auth/authService.js'
-import { passwordFingerprint } from '../src/modules/auth/sessionToken.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
 
 function createMockRepo() {
@@ -36,7 +35,7 @@ describe('AuthService', () => {
 
   beforeEach(() => {
     ;({ mockRepo, usersByEmail } = createMockRepo())
-    service = new AuthService(mockRepo as UserRepository, 'test-secret-key', 'http://localhost:5173')
+    service = new AuthService(mockRepo as UserRepository)
   })
 
   afterEach(() => {
@@ -44,19 +43,10 @@ describe('AuthService', () => {
   })
 
   describe('register', () => {
-    it('creates user and returns JWT', async () => {
+    it('AC-24 creates the user and returns its id and the stored hash (no token: the route opens the session)', async () => {
       const result = await service.register({ name: 'Ana', email: 'ana@example.com', password: 'ana123', neighborhood: 'Centro' })
-      expect(result.token).toBeDefined()
-      expect(typeof result.token).toBe('string')
-    })
-
-    it('R2a register token pwf equals passwordFingerprint of the stored hash', async () => {
-      const result = await service.register({ name: 'Ana', email: 'ana2@example.com', password: 'ana123', neighborhood: 'Centro' })
-      // The mock adds an id; get the created user from the map
-      const createdUser = Array.from(usersByEmail.values()).find((u) => u.email === 'ana2@example.com')!
-      const payload = JSON.parse(Buffer.from(result.token.split('.')[1], 'base64').toString())
-      expect(payload.id).toBe(createdUser.id)
-      expect(payload.pwf).toBe(passwordFingerprint(createdUser.password_hash))
+      const createdUser = usersByEmail.get('ana@example.com')!
+      expect(result).toEqual({ userId: createdUser.id, passwordHash: createdUser.password_hash })
     })
 
     it('hashes password — stored hash ≠ plain text', async () => {
@@ -75,25 +65,13 @@ describe('AuthService', () => {
   })
 
   describe('login', () => {
-    it('returns JWT with correct user id', async () => {
+    it('AC-8 returns the user id and the stored hash it checked the password against', async () => {
       await service.register({ name: 'Carlos', email: 'carlos@example.com', password: 'carlos123', neighborhood: 'Norte' })
+      const stored = usersByEmail.get('carlos@example.com')!
+
       const result = await service.login({ email: 'carlos@example.com', password: 'carlos123' })
-      expect(result.token).toBeDefined()
-      // Decode JWT and verify it contains the user id
-      const parts = result.token.split('.')
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
-      expect(payload.id).toBeDefined()
-    })
 
-    it('R2b login token pwf equals passwordFingerprint of the stored hash', async () => {
-      await service.register({ name: 'Carlos', email: 'carlos2@example.com', password: 'carlos123', neighborhood: 'Norte' })
-      const stored = Array.from(usersByEmail.values()).find((u) => u.email === 'carlos2@example.com')!
-
-      const result = await service.login({ email: 'carlos2@example.com', password: 'carlos123' })
-
-      const payload = JSON.parse(Buffer.from(result.token.split('.')[1], 'base64').toString())
-      expect(payload.id).toBe(stored.id)
-      expect(payload.pwf).toBe(passwordFingerprint(stored.password_hash))
+      expect(result).toEqual({ userId: stored.id, passwordHash: stored.password_hash })
     })
 
     it('throws "Invalid credentials" on wrong password', async () => {
@@ -125,24 +103,6 @@ describe('AuthService', () => {
       expect(compareSpy).toHaveBeenCalledTimes(1)
       const hashUsed = compareSpy.mock.calls[0][1] as string
       expect(bcrypt.getRounds(hashUsed)).toBe(12)
-    })
-  })
-
-  describe('generateToken', () => {
-    it('returns a valid JWT string', async () => {
-      const token = service.generateToken('user-123', 'hash-1')
-      expect(token).toBeDefined()
-      expect(typeof token).toBe('string')
-      const parts = token.split('.')
-      expect(parts.length).toBe(3)
-    })
-
-    it('JWT payload contains user id', async () => {
-      const token = service.generateToken('user-456', 'hash-1')
-      const parts = token.split('.')
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString())
-      expect(payload.id).toBe('user-456')
-      expect(payload.pwf).toBe(passwordFingerprint('hash-1'))
     })
   })
 })

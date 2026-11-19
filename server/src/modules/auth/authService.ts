@@ -2,7 +2,6 @@ import { randomBytes } from 'node:crypto'
 import bcrypt from 'bcrypt'
 import type { UserRepository, CreateUserInput } from './userRepo.js'
 import { AppError } from '../errors/AppError.js'
-import { signSessionToken } from './sessionToken.js'
 
 const SALT_ROUNDS = 12
 
@@ -27,16 +26,15 @@ export interface LoginInput {
   password: string
 }
 
+// Who signed in, and the password hash that was checked. The route opens the session with both:
+// the session is only created if that hash is still the stored one (see createIfPasswordCurrent).
 export interface AuthResult {
-  token: string
+  userId: string
+  passwordHash: string
 }
 
 export class AuthService {
-  constructor(
-    private userRepo: UserRepository,
-    private jwtSecret: string,
-    private jwtIssuer: string,
-  ) {}
+  constructor(private userRepo: UserRepository) {}
 
   async register(input: RegisterInput): Promise<AuthResult> {
     const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS)
@@ -49,8 +47,7 @@ export class AuthService {
     }
 
     const created = await this.userRepo.create(user)
-    const token = this.generateToken(created.id, passwordHash)
-    return { token }
+    return { userId: created.id, passwordHash }
   }
 
   async login(input: LoginInput): Promise<AuthResult> {
@@ -63,11 +60,6 @@ export class AuthService {
       throw new AppError('INVALID_CREDENTIALS', INVALID_CREDENTIALS)
     }
 
-    const token = this.generateToken(user.id, user.password_hash)
-    return { token }
-  }
-
-  generateToken(userId: string, passwordHash: string): string {
-    return signSessionToken(userId, passwordHash, this.jwtSecret, this.jwtIssuer)
+    return { userId: user.id, passwordHash: user.password_hash }
   }
 }

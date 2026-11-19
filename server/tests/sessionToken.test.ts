@@ -7,48 +7,76 @@ import {
   IDLE_MS,
   idleCutoffs,
   newSessionToken,
-  passwordFingerprint,
   readSessionCookie,
   setSessionCookie,
 } from '../src/modules/auth/sessionToken.js'
 import cookieParser from 'cookie-parser'
 
-describe('passwordFingerprint', () => {
-  it('R1a gives the same output twice for the same hash', () => {
-    const hash = 'hashed_test_value'
-    expect(passwordFingerprint(hash)).toBe(passwordFingerprint(hash))
-  })
-
-  it('R1a matches the pattern /^[0-9a-f]{16}$/', () => {
-    const fp = passwordFingerprint('any_hash')
-    expect(fp).toMatch(/^[0-9a-f]{16}$/)
-  })
-
-  it('R1a gives different fingerprints for different hashes', () => {
-    expect(passwordFingerprint('hash-1')).not.toBe(passwordFingerprint('hash-2'))
-  })
-
-  it('R1a does not contain the input hash', () => {
-    expect(passwordFingerprint('0123456789abcdef0123')).not.toBe('0123456789abcdef')
-  })
-})
+// The attributes of a Set-Cookie header, without the value, Max-Age and Expires
+// (the only parts allowed to differ between setting and clearing the cookie)
+function sharedAttributes(setCookie: string): string[] {
+  return setCookie
+    .split('; ')
+    .slice(1)
+    .filter((part) => !part.startsWith('Max-Age=') && !part.startsWith('Expires='))
+    .sort()
+}
 
 describe('setSessionCookie', () => {
-  it('R1b sets the cookie with token value, HttpOnly, SameSite=Lax and Max-Age=3600', async () => {
+  function setApp(remember: boolean) {
     const app = express()
-    app.get('/x', (_req, res) => {
-      setSessionCookie(res, 'abc')
+    app.get('/set', (_req, res) => {
+      setSessionCookie(res, 'abc', remember)
       res.end()
     })
+    return app
+  }
 
-    const res = await request(app).get('/x')
+  function clearApp() {
+    const app = express()
+    app.get('/clear', (_req, res) => {
+      clearSessionCookie(res)
+      res.end()
+    })
+    return app
+  }
 
-    const setCookie = res.headers['set-cookie']
-    expect(setCookie).toBeDefined()
-    expect(setCookie![0]).toContain('token=abc')
-    expect(setCookie![0]).toContain('HttpOnly')
-    expect(setCookie![0]).toContain('SameSite=Lax')
-    expect(setCookie![0]).toContain('Max-Age=3600')
+  it('AC-21 with "Recordarme": token value, HttpOnly, SameSite=Lax, Path=/ and Max-Age of 7 days', async () => {
+    const res = await request(setApp(true)).get('/set')
+    const cookie = res.headers['set-cookie']![0]
+    expect(cookie).toMatch(/^token=abc;/)
+    expect(cookie).toContain('HttpOnly')
+    expect(cookie).toContain('SameSite=Lax')
+    expect(cookie).toContain('Path=/')
+    expect(cookie).toContain('Max-Age=604800')
+    expect(cookie).toContain('Expires=')
+  })
+
+  it('AC-22 without "Recordarme": a browser-session cookie, with neither Max-Age nor Expires', async () => {
+    const res = await request(setApp(false)).get('/set')
+    const cookie = res.headers['set-cookie']![0]
+    expect(cookie).toMatch(/^token=abc;/)
+    expect(cookie).toContain('HttpOnly')
+    expect(cookie).toContain('SameSite=Lax')
+    expect(cookie).toContain('Path=/')
+    expect(cookie).not.toContain('Max-Age')
+    expect(cookie).not.toContain('Expires')
+  })
+
+  it('AC-14 R2 setting and clearing use the same attributes, outside production and in production', async () => {
+    for (const env of ['test', 'production']) {
+      vi.stubEnv('NODE_ENV', env)
+      try {
+        const clear = (await request(clearApp()).get('/clear')).headers['set-cookie']?.[0] ?? ''
+        for (const remember of [true, false]) {
+          const set = (await request(setApp(remember)).get('/set')).headers['set-cookie']?.[0] ?? ''
+          expect(sharedAttributes(set), `${env} remember=${remember}`).toEqual(sharedAttributes(clear))
+          expect(set.includes('Secure'), `${env} remember=${remember}`).toBe(env === 'production')
+        }
+      } finally {
+        vi.unstubAllEnvs()
+      }
+    }
   })
 })
 

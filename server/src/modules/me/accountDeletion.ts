@@ -2,6 +2,7 @@ import type { Pool } from 'pg'
 import { withTransaction } from '../db/transaction.js'
 import { ACTIVE_STATUSES } from '../loans/loanRepo.js'
 import { AppError } from '../errors/AppError.js'
+import type { SessionRepository } from '../auth/sessionRepo.js'
 
 export const DELETED_USER_NAME = 'Usuario eliminado'
 
@@ -13,6 +14,7 @@ export const DELETED_USER_NAME = 'Usuario eliminado'
 // so nobody can log in, and bcrypt.compare keeps working on it (it would throw on garbage).
 export async function deleteAccount(
   pool: Pick<Pool, 'connect'>,
+  sessionRepo: Pick<SessionRepository, 'deleteAllForUser'>,
   userId: string,
   replacementHash: string,
 ): Promise<void> {
@@ -50,5 +52,8 @@ export async function deleteAccount(
        WHERE id = $1`,
       [userId, DELETED_USER_NAME, `deleted-${userId}@invalid`, replacementHash],
     )
+
+    // Every device is signed out, and nothing of the account's sessions is kept
+    await sessionRepo.deleteAllForUser(userId, client)
   })
 }

@@ -2,11 +2,12 @@ import { describe, expect, it, vi, beforeEach, afterAll } from 'vitest'
 import request from 'supertest'
 import express from 'express'
 import cookieParser from 'cookie-parser'
-import jwt from 'jsonwebtoken'
-import type { Pool } from 'pg'
 import { UserRepository, type User } from '../src/modules/auth/userRepo.js'
 import { meAccountRoutes } from '../src/modules/me/meAccountRoutes.js'
-import { passwordFingerprint } from '../src/modules/auth/sessionToken.js'
+import { createFakeTransaction } from './fakeTransaction.js'
+
+// The hash of the session making the request, as the real middleware loads it (64 hex characters)
+const SESSION_HASH = 'a'.repeat(64)
 
 // Mock bcrypt — track known hashes for realistic compare
 let knownHashes = new Set<string>()
@@ -25,7 +26,8 @@ vi.mock('bcrypt', () => ({
   },
 }))
 
-function createMockApp() {
+// withSessionHash: false imitates a middleware that loads only the user id (the route must refuse)
+function createMockApp({ withSessionHash = true } = {}) {
   const usersById = new Map<string, User>()
   let nextUserId = 1
 
@@ -77,13 +79,33 @@ function createMockApp() {
       return
     }
     ;(req as any).userId = authHeader.replace('Bearer ', '')
+    if (withSessionHash) {
+      ;(req as any).sessionTokenHash = SESSION_HASH
+    }
     next()
   })
 
-  // The password routes never touch the pool; account deletion has its own tests
-  app.use('/api', meAccountRoutes(mockUserRepo as UserRepository, {} as Pool, 'a'.repeat(32), 'http://localhost:5173'))
+  const sessionRepo = {
+    deleteOthers: vi.fn(async () => 1),
+    deleteAllForUser: vi.fn(async () => 0),
+  }
+  // The password change runs in a transaction; account deletion has its own tests
+  const tx = createFakeTransaction()
+  app.use('/api', meAccountRoutes(mockUserRepo as UserRepository, sessionRepo, tx.pool))
 
-  return { app, usersById, mockUserRepo }
+  return { app, usersById, mockUserRepo, sessionRepo, tx }
+}
+
+function ana(fields: Partial<User> = {}): User {
+  return {
+    id: 'user-1',
+    name: 'Ana',
+    email: 'ana@example.com',
+    password_hash: 'hashed_old',
+    neighborhood: 'Centro',
+    created_at: '2026-10-01',
+    ...fields,
+  }
 }
 
 describe('meAccountRoutes', () => {
@@ -437,24 +459,9 @@ describe('meAccountRoutes', () => {
       expect(usersById.get('user-1')?.password_hash).toBe('hashed_newpassword123')
     })
 
-    // R4a — successful password change sets a new cookie with the new fingerprint
-    it('R4a successful password change sets a new session cookie with updated pwf', async () => {
-      const { app, usersById, mockUserRepo } = createMockApp()
-
-      usersById.set('user-1', {
-        id: 'user-1',
-        name: 'Ana',
-        email: 'ana@example.com',
-        password_hash: 'hashed_old',
-        neighborhood: 'Centro',
-        created_at: '2026-10-01',
-      })
-
-      // Like the real repository: each read returns a fresh row, not the stored object
-      vi.mocked(mockUserRepo.findActiveById!).mockImplementation(async (id) => {
-        const user = usersById.get(id)
-        return user ? { ...user } : null
-      })
+    it('AC-27 a successful password change keeps this session as it is: the route sends no cookie', async () => {
+      const { app, usersById } = createMockApp()
+      usersById.set('user-1', ana())
 
       const res = await request(app)
         .patch('/api/me/password')
@@ -462,13 +469,75 @@ describe('meAccountRoutes', () => {
         .send({ currentPassword: 'old123', newPassword: 'newpassword123' })
 
       expect(res.status).toBe(204)
-      const setCookie = res.headers['set-cookie']
-      expect(setCookie).toBeDefined()
-      expect(setCookie![0]).toMatch(/^token=/)
-      const tokenValue = setCookie![0].split(';')[0].split('=')[1]
-      const decoded = jwt.verify(tokenValue, 'a'.repeat(32), { issuer: 'http://localhost:5173' }) as { id: string; pwf: string }
-      expect(decoded.id).toBe('user-1')
-      expect(decoded.pwf).toBe(passwordFingerprint('hashed_newpassword123'))
+      expect(res.headers['set-cookie']).toBeUndefined()
+    })
+
+    it('AC-8 the new password and the closing of the other sessions go in ONE transaction', async () => {
+      const { app, usersById, mockUserRepo, sessionRepo, tx } = createMockApp()
+      usersById.set('user-1', ana())
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send({ currentPassword: 'old123', newPassword: 'newpassword123' })
+
+      expect(res.status).toBe(204)
+      expect(mockUserRepo.updatePassword).toHaveBeenCalledWith('user-1', 'hashed_newpassword123', tx.client)
+      expect(sessionRepo.deleteOthers).toHaveBeenCalledTimes(1)
+      expect(sessionRepo.deleteOthers).toHaveBeenCalledWith('user-1', SESSION_HASH, tx.client)
+      expect(sessionRepo.deleteAllForUser).not.toHaveBeenCalled()
+      expect(tx.statements).toEqual(['BEGIN', 'COMMIT'])
+      expect(tx.release).toHaveBeenCalledTimes(1)
+    })
+
+    it('AC-8 closing the other sessions fails → the password change is rolled back, 500', async () => {
+      const { app, usersById, sessionRepo, tx } = createMockApp()
+      usersById.set('user-1', ana())
+      sessionRepo.deleteOthers.mockRejectedValueOnce(new Error('db down'))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send({ currentPassword: 'old123', newPassword: 'newpassword123' })
+
+      expect(res.status).toBe(500)
+      expect(res.body.error.code).toBe('INTERNAL_ERROR')
+      expect(tx.statements).toEqual(['BEGIN', 'ROLLBACK'])
+      expect(res.headers['set-cookie']).toBeUndefined()
+      errorSpy.mockRestore()
+    })
+
+    it('AC-8 the account was deleted meanwhile → 404 and the other sessions are not touched', async () => {
+      const { app, usersById, mockUserRepo, sessionRepo, tx } = createMockApp()
+      usersById.set('user-1', ana())
+      vi.mocked(mockUserRepo.updatePassword!).mockResolvedValueOnce(false)
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send({ currentPassword: 'old123', newPassword: 'newpassword123' })
+
+      expect(res.status).toBe(404)
+      expect(res.body.error.code).toBe('ACCOUNT_NOT_FOUND')
+      expect(sessionRepo.deleteOthers).not.toHaveBeenCalled()
+      expect(tx.statements).toEqual(['BEGIN', 'ROLLBACK'])
+    })
+
+    it('AC-8 without the hash of this session → 401 and nothing is changed', async () => {
+      const { app, usersById, mockUserRepo, sessionRepo } = createMockApp({ withSessionHash: false })
+      usersById.set('user-1', ana())
+
+      const res = await request(app)
+        .patch('/api/me/password')
+        .set('Authorization', 'Bearer user-1')
+        .send({ currentPassword: 'old123', newPassword: 'newpassword123' })
+
+      expect(res.status).toBe(401)
+      expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Not authenticated' } })
+      expect(mockUserRepo.findActiveById).not.toHaveBeenCalled()
+      expect(mockUserRepo.updatePassword).not.toHaveBeenCalled()
+      expect(sessionRepo.deleteOthers).not.toHaveBeenCalled()
     })
 
     // R4b — failure cases must NOT set a cookie
@@ -523,6 +592,62 @@ describe('meAccountRoutes', () => {
 
       expect(res.status).toBe(404)
       expect(res.headers['set-cookie']).toBeUndefined()
+    })
+  })
+
+  describe('DELETE /api/me/other-sessions', () => {
+    it('AC-6 AC-19 closes every other session of this account, keeping this one → 204', async () => {
+      const { app, sessionRepo } = createMockApp()
+
+      const res = await request(app).delete('/api/me/other-sessions').set('Authorization', 'Bearer user-1')
+
+      expect(res.status).toBe(204)
+      expect(sessionRepo.deleteOthers).toHaveBeenCalledTimes(1)
+      // The pool, not a transaction: one statement
+      expect(sessionRepo.deleteOthers).toHaveBeenCalledWith('user-1', SESSION_HASH)
+      expect(sessionRepo.deleteAllForUser).not.toHaveBeenCalled()
+      expect(res.headers['set-cookie']).toBeUndefined()
+    })
+
+    it('AC-19 there were no other sessions → still 204', async () => {
+      const { app, sessionRepo } = createMockApp()
+      sessionRepo.deleteOthers.mockResolvedValueOnce(0)
+
+      const res = await request(app).delete('/api/me/other-sessions').set('Authorization', 'Bearer user-1')
+
+      expect(res.status).toBe(204)
+    })
+
+    it('AC-16 without a session → 401 and nothing is closed', async () => {
+      const { app, sessionRepo } = createMockApp()
+
+      const res = await request(app).delete('/api/me/other-sessions')
+
+      expect(res.status).toBe(401)
+      expect(sessionRepo.deleteOthers).not.toHaveBeenCalled()
+    })
+
+    it('AC-6 without the hash of this session → 401 and nothing is closed', async () => {
+      const { app, sessionRepo } = createMockApp({ withSessionHash: false })
+
+      const res = await request(app).delete('/api/me/other-sessions').set('Authorization', 'Bearer user-1')
+
+      expect(res.status).toBe(401)
+      expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Not authenticated' } })
+      expect(sessionRepo.deleteOthers).not.toHaveBeenCalled()
+    })
+
+    it('AC-11 the database fails → 500 INTERNAL_ERROR with a generic body', async () => {
+      const { app, sessionRepo } = createMockApp()
+      sessionRepo.deleteOthers.mockRejectedValueOnce(new Error('connection to 10.0.0.5 refused'))
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const res = await request(app).delete('/api/me/other-sessions').set('Authorization', 'Bearer user-1')
+
+      expect(res.status).toBe(500)
+      expect(res.body).toEqual({ error: { code: 'INTERNAL_ERROR', message: 'Failed to close other sessions' } })
+      expect(JSON.stringify(res.body)).not.toContain('10.0.0.5')
+      errorSpy.mockRestore()
     })
   })
 

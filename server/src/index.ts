@@ -33,7 +33,7 @@ export async function createApp(): Promise<ExpressApplication> {
   app.use(express.json({ limit: '10kb' }))
   app.use(express.urlencoded({ extended: true, limit: '10kb' }))
 
-  // Cookie parsing (for JWT token in cookies)
+  // Cookie parsing (for the session cookie)
   app.use(cookieParser())
 
   // Health endpoint (no auth required)
