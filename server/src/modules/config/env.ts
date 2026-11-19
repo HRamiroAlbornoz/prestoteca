@@ -10,8 +10,6 @@ export const envSchema = z.object({
   }),
   DATABASE_URL: z.string().min(1).url(),
   TEST_DATABASE_URL: z.string().min(1).url().optional(),
-  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
-  JWT_EXPIRES_IN: z.string().min(1).default('1h'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   CORS_ORIGIN: z.string().min(1).default('http://localhost:5173'),
   // prefault (zod 4): the fallback 'true' still goes through the transform and becomes a boolean.
@@ -27,8 +25,6 @@ export function loadEnv(): Env {
     'PORT',
     'DATABASE_URL',
     'TEST_DATABASE_URL',
-    'JWT_SECRET',
-    'JWT_EXPIRES_IN',
     'NODE_ENV',
     'CORS_ORIGIN',
     'TRUST_PROXY',

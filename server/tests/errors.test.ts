@@ -16,12 +16,6 @@ import { newSessionToken } from '../src/modules/auth/sessionToken.js'
 
 const ALLOWED_ORIGIN = 'http://localhost:5173'
 
-// createApp still validates JWT_SECRET when it loads the environment (until T006 removes it),
-// even though no part of the app reads it any more, so the vi.hoisted stays.
-vi.hoisted(() => {
-  process.env.JWT_SECRET = 'a'.repeat(32)
-})
-
 // A valid session for the real app: the middleware asks SessionRepository, which the test answers
 function validSessionCookie(): string {
   vi.spyOn(SessionRepository.prototype, 'touchActive').mockResolvedValue({ userId: 'user-1', remember: false })
@@ -86,7 +80,6 @@ describe('error responses of the real app', () => {
     process.env.PORT = '3001'
     // Unreachable database: every query fails, like the staging DB without tables did
     process.env.DATABASE_URL = 'postgresql://invalid:invalid@localhost:9999/nonexistent'
-    process.env.JWT_SECRET = 'a'.repeat(32)
     process.env.NODE_ENV = 'test'
     resetRateLimiter()
     vi.spyOn(console, 'error').mockImplementation(() => {})

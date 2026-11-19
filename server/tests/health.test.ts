@@ -15,7 +15,6 @@ describe('health endpoint', () => {
   function setBaseEnv() {
     process.env.PORT = '3001'
     process.env.DATABASE_URL = 'postgresql://localhost/test'
-    process.env.JWT_SECRET = 'a'.repeat(32)
     process.env.NODE_ENV = 'test'
   }
 

@@ -9,11 +9,6 @@ import { SessionRepository } from '../src/modules/auth/sessionRepo.js'
 import { hashSessionToken, newSessionToken } from '../src/modules/auth/sessionToken.js'
 import { createFakeTransaction, type FakeTransaction } from './fakeTransaction.js'
 
-// createApp still validates JWT_SECRET (until T006 removes it), even though nothing reads it
-vi.hoisted(() => {
-  process.env.JWT_SECRET = 'a'.repeat(32)
-})
-
 const ALLOWED_ORIGIN = 'http://localhost:5173'
 
 // The real app reaches the database only through these spies: the pool points at an invalid address
@@ -38,7 +33,6 @@ describe('session wiring — real app end to end', () => {
   beforeEach(() => {
     process.env.PORT = '3002'
     process.env.DATABASE_URL = 'postgresql://invalid:invalid@localhost:9999/nonexistent'
-    process.env.JWT_SECRET = 'a'.repeat(32)
     process.env.NODE_ENV = 'test'
     resetRateLimiter()
     vi.spyOn(console, 'error').mockImplementation(() => {})
