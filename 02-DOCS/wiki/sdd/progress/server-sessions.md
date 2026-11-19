@@ -219,7 +219,7 @@ slug: server-sessions
 
 ## T007 — 2026-11-19
 
-- status: complete (pendiente: commit de Hernán y ronda 2 de revisión)
+- status: complete (pendiente: commit de Hernán)
 - quién: Qwen (Orca, dispatch `ctx_332a0b99eef9`, worktree `t007-real-app-sweep`), una ronda, con `worker_done`
   (resumió otra vez, y contó "31 criterios" en vez de 32; Claude re-corrió todo). Claude escribió la prueba, la probó en
   seco y la dejó en `prestoteca-briefs/T007-files/`; Qwen solo la copió. Brief revisado por dos agentes sin contexto
@@ -257,6 +257,9 @@ slug: server-sessions
   `sessionWiring`/`originWiring`): fixed; el título de AC-8 del login: fixed como "AC-8 (stale login)". Mutantes del
   revisor que sobreviven a este archivo pero caen en la suite: `sessionTokenHash` alterado (`sessionWiring.test.ts:146`)
   y sin `originChecker` (`sessionWiring.test.ts:162`).
+  Ronda 2 (tier 1, solo pruebas) → APPROVE, 0 blocker, 0 should-fix; 15 mutantes propios, todos caen en la suite. Nit:
+  AC-25 solo manda `remember: 'yes'` y `null` lo fija otro archivo (`authRoutes.test.ts`): intentional, la regla de
+  `null` ya está probada y este archivo prueba el cableado.
 - huecos anotados, fuera de alcance: (1) sin el límite general de 30 pedidos/min (`generalRateLimiter`) la suite sigue
   verde: ningún criterio de esta spec lo pide; (2) `sessionToken.test.ts` (~líneas 50, 61, 235) usa el mismo
   `toContain('Path=/')` débil; (3) la fecha de creación de la sesión solo se afirmaba como `toBeInstanceOf(Date)` en
