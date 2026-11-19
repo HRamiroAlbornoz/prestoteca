@@ -345,3 +345,10 @@ slug: server-sessions
 - trazas: AC-1 a AC-10, AC-14, AC-15, AC-21 a AC-24, AC-27, AC-33, AC-35, AC-36, AC-37 contra la base real.
 - decision: ninguna nueva. Siguiente: T010 (aprobación de tier 2 de Hernán → push → PR → 005 en **producción**
   comprobada **antes** del merge → merge → deploys de los dos entornos → smoke en producción).
+
+## T010 — 2026-11-19
+
+- aprobación de tier 2: **Hernán aprobó el PR 1** el 2026-11-19, después de ver la verificación de staging (PASS) y la
+  opinión de Claude (riesgos restantes: la carrera de la contraseña releída en READ COMMITTED no se forzó en vivo; el
+  orden en producción — 005 antes del merge — es crítico; al desplegar, todos cierran sesión una vez por AC-10).
+  El código aprobado es el del panel (`dee7ae2`); después solo hay commits de `docs(auto)`.
