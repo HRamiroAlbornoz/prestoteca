@@ -144,3 +144,39 @@ slug: server-sessions
 - controls: tests ✅ build ✅ (`tsc -b`) security ✅ (refutador APPROVE sin hallazgos) traceability ✅ (columna Trace
   de T004 completa).
 - decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push.
+
+## T005 — 2026-11-19
+
+- status: complete (pendiente: commit de Hernán y aprobación de tier 2)
+- quién: Qwen (Orca, dispatch `ctx_302e4981248b`, worktree `t005-session-purge`), una ronda, con `worker_done`
+  (resumió en vez de pegar las salidas; Claude re-corrió todo). Claude escribió el código y las pruebas, los probó en
+  seco y los dejó en `prestoteca-briefs/T005-files/`; Qwen los copió con `cp` e hizo a mano el cambio de `index.ts`
+  (brief de ~5 600 caracteres, contra ~30 000 del de T003). Brief revisado por un agente sin contexto antes del
+  lanzamiento (2 should-fix: orden de `restoreAllMocks`/`useRealTimers`, `grep` sin líneas en blanco + `--numstat`;
+  nit `intervalMs` sin probar: prueba agregada).
+- red: con el stub `8 failed (8)`.
+- green: `8 passed (8)`; tras la ronda 2 `9 passed (9)`; suite del server `36 files, 788 passed` (incluye un caso
+  automático nuevo de `errorGuard.test.ts`, que recorre cada archivo de `src/`); `tsc -b` exit 0.
+- verificación de Claude: los dos archivos de Qwen idénticos (`cmp`) a la prueba en seco; diff de `index.ts` = 4
+  líneas exactas, `--numstat` `3 1`; mutantes re-corridos en el worktree (sin `catch`, `intervalMs` ignorado).
+- cobertura: `sessionPurge.ts` 100/100; `index.ts` 30/36 = 83,3 % (antes 24/28 = 85,7 %). Lectura del plan §6 paso 5
+  ("una sola línea"): una sola línea **sin cubrir**, `startSessionPurge(getPool())`; los dos imports corren en las
+  pruebas.
+- mutantes: 9 de la prueba en seco (sin primera corrida, sin `catch`, sin `unref`, `stop` vacío, intervalo +1 ms, log
+  con 0, cortes calculados una vez al arrancar, `intervalMs` ignorado) + 4 del refutador de pruebas + 2 de la ronda 2;
+  todos caen.
+- files: `server/src/modules/auth/sessionPurge.ts` (nuevo), `server/tests/sessionPurge.test.ts` (nuevo),
+  `server/src/index.ts` (una llamada + su import).
+- risk: tier 2 (auth). Ronda 1 → 3 refutadores; ronda 2 tier 1 (solo pruebas) → 1 revisor.
+- review: ronda 1 → seguridad APPROVE (nit: dos purgas se solapan si una tarda más que el intervalo: intentional, el
+  `DELETE` es idempotente y una purga de 1 h no es realista con este volumen); corrección APPROVE (0 hallazgos, misma
+  nota); pruebas APPROVE WITH NITS (`removed > 1` sobrevivía porque la prueba del log usaba 3 y 0: fixed, usa 1;
+  el pool recibido nunca llegaba a una aserción, `new SessionRepository({} as Pool)` sobrevivía: fixed con una prueba
+  que pasa un pool falso con `query` y afirma el `DELETE` y los dos cortes como parámetros). Ronda 2 → APPROVE, 0
+  hallazgos (10 mutantes propios, todos caen, incluidos `removed > 1`, `removed >= 0` y otro pool).
+- incidente: la copia de respaldo de un mutante apuntaba a una carpeta del scratchpad que ya no existía; dos mutantes
+  quedaron aplicados en el checkout. Se restauró `sessionPurge.ts` desde `T005-files/sessionPurge.real.ts` (comprobado
+  igual a la copia de Qwen con `cmp`) y se repitió el mutante. Lección: comprobar que el respaldo existe antes de mutar.
+- para T009: la purga en staging se prueba reiniciando el servicio (corre al arrancar).
+- controls: tests ✅ build ✅ (`tsc -b`) security ✅ (refutador APPROVE) traceability ✅ (AC-37).
+- decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push.
