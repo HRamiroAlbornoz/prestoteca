@@ -64,3 +64,40 @@ slug: server-sessions
 - controls: tests ✅ build ✅ (`tsc -b`) security ✅ (refutador sin hallazgos) traceability ✅ (AC-1, AC-2, AC-10,
   AC-14, AC-23, AC-35).
 - decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push.
+
+## T003 — 2026-11-19
+
+- status: complete (pendiente: commit de Hernán y aprobación de tier 2)
+- quién: Qwen (Orca, dispatch `ctx_c0330581b471`, worktree `t003-session-repo`). Se le llenó el contexto en el
+  mutante M3 (7 reintentos, ~30 min) y paró sin `worker_done`; con un mensaje corto retomó M3-M17 y lo mandó
+  (otra vez resumido, números iguales a los de Claude). El plan describía la SQL pero no la traía escrita: Claude la
+  escribió (§0, §3.2) y la probó en seco antes del brief. Rondas 2 y 3 de arreglos: Claude, por decisión de Hernán.
+- red: con stubs `22 failed | 29 passed (51)` (prueba en seco del brief y Qwen).
+- green: `51 passed (51)`; tras las rondas `53 passed (53)` en `sessionRepo.test.ts` + `userRepo.test.ts`; suite del
+  server `35 files, 739 passed`; `tsc -b` exit 0 (worktree y checkout principal). `sessionRepo.test.ts` además pasa
+  `tsc` con un tsconfig temporal que incluye la prueba (0 errores; los de `userRepo.test.ts` son líneas viejas, 5b(d)).
+- verificación de Claude: los 4 archivos de Qwen idénticos letra por letra a la prueba en seco; 30 mutantes en una
+  copia (17 del brief, `OR true` ×3, chequeo de `deleteOthers` ×10), cada uno `1 failed` (o 2) y `cmp` limpio.
+- files: `server/src/modules/auth/sessionRepo.ts` (nuevo), `server/src/modules/auth/userRepo.ts`,
+  `server/tests/sessionRepo.test.ts` (nuevo), `server/tests/userRepo.test.ts`.
+- risk: tier 2 (auth). Ronda 1 → 3 refutadores; ronda 2 tier 2 (cambió `sessionRepo.ts`) → 3; ronda 3 tier 1 (solo
+  pruebas) → 1.
+- review: ronda 1 → corrección APPROVE (L85 `token_hash` repetido lanza 23505, intentional: T004 lo trata como 500;
+  L86 el `EXISTS` de `deleted_at` no bloquea, intentional: el borrado se lleva la sesión), seguridad APPROVE WITH NITS
+  (L87 `deleteOthers` con `undefined`/`''`: fixed con un chequeo `/^[0-9a-f]{64}$/` que aprobó Hernán; L88 `FOR SHARE`
+  solo como texto: intentional, staging T009), pruebas REQUEST CHANGES (L89 `touchActive` por pedazos, `OR true`
+  sobrevivía: fixed con `toBe(oneLine(sql))`; L91 lo mismo en `createIfPasswordCurrent`: fixed; L90 prueba AC-35
+  repetida: intentional, deja el id). Ronda 2 → seguridad APPROVE, corrección APPROVE (L92 las pruebas de T004 con el
+  repo real necesitan hashes de 64 hex: intentional, va al brief de T004), pruebas REQUEST CHANGES (L93 el chequeo solo
+  probado al rechazar, 5 mutantes de la regla sobrevivían, uno sin dígitos rompía casi todo hash real: fixed).
+  Ronda 3 (última) → APPROVE WITH NITS (L94 salto de línea final, L95 arreglo de un elemento): fixed y registrados
+  (fix-and-record), con los mutantes N1 y N2 cayendo.
+- para T004: generar un valor nuevo en cada login; `updatePassword` y `deleteOthers` en la misma transacción con un 401
+  si falta `sessionTokenHash`, y el error del chequeo cuenta como fallo; `deleteAllForUser` dentro de la transacción de
+  borrado; cookie ausente o mal formada rechazada antes del hash; pruebas con hashes de 64 hex (`'a'.repeat(64)`).
+- para T009 (staging): login cruzado con un cambio de contraseña y purga en el borde exacto del plazo.
+- para los briefs: este tenía ~30 000 caracteres (pruebas pegadas enteras) y le llenó el contexto a Qwen; para T004
+  conviene que lea los bloques desde archivos y que los mutantes vayan en una tarea aparte.
+- controls: tests ✅ build ✅ (`tsc -b`) security ✅ (dos APPROVE de seguridad) traceability ✅ (AC-3, AC-7, AC-8,
+  AC-15, AC-33, AC-35, AC-36, AC-37).
+- decision: ninguna nueva; tier 2 → aprobación de Hernán antes del push.
