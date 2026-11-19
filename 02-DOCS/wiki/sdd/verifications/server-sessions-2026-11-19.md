@@ -52,7 +52,25 @@ IaC de `devDependencies`).
 Después: `/api/health` de staging → 200 `{"status":"ok","db":"connected"}` (la app vieja ignora la tabla); producción
 → 200.
 
-## 2. Deploy del PR 1 a staging — pendiente
+## 2. Deploy del PR 1 a staging — hecho (2026-11-19, OK de Hernán)
+
+- Desde el checkout de la rama, en `2838d2c` (mismo código que `dee7ae2`: `git diff --stat dee7ae2 HEAD -- server
+  client` vacío; el commit de más es del hook `docs(auto)`), con el árbol limpio:
+  `railway up -e staging --service prestoteca --ci` → build del cliente y del server (`tsc -b`) y `Deploy complete`,
+  exit 0. Nunca `railway service source connect` (movería producción, plan R9).
+
+**Deploys después del despliegue (los dos entornos):**
+
+| Entorno | Deploy activo | Antes |
+| --- | --- | --- |
+| staging | SUCCESS 2026-11-19 18:23 UTC, `railway up` (rama `feat/server-sessions-server`) | `471165e` (#49), ahora REMOVED |
+| producción | SUCCESS 2026-11-18 21:18 UTC, `471165e` (#49) | **sin cambios** ✅ |
+
+- `/api/health`: staging 200 `{"status":"ok","db":"connected"}`; producción 200.
+- Logs de arranque de staging: `Server running on port 8080 (production)` y **ningún**
+  `[session-purge] Error during purge`. La purga corre una vez al arrancar (AC-37) y solo escribe en el log cuando
+  borra algo o falla: su `DELETE` con los dos cortes `::timestamptz` corrió contra el Postgres real sin error (la tabla
+  estaba vacía).
 
 ## 3. Comprobaciones contra el Postgres real — pendiente
 
