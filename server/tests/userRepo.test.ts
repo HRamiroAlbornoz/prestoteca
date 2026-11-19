@@ -378,3 +378,40 @@ describe('UserRepository', () => {
     })
   })
 })
+
+// --- server sessions (T003): updatePassword inside a transaction ----------------------------------
+
+describe('updatePassword with a transaction client', () => {
+  // The client of an open transaction: it answers like Postgres after changing one row
+  function txClient(rowCount: number | null) {
+    return { query: vi.fn(async () => ({ rows: [], rowCount })), release: vi.fn() }
+  }
+
+  it('AC-8 runs the same UPDATE on the given client, never opening a connection of its own', async () => {
+    const { pool } = poolReturning([])
+    const db = txClient(1)
+    const pwRepo = new UserRepository(pool as never)
+
+    const result = await pwRepo.updatePassword('user-1', 'hash-x', db as never)
+
+    expect(result).toBe(true)
+    expect(pool.connect).not.toHaveBeenCalled()
+    const [sql, params] = db.query.mock.calls[0] as unknown as [string, unknown[]]
+    expect(sql).toMatch(/SET password_hash = \$1 WHERE id = \$2 AND deleted_at IS NULL/)
+    expect(params).toEqual(['hash-x', 'user-1'])
+  })
+
+  it('AC-8 does not release the transaction client (withTransaction does)', async () => {
+    const { pool } = poolReturning([])
+    const db = txClient(1)
+    await new UserRepository(pool as never).updatePassword('user-1', 'hash-x', db as never)
+    expect(db.release).not.toHaveBeenCalled()
+  })
+
+  it('AC-8 returns false on the given client when the account was deleted meanwhile (rowCount 0 or null)', async () => {
+    const { pool } = poolReturning([])
+    const pwRepo = new UserRepository(pool as never)
+    expect(await pwRepo.updatePassword('user-1', 'hash-x', txClient(0) as never)).toBe(false)
+    expect(await pwRepo.updatePassword('user-1', 'hash-x', txClient(null) as never)).toBe(false)
+  })
+})
