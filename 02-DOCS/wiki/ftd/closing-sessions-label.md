@@ -2,7 +2,9 @@
 author: HRamiroAlbornoz
 branch: feat/closing-sessions-label
 spec: server-sessions
-status: in-progress
+status: done
+merged: 2026-11-20
+pr: #56
 ---
 # "Cerrando sesiones..." mientras se cierran las otras sesiones
 
@@ -150,6 +152,4 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
   - limpieza: `DELETE /api/me/account` → 204, `/api/me` → 401; pestaña cerrada.
 
 ## Next
-
-PR de `feat/closing-sessions-label` contra `main` (Hernán), merge, deploys de los dos entornos, bundle de producción
-con "Cerrando sesiones..." y `smoke.mjs` contra producción.
+Fusionado en main el 2026-11-20 (d6f3b82).
