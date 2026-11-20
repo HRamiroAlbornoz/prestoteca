@@ -499,3 +499,33 @@ slug: server-sessions
 - decisión de Hernán (2026-11-20): la opción D (Qwen escribe desde un brief de especificación de Claude, revisado y
   con el OK de Hernán antes de lanzarlo) vale para **todas** las tareas de código que quedan, no solo para T013. La
   columna "Quién" del reparto del plan no la reemplaza. T014 no la siguió; queda como está (commiteada y revisada).
+
+## T015 — 2026-11-20 (puerta de push de tier 2 del PR 2, en curso)
+
+- paso 1: spec con `branch: feat/server-sessions-client` (commit automático de docs `9a1962a`) ✅
+- paso 2 (`verify`): cliente `22 passed`, `539 passed`, `tsc -b` 0, lint 0; server `37 passed`, `817 passed`,
+  `tsc -b` 0 (la rama no toca `server/`). Cobertura por archivo cambiado (líneas / ramas): `ConfirmDialog.tsx`
+  100 / 96,96; `OtherSessionsSection.tsx` 100 / 96,42; `LoginPage.tsx` 100 / 92,85; `ProfilePage.tsx` 89,92 / 84,8
+  → todos ≥ 80 % ✅
+- paso 3: `rsc risk --base origin/main` → **tier 2** (clase `auth` por `client/src/session.test.tsx`), 3 revisores,
+  aprobación humana requerida ✅
+- paso 4: `rsc spec gate` → `1/1 pass` ✅
+- paso 5, ronda 1 (panel sobre la rama entera, en paralelo):
+  - seguridad: APPROVE, 0 hallazgos.
+  - corrección: APPROVE WITH NITS; único nit `res.ok` vs `204` (ya anotado en T014).
+  - pruebas: APPROVE WITH NITS; mapa AC → prueba completo para AC-11, 18, 19, 20, 26, 29, 31, 32. Dos huecos:
+    N1, ninguna prueba fija `replace` en `PrivateRoute` (el pendiente acordado en T012, que Claude no agregó antes
+    del panel); N2, `loadErrorAlert` / `profileLoadAlert` no prohíben el error de carga duplicado dentro del panel.
+  - nota: los revisores de corrección y pruebas corrieron mutantes sobre los mismos archivos a la vez; los dos
+    restauraron y el árbol quedó limpio. Para la próxima, un solo revisor con mutantes a la vez, o cada uno en su copia.
+- T015a (N1 + N2), opción D: **Qwen escribió** las dos correcciones desde un brief de Claude con tres revisiones de
+  ojos frescos (la tercera corrió el brief entero; arreglos: salida de 3.400 líneas a un archivo, `grep -c || true`,
+  frenos que restauran antes de parar, línea `FAIL` exacta). Qwen entregó en **un solo intento** (`ALL CHECKS
+  MATCHED`).
+  - archivos: `session.test.tsx` (+15, la prueba nueva de AC-31 con "atrás"), `profilePage.test.tsx` (+3) y
+    `errorAlerts.test.tsx` (+3) en los dos ayudantes. Sin borrar ninguna línea.
+  - Claude lo confirmó en `feat/server-sessions-client`: `22 passed`, `540 passed`, `tsc -b` 0, lint 0; sin
+    `replace` → falla la prueba nueva (`1 failed | 28 passed`); alerta duplicada en el panel → `17 failed | 48
+    passed` ✅
+- siguiente: commit de Hernán → ronda 2 del panel sobre T015a → `rsc review ledger panel server-sessions/pr2-client
+  --lenses correctness,security,tests` → aprobación de Hernán (paso 6) → staging.
