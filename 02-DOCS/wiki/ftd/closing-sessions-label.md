@@ -2,7 +2,9 @@
 author: HRamiroAlbornoz
 branch: feat/closing-sessions-label
 spec: server-sessions
-status: in-progress
+status: done
+merged: 2026-11-20
+pr: #56
 ---
 # "Cerrando sesiones..." mientras se cierran las otras sesiones
 
@@ -53,9 +55,9 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
 
 ## Checklist
 
-- [ ] **Spec enmendada.** Prueba: el diff de `02-DOCS/wiki/sdd/specs/server-sessions.md` muestra la fila con
+- [x] **Spec enmendada.** Prueba: el diff de `02-DOCS/wiki/sdd/specs/server-sessions.md` muestra la fila con
   "Cerrando sesiones..." y la entrada de *Revisions* del 2026-11-20.
-- [ ] **Brief de opción D** escrito, probado en seco (implementación descartable de Claude), dos revisiones con ojos
+- [x] **Brief de opción D** escrito, probado en seco (implementación descartable de Claude), dos revisiones con ojos
   frescos, hallazgos mostrados a Hernán y su OK. Prueba: el brief y los hallazgos en la conversación.
 - [x] **`busyLabel` en `ConfirmDialog`.** Prueba: las pruebas nuevas del diálogo en verde; C1-C19 sin cambios y en
   verde (sin `busyLabel` nada cambia); un mutante que ignora `busyLabel` y otro que lo muestra sin `busy` caen.
@@ -72,7 +74,7 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
 - [x] **Staging, a mano.** Prueba: con el `DELETE` demorado desde la página, el botón muestra "Cerrando sesiones...",
   deshabilitado, y al terminar el diálogo se cierra y el éxito se anuncia como antes. Colores calculados en el
   navegador, en modo claro y oscuro: texto ≥ 4,5:1 en los dos botones mientras espera.
-- [ ] **PR, merge y producción.** Prueba: PR fusionado, deploys SUCCESS en los dos entornos, el bundle servido trae
+- [x] **PR, merge y producción.** Prueba: PR fusionado, deploys SUCCESS en los dos entornos, el bundle servido trae
   "Cerrando sesiones...", `smoke.mjs` contra producción `SMOKE OK`.
 
 ## Evidence
@@ -148,8 +150,15 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
     - modo claro (reglas oscuras apagadas desde la página): "Cancelar" `#6a7282` sobre blanco = **4,84:1**; confirmar
       **8,36:1** ✅
   - limpieza: `DELETE /api/me/account` → 204, `/api/me` → 401; pestaña cerrada.
+- Spec: la fila de la confirmación y la entrada de *Revisions* del 2026-11-20 entraron en `main` con el PR #56;
+  `rsc spec gate` → PASS (13 puntos abiertos, 10 con tipo).
+- Briefs: CSL ("Cerrando sesiones...") con prueba en seco y tres revisiones con ojos frescos; CSL2 (contraste) con
+  prueba en seco y dos revisiones; hallazgos mostrados a Hernán y su OK antes de cada lanzamiento. Qwen entregó los dos
+  en un solo intento.
+- PR **#56** fusionado con squash por Hernán → `main` en `d6f3b82` (2026-11-20); rama borrada en local y en GitHub.
+- Producción: deploys SUCCESS desde `main` `d6f3b82` en producción y en staging; `/api/health` 200; el bundle servido
+  (`index-5um2t0Bn.js`) trae "Cerrando sesiones..." y el CSS (`index-XbNQ4n1-.css`) las tres reglas del contraste;
+  `smoke.mjs` contra producción → `SMOKE OK`, exit 0 ✅
 
 ## Next
-
-PR de `feat/closing-sessions-label` contra `main` (Hernán), merge, deploys de los dos entornos, bundle de producción
-con "Cerrando sesiones..." y `smoke.mjs` contra producción.
+Fusionado en main el 2026-11-20 (d6f3b82).
