@@ -31,6 +31,9 @@ Eso tiene dos costos.
    - una fecha de préstamo que no es una fecha (`"mañana"`, `"2099-02-30"`): pasa la comparación de texto y la rechaza
      la base;
    - un número de página enorme (`?page=99999999999999999999`): el desplazamiento desborda el entero de la base.
+3. **El cambio de contraseña no recorta espacios, y el registro y el login sí.** Quien cambia su contraseña a
+   `" clave123 "` no puede volver a entrar, porque el login manda `"clave123"` (deducido del código). Hernán pidió sumarlo
+   a este cambio el 2026-11-20.
 
 Además, `analyze` marca el principio 13 como incumplido (F1) en cada feature nueva hasta que esto se haga.
 
@@ -56,11 +59,14 @@ descartó: debilita la regla por escrito y deja la validación repartida como es
 ## Goals
 
 - Cada ruta que recibe datos externos (cuerpo, parámetros de búsqueda, id en la URL) los revisa contra un esquema
-  declarado **antes de hacer cualquier trabajo**: no lee la base, no calcula hashes.
+  declarado. Las reglas que hoy corren antes de cualquier trabajo del manejador siguen corriendo antes: si fallan, el
+  manejador no lee la base ni calcula hashes. Las reglas que hoy corren después de leer la base (ver *Behaviour*)
+  conservan su lugar.
 - Cada entrada que hoy tiene una respuesta fijada (status + código) **sigue recibiendo exactamente la misma**. Eso
   incluye cuál error gana cuando fallan varios campos a la vez.
 - Ninguna entrada mal formada en cuerpo, query o id produce un 500.
 - Una fecha de préstamo mal formada recibe un error propio (fila 40), con un texto que ve el usuario.
+- Una contraseña puesta en el cambio de contraseña sirve después para entrar, aunque tenga espacios alrededor.
 - El principio 13 se cumple en las rutas y F1 deja de aparecer en `analyze`.
 
 ## Non-goals / out of scope
@@ -68,10 +74,14 @@ descartó: debilita la regla por escrito y deja la validación repartida como es
 - **La cookie de sesión y el encabezado `Origin`.** Ya tienen chequeos estrictos y propios, con pruebas de seguridad.
   No se tocan (Hernán, 2026-11-20).
 - **Cambiar cualquier respuesta que existe hoy**: status, código, texto de la tabla de errores u orden de precedencia.
-  Las únicas excepciones son las de *Behaviour*.
+  Las únicas excepciones son las filas de *What result they get*.
 - **Reglas nuevas que hoy no existen**: formato de email en el registro, largo máximo de la contraseña actual en el
-  cambio de contraseña, rechazar campos desconocidos, recortar espacios donde hoy no se recortan (las contraseñas del
-  cambio de contraseña).
+  cambio de contraseña, rechazar campos desconocidos, convertir tipos (`"true"` → `true`, `"2"` → `2` en el cuerpo),
+  recortar espacios en campos que hoy no se recortan (salvo las dos contraseñas del cambio de contraseña, ver
+  *Behaviour*).
+- **Validar el formato UUID del id.** El id solo tiene que ser texto; que no sea un UUID lo sigue resolviendo la base y
+  responde 404, como hoy. Un validador propio no aceptaría todas las formas que la base acepta (mayúsculas, sin guiones,
+  entre llaves), y cambiaría respuestas.
 - **Las reglas que necesitan la base**: que la herramienta exista, que no esté pausada, la superposición de fechas, el
   dueño, las transiciones de estado del préstamo, la cuenta activa. Siguen como están.
 - **Validar las respuestas** del server (la salida).
@@ -80,6 +90,9 @@ descartó: debilita la regla por escrito y deja la validación repartida como es
   variables de entorno (ya validadas).
 - **Lo que un agente podría agregar "por las dudas"**: mensajes de error por campo, una respuesta con la lista de todos
   los campos que fallaron, un middleware genérico que adivine el esquema por la URL.
+- **Reparar contraseñas ya guardadas con espacios** por un cambio de contraseña anterior. No se pueden leer (solo existe
+  su hash). Quien esté en ese caso usa el cambio de contraseña desde una sesión abierta, o se le borra la cuenta a
+  pedido.
 
 ## Users & context
 
@@ -125,6 +138,10 @@ resultado esperado. Las únicas respuestas nuevas son estas:
 | una fecha real sin ceros (`"2026-1-5"`) | la base la acepta, pero la comparación de texto con "hoy" y con la otra fecha da resultados equivocados (p. ej. "ya pasó" para una fecha futura) | 400 `LOAN_DATE_INVALID` (fila 40) |
 | `page` que no es solo dígitos (`1abc`, `1.5`, `%202`, `-1`, `0`) | se acepta como 1 o 2, o 400 | 400 `BAD_REQUEST` |
 | `page` de solo dígitos pero demasiado grande para representarse | probablemente 500 | 400 `BAD_REQUEST` |
+| `page` repetido (`?page=1&page=2`) | se acepta como página 1 | 400 `BAD_REQUEST` (como `q`, `category` y `neighborhood` repetidos desde 5e) |
+| cambio de contraseña con `newPassword: " clave123 "` | se guarda con los espacios; después el login (que recorta) no entra | se guarda `"clave123"`; el login con `"clave123"` o `" clave123 "` entra |
+| cambio de contraseña con `newPassword` que solo llega a 8 caracteres contando los espacios (`"  abcdef  "`) | se acepta (largo 10) | 400 `NEW_PASSWORD_LENGTH` (largo 6 después de recortar, igual que en el registro) |
+| cambio de contraseña con `currentPassword` correcta pero con espacios alrededor | 400 `CURRENT_PASSWORD_INCORRECT` | se acepta (se recorta antes de comparar, igual que el login) |
 
 **Fila 40 nueva en la tabla de [error-codes](error-codes.md)** (texto elegido por Hernán el 2026-11-20):
 
@@ -144,15 +161,16 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   - un parámetro de búsqueda repetido (`?q=a&q=b`) da 400;
   - la descripción vacía en la edición da 400;
   - **un id que no es un UUID da 404** (`TOOL_NOT_FOUND` / `LOAN_NOT_FOUND`), igual que un UUID que no existe. No se
-    convierte en 400.
+    convierte en 400, y lo sigue decidiendo la base (ver *Non-goals*).
 - **La regla de `remember` de [server-sessions](server-sessions.md)**: ausente = no; si no, exactamente `true` o
   `false`; `null` da `BAD_REQUEST`.
-- **Lo que cada ruta recorta o no**: el registro y el login recortan espacios y pasan el email a minúsculas; el cambio
-  de contraseña **no** recorta las contraseñas; las fechas y la nota se recortan.
+- **Lo que cada ruta recorta**: el registro y el login recortan espacios y pasan el email a minúsculas; las fechas y la
+  nota se recortan. El cambio de contraseña pasa a recortar sus dos contraseñas (única excepción, pedida por Hernán).
 - **La spec [error-codes](error-codes.md)**: cada código nuevo tiene su fila, su texto en el cliente y su prueba en la
   misma rama; la tabla de códigos del server y la del cliente no se desalinean.
-- **El mismo cuerpo vale igual en JSON o en formulario**: el server acepta los dos formatos, así que las reglas no
-  dependen de cuál llegó.
+- **El mismo esquema para JSON y para formulario, sin convertir tipos**: el server acepta los dos formatos y aplica
+  las mismas reglas. Un formulario no puede mandar booleanos, así que `remember=true` o `is_paused=true` por formulario
+  siguen dando `BAD_REQUEST`, como hoy.
 - **Constitución**: principio 4 (calidad: `tsc -b` y lint en 0), principio 6 (cobertura ≥ 80 % de líneas por archivo
   cambiado), principio 10 (rama + PR), principio 13 (el resto queda como está).
 
@@ -161,7 +179,9 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **Pruebas por ruta a través de la app real**, una por cada fila de *What result they get* y una por cada regla de
   *What it must respect*. Quedan en la suite del server y corren en cada `npm test`.
 - **La suite actual sin cambiar ninguna expectativa.** Las pruebas existentes que fijan status y código pasan sin
-  editar lo que esperan. Un diff de los `it(` y de los `expect` de las pruebas viejas lo muestra.
+  editar lo que esperan. Un diff de los `it(` y de los `expect` de las pruebas viejas lo muestra. Las únicas pruebas
+  viejas que pueden cambiar son las que fijan una fila de *What result they get* (p. ej. una que acepte `page=1abc` o
+  una contraseña nueva con espacios); cada una se lista en el plan con su razón.
 - **Un control en la suite** que falla si una ruta lee cuerpo, query o id sin pasarlo por un esquema declarado. Hay que
   verlo fallar una vez contra una ruta escrita a propósito sin esquema.
 - **Mutantes**: sacar el esquema de una ruta, o aflojar una regla, hace fallar alguna prueba.
@@ -172,14 +192,24 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 ## Behaviour
 
 - **Camino principal:** una entrada válida produce exactamente la misma respuesta que hoy.
-- **Entrada inválida:** la ruta responde el error que corresponde **sin hacer ningún trabajo**. No consulta la base, no
-  calcula hashes y no cambia nada.
+- **Entrada inválida:** si la regla que falla es de las que hoy corren antes de cualquier trabajo del manejador, la
+  ruta responde **sin que el manejador consulte la base ni calcule hashes** (la sesión ya se revisó antes, como hoy).
+  Nada cambia en la base.
+- **Reglas que conservan su lugar después de leer la base** (hoy en el servicio o el repositorio de herramientas): en
+  `POST` y `PATCH /api/tools`, la lista de categorías y condiciones; en `PATCH /api/tools/:id`, además, el largo del
+  nombre, la descripción vacía o larga y "sin cambios" (`TOOL_EDIT_EMPTY`). Por eso, una categoría inválida sobre una
+  herramienta ajena sigue dando `TOOL_NOT_OWNER`, y sobre una que no existe, `TOOL_NOT_FOUND`.
 - **Varios campos inválidos a la vez:** gana el mismo error que gana hoy. El orden de cada ruta se conserva.
+- **Cambio de contraseña:** sigue este orden. Primero, si falta alguna contraseña o no es texto, da
+  `PASSWORD_CHANGE_MISSING_FIELDS` (como hoy, mirando el valor sin recortar). Segundo, si `newPassword` es solo
+  espacios, da `NEW_PASSWORD_BLANK` (como hoy). Tercero, se recortan las dos contraseñas. Cuarto, se revisa el largo de
+  `newPassword` ya recortada (8 a 72) y da `NEW_PASSWORD_LENGTH`. Quinto, se compara `currentPassword` ya recortada. Una
+  `currentPassword` de solo espacios sigue dando `CURRENT_PASSWORD_INCORRECT`, como hoy.
 - **Fechas del préstamo:** si falta alguna → fila 24 (como hoy). Si está pero no es un día real `AAAA-MM-DD` → fila 40.
   Después vienen, como hoy, "ya pasó" (25) y "fin antes que inicio" (26). Se aceptan los años bisiestos (`2028-02-29`
   vale, `2027-02-29` no).
-- **Página:** ausente = 1, como hoy. Si viene, tiene que ser solo dígitos, con valor ≥ 1 y que se pueda representar.
-  Si no, `BAD_REQUEST`. Una página válida pero más allá de la última devuelve el listado vacío, como hoy.
+- **Página:** ausente o vacía (`?page=`) = 1, como hoy. Si viene con valor, tiene que ser una sola vez, solo dígitos,
+  con valor ≥ 1 y que se pueda representar. Si no, `BAD_REQUEST`. Una página válida pero más allá de la última devuelve el listado vacío, como hoy.
 - **Campos desconocidos:** se ignoran, como hoy.
 - **Lo que no se revela:** el `message` de un error de validación no repite el valor que mandó el cliente.
 
@@ -196,19 +226,26 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **AC-5** — Given lo mismo, When falta `startDate` y `endDate` es `"mañana"`, Then recibe 400 `LOAN_DATES_MISSING`
   (la fila 24 gana a la 40).
 - **AC-6** — Given lo mismo, When las fechas tienen espacios alrededor (`" 2099-01-10 "`), Then se aceptan como hoy.
-- **AC-7** — Given `GET /api/tools`, When `page` es `1abc`, `1.5`, `%202`, `-1`, `0` o `99999999999999999999`, Then
-  recibe 400 `BAD_REQUEST` en cada caso.
-- **AC-8** — Given `GET /api/tools`, When `page` falta o es `2`, Then responde 200 como hoy.
-- **AC-9** — Given una ruta del alcance, When la entrada es inválida, Then la base no recibe ninguna consulta y no se
-  calcula ningún hash.
+- **AC-7** — Given `GET /api/tools`, When `page` es `1abc`, `1.5`, `%202`, `-1`, `0`, `99999999999999999999` o se
+  repite (`page=1&page=2`), Then recibe 400 `BAD_REQUEST` en cada caso.
+- **AC-8** — Given `GET /api/tools`, When `page` falta, viene vacía o es `2`, Then responde 200 como hoy.
+- **AC-9** — Given una ruta del alcance y una entrada que falla una regla de las que hoy corren antes de cualquier
+  trabajo del manejador, When se manda, Then el manejador no hace ninguna consulta a la base después del chequeo de
+  sesión y no calcula ningún hash.
 - **AC-10** — Given una ruta con `:id`, When el id no es un UUID, Then sigue recibiendo 404 con el código "no existe"
   de esa entidad.
+- **AC-10b** — Given `PATCH /api/tools/:id` sobre una herramienta ajena, When el cuerpo trae una categoría inválida,
+  Then recibe `TOOL_NOT_OWNER`, como hoy.
 - **AC-11** — Given una ruta protegida, When se llama sin sesión y con el cuerpo inválido, Then recibe
   `SESSION_REQUIRED`.
 - **AC-12** — Given el registro o el login, When el cuerpo llega como formulario en vez de JSON, Then aplica las mismas
-  reglas y devuelve los mismos códigos.
-- **AC-13** — Given el cambio de contraseña, When `newPassword` tiene espacios al principio o al final, Then no se
-  recortan (la contraseña guardada los conserva), como hoy.
+  reglas y devuelve los mismos códigos; y `remember=true` por formulario sigue dando `BAD_REQUEST`.
+- **AC-13** — Given una cuenta con sesión, When cambia la contraseña con `newPassword: " clave123 "` y después hace
+  login con `"clave123"`, Then el login entra.
+- **AC-13b** — Given el cambio de contraseña, When `newPassword` es `"  abcdef  "`, Then recibe 400
+  `NEW_PASSWORD_LENGTH`; When es `"        "` (8 espacios), Then recibe 400 `NEW_PASSWORD_BLANK`, como hoy.
+- **AC-13c** — Given el cambio de contraseña, When `currentPassword` es la correcta con un espacio al final, Then el
+  cambio se acepta (204).
 - **AC-14** — Given el control de la suite, When una ruta del alcance lee cuerpo, query o id sin un esquema declarado,
   Then el control falla.
 - **AC-15** — Given el cliente, When el server responde `LOAN_DATE_INVALID`, Then la pantalla muestra el texto de la
@@ -235,12 +272,33 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **suposición tomada** — los dos 500 de hoy son deducciones del código. *Base:* lectura de `loansRoutes.ts` y del
   cálculo del desplazamiento de página. *Riesgo:* si en Postgres no dan 500, las filas de "Hoy" cambian, pero el
   resultado "Después" es el mismo. AC-17 lo deja escrito.
-- **pregunta abierta** — el registro y el login recortan la contraseña, pero el cambio de contraseña no. Alguien que
-  cambia a `" clave123 "` no puede volver a entrar, porque el login manda `"clave123"`. Es un bug de hoy, deducido del
-  código, que esta spec conserva (AC-13). ¿Entra en este cambio (y cuál de las dos reglas gana) o va como ítem propio del
-  backlog?
+- **suposición tomada** — para que la contraseña sea coherente, el cambio de contraseña pasa a recortar (y no al revés,
+  dejar de recortar en el registro y el login). *Base:* Hernán pidió sumar el arreglo a este cambio (2026-11-20); las
+  contraseñas del registro ya se guardaron recortadas, así que dejar de recortar en el login dejaría afuera a quien
+  tipea un espacio de más. *Riesgo:* quien ya guardó una contraseña con espacios por un cambio anterior sigue sin poder
+  entrar (ver *Non-goals*); con 1 cuenta activa en producción, el caso es casi nulo.
+- **suposición tomada** — `?page=` vacía sigue valiendo 1 y `page` repetida pasa a 400. *Base:* lo vacío se trata como
+  ausente en el resto de la app; lo repetido ya da 400 en los otros parámetros de búsqueda desde 5e. *Riesgo:* bajo; la
+  pantalla nunca manda ninguno de los dos.
+- **suposición tomada** — un tipo equivocado en `category` o `condition` (número, lista) se rechaza en el lugar que hoy
+  ocupa esa regla (después de leer la base), no antes. *Base:* conservar la precedencia de hoy (AC-1, AC-10b).
+  *Riesgo:* el plan puede proponer revisar el tipo antes; si lo hace, tiene que listar el cambio de precedencia como
+  respuesta nueva.
 - **decisión diferida** — unificar en un solo lugar la regla de la lista de categorías y condiciones (hoy en ruta,
   servicio y repositorio). Es limpieza interna; el plan decide si entra o queda para después.
 - **decisión diferida** — formato de email en el registro. Sería una regla nueva; queda fuera de este ciclo.
+
+## Revisions
+
+- **2026-11-20 — borrador 1.** Alcance, fila 40 (código nuevo y texto con formato) y `page` solo dígitos, elegidos por
+  Hernán (D16).
+- **2026-11-20 — el recorte de contraseña entra en el cambio.** Hernán pidió sumar el arreglo ("Sumalo a este
+  cambio"). El cambio de contraseña pasa a recortar (Problem 3, tres filas nuevas en *What result they get*, AC-13 a
+  AC-13c).
+- **2026-11-20 — revisión con ojos frescos 1** (5 hallazgos, todos aplicados). (1) Las reglas de herramientas que hoy
+  corren después de leer la base conservan su lugar (Goals, Behaviour, AC-9, AC-10b). (2) El formato UUID del id no se
+  valida: la base lo sigue resolviendo y las ~45 pruebas con ids falsos no cambian (Non-goals). (3) AC-9 mide solo el
+  manejador, después del chequeo de sesión. (4) `?page=` vacía = 1 y `page` repetida = 400, ahora escritos. (5) Mismo
+  esquema para JSON y formulario, sin convertir tipos (AC-12).
 </content>
 </invoke>
