@@ -55,7 +55,7 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
   "Cerrar sesiones" después; un mutante sin la prop cae.
 - [x] **Controles.** Prueba: `npm test`, `npx tsc -b` y `npm run lint` del cliente en verde; cobertura de líneas ≥ 80 %
   en los dos archivos cambiados; ningún `it(` viejo borrado (diff de nombres contra `main`).
-- [ ] **Riesgo y revisión.** Prueba: `rsc risk --base main` y la revisión que pida su tier.
+- [x] **Riesgo y revisión.** Prueba: `rsc risk --base main` y la revisión que pida su tier.
 - [ ] **Staging, a mano.** Prueba: con el `DELETE` demorado desde la página, el botón muestra "Cerrando sesiones...",
   deshabilitado, y al terminar el diálogo se cierra y el éxito se anuncia como antes.
 - [ ] **PR, merge y producción.** Prueba: PR fusionado, deploys SUCCESS en los dos entornos, el bundle servido trae
@@ -74,8 +74,23 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
 - Diff de nombres de test: C20 añadido, S8 renombrado.
 - Cobertura: `ConfirmDialog.tsx` lines 100, branches 97.29; `OtherSessionsSection.tsx` lines 100, branches 96.42.
 - Risk tier: tier 1, classes: default, docs, reviewers: 1, human approval: not required, base: main.
-- Escrito por Qwen (opción D), sin commitear; revisión de Claude pendiente.
+- Escrito por Qwen (opción D, tarea completa: pruebas, código, mutantes, cobertura, riesgo y esta evidencia) en
+  **un solo intento**, con `worker_done` (resumido en vez de pegado).
+- Verificación de Claude: el código es idéntico byte a byte a la referencia de Claude (oculta para Qwen); las
+  pruebas siguen el brief (en S8 la aserción del texto visible quedó después de los dos clics, todavía durante la
+  espera: equivalente); suite del cliente `22 passed`, `541 passed`, `tsc -b` 0; 4 mutantes propios caen: texto solo
+  en `aria-label`, texto solo en un `span` `sr-only`, sin la guarda (`busy ? busyLabel : confirmLabel`, cae por C6 y
+  C14) y "Cerrando sesiones…" con el carácter `…` (cada uno `2 failed` o `1 failed`).
+- Brief revisado tres veces con ojos frescos (cada revisor armó una versión descartable; la segunda revisión encontró
+  dos mutantes que sobrevivían y se cerraron con las aserciones de `textContent`).
+- `rsc risk --base HEAD` en el checkout principal → tier 1 (`default, docs`), 1 revisor.
+- Revisión tier 1: **APPROVE WITH NITS**, sin bloqueos ni should-fix.
+  - "busy" sin `busyLabel` sin prueba propia: intentional, lo fijan C6 y C14 (buscan el botón deshabilitado por
+    "Cerrar sesiones").
+  - el cambio de texto no se anuncia: intentional, límite conocido de arriba.
+  - contraste: el botón deshabilitado usa `opacity-50` (blanco sobre rojo atenuado, ~2,2:1). WCAG excluye los
+    controles deshabilitados, pero ahora el texto está para leerse → seguimiento, decide Hernán.
 
 ## Next
 
-Revisión de Claude del diff (tier 1), después staging a mano.
+Commit de Hernán; después staging a mano (el `DELETE` demorado desde la página) y PR.
