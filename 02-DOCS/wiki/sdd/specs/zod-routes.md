@@ -63,7 +63,8 @@ descartó: debilita la regla por escrito y deja la validación repartida como es
   declarado. Las reglas que hoy corren antes de cualquier trabajo del manejador siguen corriendo antes: si fallan, el
   manejador no lee la base ni calcula hashes. Las reglas que hoy corren después de leer la base (ver *Behaviour*)
   conservan su lugar.
-- Cada entrada que hoy tiene una respuesta fijada (status + código) **sigue recibiendo exactamente la misma**. Eso
+- Cada entrada **sigue recibiendo exactamente la respuesta (status + código) que le da el código de hoy**, esté o no
+  fijada por una prueba. Eso
   incluye cuál error gana cuando fallan varios campos a la vez.
 - Ninguna entrada mal formada en cuerpo, query o id produce un 500.
 - Una fecha de préstamo mal formada recibe un error propio (fila 40), con un texto que ve el usuario.
@@ -134,15 +135,28 @@ otras sesiones, health) quedan fuera, porque no tienen nada que validar.
 
 ## What result they get
 
-La referencia aprobada es **la respuesta de hoy**: cada caso que las pruebas actuales fijan (status + código) es el
-resultado esperado. Las únicas respuestas nuevas son estas:
+La referencia aprobada es **la respuesta del código de hoy**, esté o no fijada por una prueba. Para cada entrada, el
+status y el código que hoy devuelve el server son el resultado esperado. Hoy hay bordes que no fija ninguna prueba, y
+un esquema escrito "de forma natural" los cambiaría sin que nada falle. Esos bordes se conservan, y el plan los fija
+con pruebas **contra el código viejo antes del refactor** (AC-18):
+
+- nota `""` o de solo espacios → se guarda sin nota; el tope de 300 se mide después de recortar;
+- `status: ""` → `BAD_REQUEST`; un `status` de texto desconocido → 409 `LOAN_TRANSITION_INVALID` (no un 400);
+- `type` repetido o vacío en `GET /api/loans` → `BAD_REQUEST`;
+- `q=`, `category=` o `neighborhood=` vacíos → no filtran; una categoría o un barrio desconocidos → listado vacío (200);
+- un cuerpo JSON que es una lista → se trata como un objeto sin campos (el error de "falta" de esa ruta, o
+  `TOOL_EDIT_EMPTY` en la edición);
+- `PATCH /api/tools/:id` con `is_paused: true` y una edición inválida → el error de la edición, y la herramienta no
+  queda pausada.
+
+Las únicas respuestas nuevas son estas:
 
 | Entrada | Hoy (deducido) | Después |
 | --- | --- | --- |
 | `endDate` que no es un día real (`"mañana"`, `"2099-02-30"`) con un `startDate` real, o `startDate: "2099-02-30"` | pasa las comparaciones de texto y llega a la base: probablemente 500 `INTERNAL_ERROR` | 400 `LOAN_DATE_INVALID` (fila 40) |
 | `startDate: "mañana"` con un `endDate` real | 400 `LOAN_END_BEFORE_START` (`"2099-…" < "mañana"` en texto) | 400 `LOAN_DATE_INVALID` (fila 40) |
 | fecha mal formada que hoy pasa las comparaciones de texto, sobre una herramienta inexistente (o id no UUID), pausada o propia | 404 `TOOL_NOT_FOUND`, 409 `TOOL_PAUSED` o 400 `LOAN_OWN_TOOL` (la fecha recién llega a la base después de esos chequeos) | 400 `LOAN_DATE_INVALID`: el formato se revisa antes de buscar la herramienta |
-| una fecha real sin ceros (`"2026-1-5"`) | la base la acepta, pero la comparación de texto con "hoy" y con la otra fecha da resultados equivocados (p. ej. "ya pasó" para una fecha futura) | 400 `LOAN_DATE_INVALID` (fila 40) |
+| una fecha real sin ceros (`"2026-1-5"`) | la base la acepta, pero la comparación de texto con "hoy" y con la otra fecha da resultados equivocados (p. ej. `endDate: "2027-1-5"` con `startDate: "2027-01-10"` pasa como "fin después del inicio", porque `"2027-01-10" < "2027-1-5"` en texto) | 400 `LOAN_DATE_INVALID` (fila 40) |
 | `page` que no es solo dígitos (`1abc`, `1.5`, `%202`, `-1`, `0`) | se acepta como 1 o 2, o 400 | 400 `BAD_REQUEST` |
 | `page` de solo dígitos pero demasiado grande para representarse | probablemente 500 | 400 `BAD_REQUEST` |
 | `page` repetido (`?page=1&page=2`) | se acepta como la primera de las dos (`?page=2&page=3` → página 2) | 400 `BAD_REQUEST` (como `q`, `category` y `neighborhood` repetidos desde 5e) |
@@ -160,13 +174,25 @@ resultado esperado. Las únicas respuestas nuevas son estas:
 
 El formato de la respuesta de error no cambia: `{ "error": { "code", "message" } }`.
 
+**Qué abarca la enmienda de la fila 40** (todo en la misma rama que el server):
+
+1. en la spec error-codes, la fila 40 va en la sección **Préstamos**, después de la 27 (la numeración sigue siendo
+   correlativa por orden de alta, como las filas 38 y 39);
+2. en la tabla de códigos del server, `LOAN_DATE_INVALID` con status 400, anotado como fila 40;
+3. en la tabla de mensajes del cliente, el código con el texto de la fila 40;
+4. la prueba del cliente que recorre la tabla suma la fila 40 y pasa de 39 a 40 filas;
+5. en *Revisions* de la spec error-codes, una entrada con el mismo formato que las de las filas 38 y 39 ("la tabla pasa
+   de 39 a 40 mensajes").
+
 ## What it must respect
 
 - **D15**: esta es la feature que D15 prometió. Cerrarla es cumplir el principio 13, no enmendarlo.
 - **Lo que ya arreglaron 5b, 5d, 5e y 5f** ([server-input-bugs](../../ftd/server-input-bugs.md),
   [malformed-input-leftovers](../../ftd/malformed-input-leftovers.md)):
   - un tipo inesperado en un campo de texto (número, lista, objeto) se trata como "falta" donde hoy se hace así;
-  - sin cuerpo, o con un cuerpo que no es JSON, se responde como si el cuerpo estuviera vacío;
+  - sin cuerpo, o con un `Content-Type` que el server no lee, se responde como si el cuerpo estuviera vacío;
+  - un JSON mal formado da 400 `BAD_REQUEST` ("Malformed JSON body") **antes** de la sesión y de la ruta, como hoy;
+    también un JSON de nivel superior que no es objeto ni lista (un texto, un número);
   - un parámetro de búsqueda repetido (`?q=a&q=b`) da 400;
   - la descripción vacía en la edición da 400;
   - **un id que no es un UUID da 404** (`TOOL_NOT_FOUND` / `LOAN_NOT_FOUND`), igual que un UUID que no existe. No se
@@ -180,7 +206,7 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **El mismo esquema para JSON y para formulario, sin convertir tipos**: el server acepta los dos formatos y aplica
   las mismas reglas. Un formulario no puede mandar booleanos, así que `remember=true` o `is_paused=true` por formulario
   siguen dando `BAD_REQUEST`, como hoy.
-- **Constitución**: principio 4 (calidad: `tsc -b` y lint en 0), principio 6 (cobertura ≥ 80 % de líneas por archivo
+- **Constitución**: principio 4 de calidad (lint en 0), principio 5 (tipos estrictos, `tsc -b` en 0), principio 6 (cobertura ≥ 80 % de líneas por archivo
   cambiado), principio 10 (rama + PR), principio 13 (el resto queda como está).
 
 ## How it proves it
@@ -190,7 +216,8 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **La suite actual sin cambiar ninguna expectativa.** Las pruebas existentes que fijan status y código pasan sin
   editar lo que esperan. Un diff de los `it(` y de los `expect` de las pruebas viejas lo muestra. Las únicas pruebas
   viejas que pueden cambiar son las que fijan una fila de *What result they get* (p. ej. una que acepte `page=1abc` o
-  una contraseña nueva con espacios); cada una se lista en el plan con su razón.
+  una contraseña nueva con espacios); cada una se lista en el plan con su razón. Ya se sabe de una: la prueba del
+  cliente que cuenta las filas de la tabla de mensajes (`messages.test.ts`, hoy 39) pasa a esperar 40.
 - **Un control en la suite** que falla si una ruta lee cuerpo, query o id sin pasarlo por un esquema declarado. Hay que
   verlo fallar una vez contra una ruta escrita a propósito sin esquema.
 - **Mutantes**: sacar el esquema de una ruta, o aflojar una regla, hace fallar alguna prueba.
@@ -233,8 +260,8 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 
 ## Acceptance criteria
 
-- **AC-1** — Given cualquier pedido que hoy tiene una respuesta fijada por una prueba, When se manda después del
-  cambio, Then recibe el mismo status y el mismo código.
+- **AC-1** — Given cualquier pedido fijado hoy por una prueba o por la lista de bordes de *What result they get*, When
+  se manda después del cambio, Then recibe el mismo status y el mismo código (salvo las filas de respuestas nuevas).
 - **AC-2** — Given un pedido a una ruta del alcance con dos o más campos inválidos, When se manda, Then gana el mismo
   código que hoy (una prueba por ruta con al menos un par de campos).
 - **AC-3** — Given un usuario con sesión y una herramienta disponible, When pide un préstamo con
@@ -257,8 +284,8 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   de esa entidad.
 - **AC-10b** — Given `PATCH /api/tools/:id` sobre una herramienta ajena, When el cuerpo trae una categoría inválida,
   Then recibe `TOOL_NOT_OWNER`, como hoy.
-- **AC-11** — Given una ruta protegida, When se llama sin sesión y con el cuerpo inválido, Then recibe
-  `SESSION_REQUIRED`.
+- **AC-11** — Given una ruta protegida, When se llama sin sesión y con un JSON válido de campos inválidos, Then recibe
+  `SESSION_REQUIRED`; When se llama sin sesión y con un JSON mal formado, Then recibe 400 `BAD_REQUEST`, como hoy.
 - **AC-12** — Given el registro o el login, When el cuerpo llega como formulario en vez de JSON, Then aplica las mismas
   reglas y devuelve los mismos códigos; y `remember=true` por formulario sigue dando `BAD_REQUEST`.
 - **AC-13** — Given una cuenta con sesión, When cambia la contraseña con `newPassword: " clave123 "` y después hace
@@ -276,6 +303,12 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   fila 40.
 - **AC-16** — Given un error que produce el esquema (no los de transición de préstamo), When se lee su `message`, Then
   no contiene el valor que mandó el cliente.
+- **AC-18** — Given cada borde de la lista de *What result they get* (nota vacía, `status` vacío o desconocido, `type`
+  repetido o vacío, filtros vacíos o desconocidos, cuerpo lista, pausa con edición inválida), When se prueba contra el
+  código de hoy y después contra el nuevo, Then la respuesta (status + código, y para la pausa, que la herramienta no
+  quede pausada) es la misma en las dos corridas.
+- **AC-19** — Given la tabla de códigos, When se cuentan las filas, Then hay 40 en la spec de error-codes, en el
+  cliente y en su prueba, y `LOAN_DATE_INVALID` aparece con status 400 en la tabla del server.
 - **AC-17** — Given staging con Postgres real, When se mandan `endDate: "mañana"`, `startDate: "2099-02-30"` y
   `?page=99999999999999999999`, Then responden 400 (y queda escrito si antes daban 500).
 
@@ -337,5 +370,11 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   categorías vive en el servicio y el repositorio, no en la ruta. (3) Una página enorme escrita a mano en la URL de la
   pantalla hoy da 500 y después muestra la fila 34. (4) `page` repetida hoy toma la primera, no siempre la 1.
   Hernán aceptó la decisión (1): "Acepto esa decisión incluida" (2026-11-20). No es la aprobación de la spec.
+- **2026-11-20 — revisión con ojos frescos 4** (0 bloqueos, 3 should-fix y 2 nits, todos aplicados). (1) La referencia
+  pasa a ser el código de hoy, no solo las pruebas; seis bordes sin prueba quedan listados y se fijan contra el código
+  viejo antes del refactor (AC-18). (2) El JSON mal formado da 400 antes de la sesión, como hoy; AC-11 se separa en los
+  dos casos. (3) La enmienda de la fila 40 queda detallada en cinco puntos, incluida la prueba del cliente que pasa de
+  39 a 40 filas (AC-19). (4) `tsc -b` es el principio 5, no el 4. (5) El ejemplo de `"2026-1-5"` usa el caso real
+  ("fin antes que inicio" mal comparado).
 </content>
 </invoke>
