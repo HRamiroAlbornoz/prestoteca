@@ -429,3 +429,36 @@ slug: server-sessions
 - pendiente acordado con Hernán: sumar antes del panel de cierre del PR 2 (T015) una prueba en `session.test.tsx`
   que fije el `replace` de la redirección de `PrivateRoute` (abrir `/loans` sin sesión → login → "atrás" no vuelve a
   rebotar). Lo cubre el panel de cierre, que revisa toda la rama.
+
+## T013 — 2026-11-20
+
+- status: complete (sin commitear al escribir esta entrada).
+- quién: **Qwen escribió el componente y las pruebas** (opción D elegida por Hernán: "darle otra oportunidad"), con
+  un brief de especificación de Claude (interfaz, marcado, 7 reglas, lista cerrada de pruebas, rojo → verde, dos
+  autochequeos de mutantes). Dos revisiones del brief con ojos frescos, cada una con una versión descartable para
+  probar que se podía cumplir. Qwen entregó en **un solo intento** (`ALL CHECKS MATCHED`).
+- decisión de Hernán (opción A, registrada en el plan): mientras el padre espera (`busy`), los dos botones quedan
+  deshabilitados, Escape no hace nada y el foco queda en el panel. La prop `confirmDisabled` del plan pasó a `busy`.
+- archivos nuevos: `client/src/components/ConfirmDialog.tsx` (131 líneas) y `ConfirmDialog.test.tsx` (390 líneas,
+  19 pruebas C1-C19).
+- cambio de Claude después del revisor (sin cambio de comportamiento): sacó condiciones repetidas de la trampa de foco
+  (`enabled.length > 0`, `panelRef.current &&`), con comentarios por caso; sumó C19 (adentro de un `<form>`, los
+  botones no lo envían).
+- done-check:
+  - rojo: `Failed to resolve import "./ConfirmDialog"`, `vitest exit 1` ✅
+  - `npx vitest run src/components/ConfirmDialog.test.tsx` → `19 passed` ✅
+  - `npm test` (cliente) → `21 passed`, `516 passed` (497 + 19); `npx tsc -b` 0; `oxlint` 0 ✅
+  - mutantes: 2 de Qwen (trampa sin `preventDefault` → C4, C5, C6, C14, C18; sin devolver el foco → C7, C8, C10) y
+    16 de Claude D1-D16 (`prestoteca-briefs/T013-files/t013-mutate.mjs`), todos muertos ✅
+- `rsc risk --base HEAD` → **tier 1** (1 revisor, sin aprobación humana).
+- review (tier 1, ronda 1): APPROVE WITH NITS, 12 mutantes nuevos: 7 muertos, 1 hueco real (confirm sin
+  `type="button"` → fixed con C19 y D16), 4 equivalentes (doble foco inicial en los dos efectos, guarda `!open` del
+  segundo efecto, ref leído tarde, `returnFocusTo` fuera de las dependencias — equivalentes con un ref estable).
+  - nits anotados, sin cambio: los dos efectos enfocan "Cancelar" al abrir (se dejan tal cual los validaron las dos
+    revisiones del brief); `returnFocusTo` en línea haría saltar el foco (ya está en las notas de T014: siempre
+    `useRef`); Escape no corta la propagación ni mira `isComposing` (nadie más escucha Escape hoy).
+- para T014: mientras `busy`, el panel tiene foco sin indicador visible (`focus:outline-hidden`, como pide el
+  marcado) y la espera solo se anuncia con `aria-busy`; T014 puede cambiar el texto del botón o usar su región viva.
+  Revisar a mano en staging (T015) cómo se ve el foco durante la espera.
+- controls: tests ✅ build ✅ security ✅ (sin pedidos ni datos) traceability ✅ (AC-18 del lado del diálogo).
+- decision: ninguna nueva (la de `busy` ya está en el plan). Siguiente: commit de Hernán → T014.
