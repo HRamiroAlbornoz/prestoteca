@@ -543,4 +543,6 @@ slug: server-sessions
 - `rsc risk --base origin/main` sigue mostrando la línea `escalate: asdd`: sale siempre que el tier es 2
   (`scripts/lib/risk.js:55`, sin chequear nada); el que exige la spec es el guard de push. La spec commiteada tiene
   `branch: feat/server-sessions-client` y pasa `spec gate`.
-- siguiente: aprobación explícita de Hernán (paso 6) → push y PR → `railway up -e staging` con revisión a mano.
+- paso 6: **Hernán aprobó el PR 2** el 2026-11-20 ("Sí, apruebo el PR 2"), después de ver la puerta y las dos rondas
+  del panel ✅
+- siguiente: push y PR (Hernán) → `railway up -e staging` con revisión a mano → merge → smoke en producción.
