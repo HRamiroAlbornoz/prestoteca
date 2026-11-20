@@ -577,5 +577,11 @@ slug: server-sessions
     de T013/T014. Mejora posible para después: un texto "Cerrando…" en el botón de confirmar mientras espera.
   - limpieza: `DELETE /api/me/account` → 204, `/api/me` → 401, login con esa cuenta → 401; archivos temporales con
     la contraseña y la cookie borrados.
-- siguiente: actualizar la sección de staging del PR #53 → merge → deploys de los dos entornos → smoke en
-  producción → verificación del PR 2.
+- PR #53: cuerpo actualizado con staging en PASS; **merge con squash → `2821bec`** (Hernán), rama borrada en local y
+  en GitHub.
+- producción: deploys SUCCESS `main` `2821bec` en producción y en staging; bundle `index-ZsIom9ol.js` (el de staging)
+  con los tres textos; `smoke.mjs` contra producción → `SMOKE OK`, exit 0 ✅
+- verificación: [server-sessions-pr2-2026-11-20](../verifications/server-sessions-pr2-2026-11-20.md) — **PASS**.
+- status: **complete**.
+- siguiente: T016 (las dos suites, `tsc`, lint y cobertura sobre `main`; opción D: brief para Qwen, revisado y con el
+  OK de Hernán) → sacar `JWT_SECRET` de Railway desde el 2026-11-27.
