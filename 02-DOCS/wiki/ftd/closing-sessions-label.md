@@ -64,7 +64,7 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
 - [x] **Controles.** Prueba: `npm test`, `npx tsc -b` y `npm run lint` del cliente en verde; cobertura de líneas ≥ 80 %
   en los dos archivos cambiados; ningún `it(` viejo borrado (diff de nombres contra `main`).
 - [x] **Riesgo y revisión.** Prueba: `rsc risk --base main` y la revisión que pida su tier.
-- [ ] **Contraste mientras espera.** Prueba: C21 y C22 en verde; un mutante con `opacity-50` de vuelta, otro con el
+- [x] **Contraste mientras espera.** Prueba: C21 y C22 en verde; un mutante con `opacity-50` de vuelta, otro con el
   hover sin `enabled:` y otro sin el override de modo oscuro caen; el CSS compilado (`npm run build`) trae
   `.disabled\:bg-red-800:disabled`, `.enabled\:hover\:bg-red-700:enabled:hover` y el override `#a1a1aa`; suite,
   `tsc -b` y lint en verde.
@@ -104,8 +104,20 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
   - el cambio de texto no se anuncia: intentional, límite conocido de arriba.
   - contraste: el botón deshabilitado usa `opacity-50` (blanco sobre rojo atenuado, ~2,2:1). WCAG excluye los
     controles deshabilitados, pero ahora el texto está para leerse → seguimiento, decide Hernán.
+- Contraste (Qwen, opción D, sin commitear):
+  - Rojo: con solo las pruebas, `Tests  2 failed | 41 passed (43)` (C21 y C22).
+  - Verde en `src/components`: `Tests  43 passed (43)`.
+  - Suite completa del cliente: `Tests  543 passed (543)`.
+  - `tsc -b`: exit 0.
+  - `npm run lint`: exit 0.
+  - Mutante 1 (`disabled:bg-red-800` → `disabled:opacity-50`): `Tests  1 failed | 42 passed (43)`.
+  - Mutante 2 (`enabled:hover:bg-red-700` → `hover:bg-red-700`): `Tests  1 failed | 42 passed (43)`.
+  - Mutante 3 (`disabled:text-gray-500` → `disabled:opacity-50`): `Tests  1 failed | 42 passed (43)`.
+  - Mutante 4 (sin override CSS `#A1A1AA`): `Tests  1 failed | 42 passed (43)`.
+  - Diff de nombres de test: C21 y C22 añadidos (20a21,22).
+  - CSS compilado: `.disabled\:bg-red-800:disabled` → 1, `.enabled\:hover\:bg-red-700:enabled:hover` → 1, `.disabled\:text-gray-500:disabled{color:#a1a1aa}` → 1.
+  - Risk tier: `tier 1`, `classes: default`, `reviewers: 1`, `human approval: not required`.
 
 ## Next
 
-Contraste: brief de opción D (tarea completa) para Qwen, revisión con ojos frescos y OK de Hernán; después staging a
-mano y PR. (El "Cerrando sesiones..." ya está commiteado en `9cd1fd8`.)
+Contraste: revisión de Claude del diff, después staging a mano y PR.
