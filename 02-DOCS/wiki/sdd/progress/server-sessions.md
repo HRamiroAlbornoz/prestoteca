@@ -358,4 +358,15 @@ slug: server-sessions
   - aplicada con `ON_ERROR_STOP=1 -1` → `CREATE TABLE`, `CREATE INDEX`, exit 0 ✅
   - después: 6 columnas `NOT NULL` (`token_hash` `character`), `PRIMARY KEY (id)`, `UNIQUE (token_hash)`,
     `FOREIGN KEY (user_id) REFERENCES users(id)` sin `ON DELETE`, índice `idx_sessions_user`; 0 filas ✅
-- siguiente: merge del PR #51 → deploys de los dos entornos → smoke en producción.
+- merge: Hernán fusionó el PR #51 (squash) → `main` en `9c89186`; rama borrada en local y en GitHub ✅
+- deploys desde `main`: producción `975632f8` SUCCESS, staging `c44fd3bc` SUCCESS (los dos 23:31 -03:00) ✅
+- `GET /api/health` → 200 en los dos entornos; log de arranque de producción sin errores (la purga de AC-37 corrió
+  sin fallar) ✅
+- `smoke.mjs` contra producción → **SMOKE OK** (cookie `Secure` + `HttpOnly`, CSRF, login/logout, herramientas,
+  préstamos, borrado de cuenta); detalle en la verificación §6 ✅
+- solo lectura después: 1 cuenta activa (la cuenta fija de prueba), 0 cuentas `smoke-*` activas, 0 filas en
+  `sessions`, 0 sesiones de cuentas borradas ✅
+- status: complete — **el PR 1 de server-sessions está en producción.**
+- pendiente: borrar `JWT_SECRET` de Railway (los dos entornos) cuando el PR 2 lleve una semana estable en producción.
+- siguiente: PR 2 (cliente), empezando por T011 — Hernán instala `@testing-library/user-event@14.6.1` en el cliente
+  desde una rama nueva del PR 2.
