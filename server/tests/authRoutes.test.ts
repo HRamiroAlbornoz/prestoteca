@@ -1,12 +1,24 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { describe, expect, it, vi, beforeAll, beforeEach } from 'vitest'
 import request from 'supertest'
 import express from 'express'
 import cookieParser from 'cookie-parser'
+import bcrypt from 'bcrypt'
 import { authRoutes } from '../src/modules/auth/authRoutes.js'
 import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import { authRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
 import { AppError } from '../src/modules/errors/AppError.js'
+import { hashSessionToken, newSessionToken } from '../src/modules/auth/sessionToken.js'
+import { createFakeTransaction } from './fakeTransaction.js'
+
+// An old JWT: three dotted parts, never a value the server issues now
+const OLD_JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6InVzZXItMSJ9.c2lnbmF0dXJlLXRoYXQtaXMtbm90LXJlYWw'
+
+// The value of the token cookie in a Set-Cookie header ("token=<value>; Path=/; …")
+function cookieValue(setCookie: string | undefined): string {
+  const firstPart = (setCookie ?? '').split(';')[0] ?? ''
+  return firstPart.slice('token='.length)
+}
 
 function createMockApp() {
   const usersByEmail = new Map<string, { id: string; name: string; email: string; password_hash: string; neighborhood: string }>()
@@ -33,17 +45,26 @@ function createMockApp() {
     }),
   }
 
+  // Every method a test could expect NOT to be called is here, so "not called" is a real check
+  const sessionRepo = {
+    createIfPasswordCurrent: vi.fn(async () => true),
+    deleteByTokenHash: vi.fn(async () => undefined),
+    deleteOthers: vi.fn(async () => 0),
+    deleteAllForUser: vi.fn(async () => 0),
+  }
+  const tx = createFakeTransaction()
+
   const app = express()
   app.use(express.json())
   app.use(cookieParser())
   app.use(authRateLimiter)
-  app.use('/api/auth', authRoutes(mockRepo as UserRepository, 'test-secret', 'http://localhost:5173'))
+  app.use('/api/auth', authRoutes(mockRepo as UserRepository, sessionRepo, tx.pool))
 
-  return { app, usersByEmail }
+  return { app, usersByEmail, mockRepo, sessionRepo, tx }
 }
 
 describe('auth routes', () => {
-  let { app } = createMockApp()
+  const { app } = createMockApp()
 
   beforeEach(() => {
     resetRateLimiter()
@@ -301,6 +322,344 @@ describe('auth routes', () => {
       // Cookie should be expired (Expires in the past or Max-Age=0)
       const cookieHeader = res.headers['set-cookie'][0]
       expect(cookieHeader).toMatch(/(Expires=.*1970|Max-Age=0)/)
+    })
+  })
+
+  // --- server sessions (T004). Each test builds its own app, so mock call histories never mix ---
+  describe('server sessions', () => {
+    const EMAIL = 'carlos@example.com'
+    const PASSWORD = 'carlos123'
+    let storedHash = ''
+
+    beforeAll(async () => {
+      // Cost 4 keeps the tests fast; login only compares against whatever hash is stored
+      storedHash = await bcrypt.hash(PASSWORD, 4)
+    })
+
+    // An app with one registered user, Carlos
+    function appWithUser() {
+      const mock = createMockApp()
+      mock.usersByEmail.set(EMAIL, {
+        id: 'user-1',
+        name: 'Carlos',
+        email: EMAIL,
+        password_hash: storedHash,
+        neighborhood: 'Centro',
+      })
+      return mock
+    }
+
+    const REGISTER_BODY = { name: 'Ana', email: 'ana@example.com', password: 'ana12345', neighborhood: 'Centro' }
+
+    describe('login', () => {
+      it('AC-26 AC-22 AC-35 without "remember": a short session stored by its hash, cookie without Max-Age or Expires', async () => {
+        const { app, sessionRepo, tx } = appWithUser()
+
+        const res = await request(app).post('/api/auth/login').send({ email: EMAIL, password: PASSWORD })
+
+        expect(res.status).toBe(200)
+        expect(res.body).toEqual({ message: 'Logged in successfully' })
+        const cookie = res.headers['set-cookie']![0]
+        const value = cookieValue(cookie)
+        expect(value).toMatch(/^[A-Za-z0-9_-]{43}$/)
+        expect(cookie).toContain('HttpOnly')
+        expect(cookie).toContain('SameSite=Lax')
+        expect(cookie).toContain('Path=/')
+        expect(cookie).not.toContain('Max-Age')
+        expect(cookie).not.toContain('Expires')
+
+        expect(sessionRepo.createIfPasswordCurrent).toHaveBeenCalledTimes(1)
+        const [userId, expectedHash, tokenHash, remember, now, db] = sessionRepo.createIfPasswordCurrent.mock
+          .calls[0] as unknown as [string, string, string, boolean, Date, unknown]
+        expect(userId).toBe('user-1')
+        expect(expectedHash).toBe(storedHash)
+        expect(tokenHash).toBe(hashSessionToken(value))
+        expect(tokenHash).not.toBe(value)
+        expect(remember).toBe(false)
+        expect(now).toBeInstanceOf(Date)
+        expect(db).toBe(tx.client)
+        expect(tx.statements).toEqual(['BEGIN', 'COMMIT'])
+        expect(tx.release).toHaveBeenCalledTimes(1)
+      })
+
+      it('AC-21 with remember: true → a "Recordarme" session and a cookie of 7 days', async () => {
+        const { app, sessionRepo } = appWithUser()
+
+        const res = await request(app).post('/api/auth/login').send({ email: EMAIL, password: PASSWORD, remember: true })
+
+        expect(res.status).toBe(200)
+        expect(res.headers['set-cookie']![0]).toContain('Max-Age=604800')
+        expect(sessionRepo.createIfPasswordCurrent.mock.calls[0]).toHaveProperty('3', true)
+      })
+
+      it('AC-22 with remember: false → a short session', async () => {
+        const { app, sessionRepo } = appWithUser()
+
+        const res = await request(app).post('/api/auth/login').send({ email: EMAIL, password: PASSWORD, remember: false })
+
+        expect(res.status).toBe(200)
+        expect(res.headers['set-cookie']![0]).not.toContain('Max-Age')
+        expect(sessionRepo.createIfPasswordCurrent.mock.calls[0]).toHaveProperty('3', false)
+      })
+
+      it.each([
+        ['the text "si"', 'si'],
+        ['null', null],
+        ['the number 1', 1],
+      ])('AC-25 remember as %s → 400 BAD_REQUEST, before checking the password, without a session', async (_case, remember) => {
+        const { app, sessionRepo, mockRepo } = appWithUser()
+
+        const res = await request(app).post('/api/auth/login').send({ email: EMAIL, password: PASSWORD, remember })
+
+        expect(res.status).toBe(400)
+        expect(res.body.error.code).toBe('BAD_REQUEST')
+        expect(res.headers['set-cookie']).toBeUndefined()
+        expect(sessionRepo.createIfPasswordCurrent).not.toHaveBeenCalled()
+        expect(mockRepo.findByEmail).not.toHaveBeenCalled()
+      })
+
+      it('AC-28 a successful login with a valid incoming cookie revokes that session in the same transaction', async () => {
+        const { app, sessionRepo, tx } = appWithUser()
+        const incoming = newSessionToken()
+
+        const res = await request(app)
+          .post('/api/auth/login')
+          .set('Cookie', `token=${incoming}`)
+          .send({ email: EMAIL, password: PASSWORD })
+
+        expect(res.status).toBe(200)
+        expect(sessionRepo.deleteByTokenHash).toHaveBeenCalledTimes(1)
+        expect(sessionRepo.deleteByTokenHash).toHaveBeenCalledWith(hashSessionToken(incoming), tx.client)
+        expect(sessionRepo.createIfPasswordCurrent.mock.calls[0]).toHaveProperty('5', tx.client)
+        expect(tx.statements).toEqual(['BEGIN', 'COMMIT'])
+        expect(cookieValue(res.headers['set-cookie']![0])).not.toBe(incoming)
+      })
+
+      it.each([
+        ['an old JWT', `token=${OLD_JWT}`],
+        ['a j:{} value', 'token=j:{}'],
+      ])('AC-28 AC-10 a successful login with %s as incoming cookie does not try to revoke it', async (_case, cookie) => {
+        const { app, sessionRepo } = appWithUser()
+
+        const res = await request(app).post('/api/auth/login').set('Cookie', cookie).send({ email: EMAIL, password: PASSWORD })
+
+        expect(res.status).toBe(200)
+        expect(sessionRepo.deleteByTokenHash).not.toHaveBeenCalled()
+      })
+
+      it.each([
+        ['a wrong password (401)', { email: EMAIL, password: 'wrong-password' }, 401],
+        ['a missing password (400)', { email: EMAIL }, 400],
+        ['a bad remember (400)', { email: EMAIL, password: PASSWORD, remember: 'si' }, 400],
+      ])('AC-28 a rejected login with %s leaves the incoming session alone', async (_case, body, status) => {
+        const { app, sessionRepo } = appWithUser()
+
+        const res = await request(app)
+          .post('/api/auth/login')
+          .set('Cookie', `token=${newSessionToken()}`)
+          .send(body)
+
+        expect(res.status).toBe(status)
+        expect(res.headers['set-cookie']).toBeUndefined()
+        expect(sessionRepo.deleteByTokenHash).not.toHaveBeenCalled()
+        expect(sessionRepo.createIfPasswordCurrent).not.toHaveBeenCalled()
+      })
+
+      it('AC-28 revoking the incoming session fails → 500, rolled back, no new session and no cookie', async () => {
+        const { app, sessionRepo, tx } = appWithUser()
+        sessionRepo.deleteByTokenHash.mockRejectedValueOnce(new Error('db down'))
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+        const res = await request(app)
+          .post('/api/auth/login')
+          .set('Cookie', `token=${newSessionToken()}`)
+          .send({ email: EMAIL, password: PASSWORD })
+
+        expect(res.status).toBe(500)
+        expect(res.body.error.code).toBe('INTERNAL_ERROR')
+        expect(res.headers['set-cookie']).toBeUndefined()
+        // The new session was created INSIDE the transaction that was rolled back, so it was never saved
+        expect(sessionRepo.createIfPasswordCurrent.mock.calls[0]).toHaveProperty('5', tx.client)
+        expect(tx.statements).toEqual(['BEGIN', 'ROLLBACK'])
+        errorSpy.mockRestore()
+      })
+
+      // Pins the ORDER of the app: the rate limit answers before the route runs, so nothing is revoked
+      it('AC-28 a login stopped by the rate limit (429) leaves the incoming session alone', async () => {
+        const { app, sessionRepo } = appWithUser()
+        const cookie = `token=${newSessionToken()}`
+        for (let i = 0; i < 5; i++) {
+          await request(app).post('/api/auth/login').set('Cookie', cookie).send({})
+        }
+
+        const res = await request(app).post('/api/auth/login').set('Cookie', cookie).send({ email: EMAIL, password: PASSWORD })
+
+        expect(res.status).toBe(429)
+        expect(res.headers['set-cookie']).toBeUndefined()
+        expect(sessionRepo.deleteByTokenHash).not.toHaveBeenCalled()
+      })
+
+      it('AC-8 AC-33 the password changed or the account was deleted during bcrypt → the same 401, rolled back, no cookie', async () => {
+        const { app, sessionRepo, tx } = appWithUser()
+        sessionRepo.createIfPasswordCurrent.mockResolvedValueOnce(false)
+
+        const res = await request(app)
+          .post('/api/auth/login')
+          .set('Cookie', `token=${newSessionToken()}`)
+          .send({ email: EMAIL, password: PASSWORD })
+
+        expect(res.status).toBe(401)
+        expect(res.body).toEqual({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid credentials' } })
+        expect(res.headers['set-cookie']).toBeUndefined()
+        expect(tx.statements).toEqual(['BEGIN', 'ROLLBACK'])
+        expect(tx.release).toHaveBeenCalledTimes(1)
+      })
+    })
+
+    describe('register', () => {
+      it('AC-24 opens a short session for the new account, even if the body asks for remember', async () => {
+        const { app, sessionRepo, usersByEmail, tx } = createMockApp()
+
+        const res = await request(app).post('/api/auth/register').send({ ...REGISTER_BODY, remember: true })
+
+        expect(res.status).toBe(201)
+        expect(res.body).toEqual({ message: 'Registered successfully' })
+        const cookie = res.headers['set-cookie']![0]
+        expect(cookie).not.toContain('Max-Age')
+        expect(cookie).not.toContain('Expires')
+        const created = usersByEmail.get('ana@example.com')!
+        const [userId, expectedHash, tokenHash, remember, , db] = sessionRepo.createIfPasswordCurrent.mock
+          .calls[0] as unknown as [string, string, string, boolean, Date, unknown]
+        expect(userId).toBe(created.id)
+        expect(expectedHash).toBe(created.password_hash)
+        expect(tokenHash).toBe(hashSessionToken(cookieValue(cookie)))
+        expect(remember).toBe(false)
+        expect(db).toBe(tx.client)
+        expect(tx.statements).toEqual(['BEGIN', 'COMMIT'])
+      })
+
+      it('AC-34 a successful register with a valid incoming cookie revokes that session in the same transaction', async () => {
+        const { app, sessionRepo, tx } = createMockApp()
+        const incoming = newSessionToken()
+
+        const res = await request(app).post('/api/auth/register').set('Cookie', `token=${incoming}`).send(REGISTER_BODY)
+
+        expect(res.status).toBe(201)
+        expect(sessionRepo.deleteByTokenHash).toHaveBeenCalledTimes(1)
+        expect(sessionRepo.deleteByTokenHash).toHaveBeenCalledWith(hashSessionToken(incoming), tx.client)
+        expect(cookieValue(res.headers['set-cookie']![0])).not.toBe(incoming)
+      })
+
+      it('AC-34 revoking the incoming session fails → 500, rolled back, no cookie', async () => {
+        const { app, sessionRepo, tx } = createMockApp()
+        sessionRepo.deleteByTokenHash.mockRejectedValueOnce(new Error('db down'))
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+        const res = await request(app).post('/api/auth/register').set('Cookie', `token=${newSessionToken()}`).send(REGISTER_BODY)
+
+        expect(res.status).toBe(500)
+        expect(res.body.error.code).toBe('INTERNAL_ERROR')
+        expect(res.headers['set-cookie']).toBeUndefined()
+        expect(tx.statements).toEqual(['BEGIN', 'ROLLBACK'])
+        errorSpy.mockRestore()
+      })
+
+      it('AC-34 AC-10 a successful register with a j:{} incoming cookie does not try to revoke it', async () => {
+        const { app, sessionRepo } = createMockApp()
+
+        const res = await request(app).post('/api/auth/register').set('Cookie', 'token=j:{}').send(REGISTER_BODY)
+
+        expect(res.status).toBe(201)
+        expect(sessionRepo.deleteByTokenHash).not.toHaveBeenCalled()
+      })
+
+      it.each([
+        ['a taken email (409)', 409],
+        ['a missing field (400)', 400],
+      ])('AC-34 a rejected register with %s leaves the incoming session alone', async (_case, status) => {
+        const { app, sessionRepo, usersByEmail } = createMockApp()
+        usersByEmail.set('ana@example.com', {
+          id: 'user-9',
+          name: 'Ana',
+          email: 'ana@example.com',
+          password_hash: storedHash,
+          neighborhood: 'Centro',
+        })
+        const body = status === 409 ? REGISTER_BODY : { name: 'Ana' }
+
+        const res = await request(app).post('/api/auth/register').set('Cookie', `token=${newSessionToken()}`).send(body)
+
+        expect(res.status).toBe(status)
+        expect(res.headers['set-cookie']).toBeUndefined()
+        expect(sessionRepo.deleteByTokenHash).not.toHaveBeenCalled()
+        expect(sessionRepo.createIfPasswordCurrent).not.toHaveBeenCalled()
+      })
+
+      it('AC-24 the account vanished right after it was created → 500 INTERNAL_ERROR (never 401), rolled back, no cookie', async () => {
+        const { app, sessionRepo, tx } = createMockApp()
+        sessionRepo.createIfPasswordCurrent.mockResolvedValueOnce(false)
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+        const res = await request(app).post('/api/auth/register').send(REGISTER_BODY)
+
+        expect(res.status).toBe(500)
+        expect(res.body.error.code).toBe('INTERNAL_ERROR')
+        expect(res.headers['set-cookie']).toBeUndefined()
+        expect(tx.statements).toEqual(['BEGIN', 'ROLLBACK'])
+        errorSpy.mockRestore()
+      })
+    })
+
+    describe('logout', () => {
+      it('AC-4 AC-5 deletes ONLY this session, by its hash, and clears the cookie', async () => {
+        const { app, sessionRepo } = createMockApp()
+        const token = newSessionToken()
+
+        const res = await request(app).post('/api/auth/logout').set('Cookie', `token=${token}`)
+
+        expect(res.status).toBe(204)
+        expect(sessionRepo.deleteByTokenHash).toHaveBeenCalledTimes(1)
+        expect(sessionRepo.deleteByTokenHash).toHaveBeenCalledWith(hashSessionToken(token))
+        expect(sessionRepo.deleteOthers).not.toHaveBeenCalled()
+        expect(sessionRepo.deleteAllForUser).not.toHaveBeenCalled()
+        expect(res.headers['set-cookie']?.at(-1)).toMatch(/^token=;.*Expires=Thu, 01 Jan 1970/)
+      })
+
+      it('AC-12 without a cookie → 204, the cookie is cleared, nothing is deleted', async () => {
+        const { app, sessionRepo } = createMockApp()
+
+        const res = await request(app).post('/api/auth/logout')
+
+        expect(res.status).toBe(204)
+        expect(res.headers['set-cookie']?.at(-1)).toMatch(/^token=;.*Expires=Thu, 01 Jan 1970/)
+        expect(sessionRepo.deleteByTokenHash).not.toHaveBeenCalled()
+      })
+
+      it.each([
+        ['an old JWT', `token=${OLD_JWT}`],
+        ['a j:{} value', 'token=j:{}'],
+      ])('AC-10 AC-12 with %s → 204 and cleared, without touching the database', async (_case, cookie) => {
+        const { app, sessionRepo } = createMockApp()
+
+        const res = await request(app).post('/api/auth/logout').set('Cookie', cookie)
+
+        expect(res.status).toBe(204)
+        expect(res.headers['set-cookie']?.at(-1)).toMatch(/^token=;.*Expires=Thu, 01 Jan 1970/)
+        expect(sessionRepo.deleteByTokenHash).not.toHaveBeenCalled()
+      })
+
+      it('AC-30 the database fails → 500 INTERNAL_ERROR and the cookie is NOT cleared', async () => {
+        const { app, sessionRepo } = createMockApp()
+        sessionRepo.deleteByTokenHash.mockRejectedValueOnce(new Error('db down'))
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+        const res = await request(app).post('/api/auth/logout').set('Cookie', `token=${newSessionToken()}`)
+
+        expect(res.status).toBe(500)
+        expect(res.body.error.code).toBe('INTERNAL_ERROR')
+        expect(res.headers['set-cookie']).toBeUndefined()
+        errorSpy.mockRestore()
+      })
     })
   })
 

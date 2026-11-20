@@ -1,4 +1,4 @@
-import type { Pool } from 'pg'
+import type { Pool, PoolClient } from 'pg'
 import { AppError } from '../errors/AppError.js'
 
 const UNIQUE_VIOLATION = '23505'
@@ -157,13 +157,17 @@ export class UserRepository {
     }
   }
 
-  async updatePassword(id: string, passwordHash: string): Promise<boolean> {
+  // With `db` (the client of an open transaction) the change joins that transaction;
+  // without it, it uses a connection of its own.
+  async updatePassword(id: string, passwordHash: string, db?: PoolClient): Promise<boolean> {
+    const sql = `UPDATE users SET password_hash = $1 WHERE id = $2 AND deleted_at IS NULL`
+    if (db) {
+      const res = await db.query(sql, [passwordHash, id])
+      return (res.rowCount ?? 0) > 0
+    }
     const client = await this.pool.connect()
     try {
-      const res = await client.query(
-        `UPDATE users SET password_hash = $1 WHERE id = $2 AND deleted_at IS NULL`,
-        [passwordHash, id],
-      )
+      const res = await client.query(sql, [passwordHash, id])
       // Returns false when the account was deleted meanwhile: nothing is changed
       return (res.rowCount ?? 0) > 0
     } finally {

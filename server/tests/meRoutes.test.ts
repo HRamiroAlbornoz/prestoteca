@@ -55,7 +55,12 @@ describe('meAccountRoutes (no auth)', () => {
   function appWithoutAuth() {
     const app = express()
     app.use(express.json())
-    app.use('/api', meAccountRoutes({} as UserRepository, {} as Pool, 'a'.repeat(32), 'http://localhost:5173'))
+    // Nothing may reach the session repository or the pool: every call would throw
+    const sessionRepo = {
+      deleteOthers: vi.fn(async () => { throw new Error('must not be called') }),
+      deleteAllForUser: vi.fn(async () => { throw new Error('must not be called') }),
+    }
+    app.use('/api', meAccountRoutes({} as UserRepository, sessionRepo, {} as Pool))
     return app
   }
 
@@ -63,7 +68,8 @@ describe('meAccountRoutes (no auth)', () => {
     ['GET', '/api/me'],
     ['PATCH', '/api/me/password'],
     ['DELETE', '/api/me/account'],
-  ])('%s %s returns 401 SESSION_REQUIRED without userId', async (method, path) => {
+    ['DELETE', '/api/me/other-sessions'],
+  ])('AC-16 %s %s returns 401 SESSION_REQUIRED without userId', async (method, path) => {
     const agent = request(appWithoutAuth())
     const res = method === 'GET' ? await agent.get(path) : method === 'PATCH' ? await agent.patch(path).send({}) : await agent.delete(path)
 

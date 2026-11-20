@@ -7,10 +7,15 @@ import { deleteAccount, DELETED_USER_NAME } from '../src/modules/me/accountDelet
 import { meAccountRoutes } from '../src/modules/me/meAccountRoutes.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
 import { AppError } from '../src/modules/errors/AppError.js'
+import { SessionRepository } from '../src/modules/auth/sessionRepo.js'
 
 interface FakeUser { id: string; name: string; email: string; password_hash: string; deleted_at: string | null }
 interface FakeTool { id: string; owner_id: string; deleted_at: string | null }
 interface FakeLoan { id: string; owner_id: string; borrower_id: string; status: string }
+interface FakeSession { token_hash: string; user_id: string }
+
+// The real repository: deleteAllForUser runs on the transaction client it receives, never on this pool
+const sessionRepo = new SessionRepository({} as Pool)
 
 // A small stand-in for PostgreSQL. Like a real database, writes made inside a
 // transaction only become visible on COMMIT and are discarded on ROLLBACK.
@@ -19,6 +24,7 @@ function createFakePool(options: { failOn?: string } = {}) {
   const users = new Map<string, FakeUser>()
   const tools = new Map<string, FakeTool>()
   const loans = new Map<string, FakeLoan>()
+  const sessions = new Map<string, FakeSession>()
   const statements: string[] = []
 
   const client = {
@@ -72,6 +78,16 @@ function createFakePool(options: { failOn?: string } = {}) {
         })
         return { rows: [], rowCount: 1 }
       }
+      if (text === 'DELETE FROM sessions WHERE user_id = $1') {
+        const userId = params[0] as string
+        const count = [...sessions.values()].filter((session) => session.user_id === userId).length
+        client.pending.push(() => {
+          for (const [hash, session] of sessions) {
+            if (session.user_id === userId) sessions.delete(hash)
+          }
+        })
+        return { rows: [], rowCount: count }
+      }
       throw new Error(`Unexpected SQL in fake pool: ${text}`)
     }),
     release: vi.fn(),
@@ -79,7 +95,7 @@ function createFakePool(options: { failOn?: string } = {}) {
 
   const pool = { connect: vi.fn(async () => client) } as unknown as Pool
 
-  return { pool, client, users, tools, loans, statements }
+  return { pool, client, users, tools, loans, sessions, statements }
 }
 
 function seed(db: ReturnType<typeof createFakePool>) {
@@ -87,6 +103,10 @@ function seed(db: ReturnType<typeof createFakePool>) {
   db.tools.set('tool-1', { id: 'tool-1', owner_id: 'user-1', deleted_at: null })
   db.tools.set('tool-2', { id: 'tool-2', owner_id: 'user-1', deleted_at: null })
   db.tools.set('tool-other', { id: 'tool-other', owner_id: 'user-2', deleted_at: null })
+  // Two devices of Ana and one of someone else
+  db.sessions.set('a'.repeat(64), { token_hash: 'a'.repeat(64), user_id: 'user-1' })
+  db.sessions.set('b'.repeat(64), { token_hash: 'b'.repeat(64), user_id: 'user-1' })
+  db.sessions.set('c'.repeat(64), { token_hash: 'c'.repeat(64), user_id: 'user-2' })
 }
 
 describe('deleteAccount', () => {
@@ -96,7 +116,7 @@ describe('deleteAccount', () => {
     // A finished loan stays in the history and does not block the deletion
     db.loans.set('loan-1', { id: 'loan-1', owner_id: 'user-1', borrower_id: 'user-2', status: 'devuelto' })
 
-    await deleteAccount(db.pool, 'user-1', 'new-random-hash')
+    await deleteAccount(db.pool, sessionRepo, 'user-1', 'new-random-hash')
 
     const user = db.users.get('user-1')!
     expect(user.name).toBe(DELETED_USER_NAME)
@@ -113,6 +133,32 @@ describe('deleteAccount', () => {
     expect(db.client.release).toHaveBeenCalledTimes(1)
   })
 
+  it('AC-9 AC-33 deletes every session of the account inside the same transaction, after anonymizing it', async () => {
+    const db = createFakePool()
+    seed(db)
+
+    await deleteAccount(db.pool, sessionRepo, 'user-1', 'new-random-hash')
+
+    expect([...db.sessions.keys()]).toEqual(['c'.repeat(64)])
+    const anonymize = db.statements.indexOf('UPDATE users')
+    const removeSessions = db.statements.indexOf('DELETE FROM')
+    expect(anonymize).toBeGreaterThan(-1)
+    expect(removeSessions).toBeGreaterThan(anonymize)
+    expect(db.statements.at(-1)).toBe('COMMIT')
+    expect(removeSessions).toBeLessThan(db.statements.length - 1)
+  })
+
+  it('AC-9 AC-33 locks the account row FOR UPDATE first, so a login racing the deletion waits and then finds it deleted', async () => {
+    const db = createFakePool()
+    seed(db)
+
+    await deleteAccount(db.pool, sessionRepo, 'user-1', 'new-random-hash')
+
+    // The other half of the pair is the FOR SHARE of SessionRepository.createIfPasswordCurrent (sessionRepo.test.ts)
+    const texts = db.client.query.mock.calls.map(([sql]) => sql.replace(/\s+/g, ' ').trim())
+    expect(texts[1]).toBe('SELECT id FROM users WHERE id = $1 AND deleted_at IS NULL FOR UPDATE')
+  })
+
   it.each(['pendiente', 'aceptado', 'entregado', 'vencido'])(
     'rejects with ACCOUNT_HAS_ACTIVE_LOANS and changes nothing when the user has a %s loan',
     async (status) => {
@@ -120,9 +166,10 @@ describe('deleteAccount', () => {
       seed(db)
       db.loans.set('loan-1', { id: 'loan-1', owner_id: 'user-2', borrower_id: 'user-1', status })
 
-      await expect(deleteAccount(db.pool, 'user-1', 'new-random-hash')).rejects.toMatchObject({ code: 'ACCOUNT_HAS_ACTIVE_LOANS', status: 409 })
+      await expect(deleteAccount(db.pool, sessionRepo, 'user-1', 'new-random-hash')).rejects.toMatchObject({ code: 'ACCOUNT_HAS_ACTIVE_LOANS', status: 409 })
 
       expect(db.users.get('user-1')!.name).toBe('Ana')
+      expect(db.sessions.size).toBe(3)
       expect(db.tools.get('tool-1')!.deleted_at).toBeNull()
       expect(db.statements.at(-1)).toBe('ROLLBACK')
       expect(db.client.release).toHaveBeenCalledTimes(1)
@@ -134,8 +181,9 @@ describe('deleteAccount', () => {
     const db = createFakePool({ failOn: 'UPDATE users' })
     seed(db)
 
-    await expect(deleteAccount(db.pool, 'user-1', 'new-random-hash')).rejects.toThrow('connection lost')
+    await expect(deleteAccount(db.pool, sessionRepo, 'user-1', 'new-random-hash')).rejects.toThrow('connection lost')
 
+    expect(db.sessions.size).toBe(3)
     expect(db.tools.get('tool-1')!.deleted_at).toBeNull()
     expect(db.users.get('user-1')!.name).toBe('Ana')
     expect(db.statements.at(-1)).toBe('ROLLBACK')
@@ -147,7 +195,19 @@ describe('deleteAccount', () => {
     seed(db)
     db.users.get('user-1')!.deleted_at = 'earlier'
 
-    await expect(deleteAccount(db.pool, 'user-1', 'new-random-hash')).rejects.toMatchObject({ code: 'ACCOUNT_NOT_FOUND', status: 404 })
+    await expect(deleteAccount(db.pool, sessionRepo, 'user-1', 'new-random-hash')).rejects.toMatchObject({ code: 'ACCOUNT_NOT_FOUND', status: 404 })
+    expect(db.sessions.size).toBe(3)
+  })
+
+  it('AC-33 the sessions step fails → everything is rolled back, the account stays as it was', async () => {
+    const db = createFakePool({ failOn: 'DELETE FROM sessions' })
+    seed(db)
+
+    await expect(deleteAccount(db.pool, sessionRepo, 'user-1', 'new-random-hash')).rejects.toThrow('connection lost')
+
+    expect(db.users.get('user-1')!.name).toBe('Ana')
+    expect(db.sessions.size).toBe(3)
+    expect(db.statements.at(-1)).toBe('ROLLBACK')
   })
 })
 
@@ -159,7 +219,7 @@ describe('DELETE /api/me/account', () => {
       ;(req as express.Request & { userId?: string }).userId = userId
       next()
     })
-    app.use('/api', meAccountRoutes({} as UserRepository, db.pool, 'a'.repeat(32), 'http://localhost:5173'))
+    app.use('/api', meAccountRoutes({} as UserRepository, sessionRepo, db.pool))
     return app
   }
 
@@ -187,8 +247,13 @@ describe('DELETE /api/me/account', () => {
     const res = await request(appWith(db, 'user-1')).delete('/api/me/account')
 
     expect(res.status).toBe(204)
-    // The browser must forget the session: an expired "token" cookie
-    expect(res.headers['set-cookie']?.[0]).toMatch(/^token=;.*Expires=Thu, 01 Jan 1970/)
+    // The browser must forget the session: an expired "token" cookie (the LAST Set-Cookie wins)
+    const cleared = res.headers['set-cookie']?.at(-1) ?? ''
+    expect(cleared).toMatch(/^token=;.*Expires=Thu, 01 Jan 1970/)
+    for (const attribute of ['Path=/', 'HttpOnly', 'SameSite=Lax']) {
+      expect(cleared).toContain(attribute)
+    }
+    expect(db.sessions.size).toBe(1)
     const storedHash = db.users.get('user-1')!.password_hash
     expect(bcrypt.getRounds(storedHash)).toBe(12)
     expect(await bcrypt.compare('', storedHash)).toBe(false)

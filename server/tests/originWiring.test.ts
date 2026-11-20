@@ -14,7 +14,6 @@ describe('origin check wiring on /api/auth', () => {
   beforeEach(() => {
     process.env.PORT = '3001'
     process.env.DATABASE_URL = 'postgresql://invalid:invalid@localhost:9999/nonexistent'
-    process.env.JWT_SECRET = 'a'.repeat(32)
     process.env.NODE_ENV = 'test'
     // The auth rate limiter allows 5 requests per minute; start every test from zero
     resetRateLimiter()

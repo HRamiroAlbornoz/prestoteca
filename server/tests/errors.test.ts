@@ -1,7 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import request from 'supertest'
 import express from 'express'
-import jwt from 'jsonwebtoken'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import type { Pool } from 'pg'
@@ -12,17 +11,16 @@ import { UserRepository } from '../src/modules/auth/userRepo.js'
 import { toolsRoutes } from '../src/modules/tools/toolsRoutes.js'
 import type { ToolService } from '../src/modules/tools/toolService.js'
 import type { SearchService } from '../src/modules/search/searchService.js'
-import { passwordFingerprint } from '../src/modules/auth/sessionToken.js'
+import { SessionRepository } from '../src/modules/auth/sessionRepo.js'
+import { newSessionToken } from '../src/modules/auth/sessionToken.js'
 
 const ALLOWED_ORIGIN = 'http://localhost:5173'
 
-// The middleware no longer reads JWT_SECRET when its module loads, but createApp still reads
-// it from the environment (and passes it to createAuthMiddleware), so the vi.hoisted stays.
-const TEST_JWT_SECRET = vi.hoisted(() => {
-  const secret = 'a'.repeat(32)
-  process.env.JWT_SECRET = secret
-  return secret
-})
+// A valid session for the real app: the middleware asks SessionRepository, which the test answers
+function validSessionCookie(): string {
+  vi.spyOn(SessionRepository.prototype, 'touchActive').mockResolvedValue({ userId: 'user-1', remember: false })
+  return `token=${newSessionToken()}`
+}
 
 describe('sendError', () => {
   // Minimal stand-in for an Express response: records what the handler sends
@@ -82,7 +80,6 @@ describe('error responses of the real app', () => {
     process.env.PORT = '3001'
     // Unreachable database: every query fails, like the staging DB without tables did
     process.env.DATABASE_URL = 'postgresql://invalid:invalid@localhost:9999/nonexistent'
-    process.env.JWT_SECRET = 'a'.repeat(32)
     process.env.NODE_ENV = 'test'
     resetRateLimiter()
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -133,17 +130,8 @@ describe('error responses of the real app', () => {
 
   it('answers an /api route that does not exist with a JSON 404 API_ROUTE_NOT_FOUND', async () => {
     const app = await createApp()
-    const token = jwt.sign({ id: 'user-1', pwf: passwordFingerprint('hash-1') }, TEST_JWT_SECRET)
-    vi.spyOn(UserRepository.prototype, 'findActiveById').mockResolvedValue({
-      id: 'user-1',
-      name: 'User',
-      email: 'u@example.com',
-      password_hash: 'hash-1',
-      neighborhood: 'N',
-      created_at: '2026-01-01',
-    })
 
-    const res = await request(app).get('/api/nope').set('Cookie', `token=${token}`)
+    const res = await request(app).get('/api/nope').set('Cookie', validSessionCookie())
 
     expect(res.status).toBe(404)
     expect(res.headers['content-type']).toMatch(/application\/json/)
@@ -169,17 +157,8 @@ describe('error responses of the real app', () => {
 
   it('keeps the automatic OPTIONS answer of /api/health (the JSON 404 never takes it)', async () => {
     const app = await createApp()
-    const token = jwt.sign({ id: 'user-1', pwf: passwordFingerprint('hash-1') }, TEST_JWT_SECRET)
-    vi.spyOn(UserRepository.prototype, 'findActiveById').mockResolvedValue({
-      id: 'user-1',
-      name: 'User',
-      email: 'u@example.com',
-      password_hash: 'hash-1',
-      neighborhood: 'N',
-      created_at: '2026-01-01',
-    })
 
-    const res = await request(app).options('/api/health').set('Cookie', `token=${token}`)
+    const res = await request(app).options('/api/health').set('Cookie', validSessionCookie())
 
     expect(res.status).toBe(200)
     expect(res.headers.allow).toMatch(/GET/)

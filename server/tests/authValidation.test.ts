@@ -7,6 +7,7 @@ import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import { authRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import type { UserRepository } from '../src/modules/auth/userRepo.js'
 import { AppError } from '../src/modules/errors/AppError.js'
+import { createFakeTransaction } from './fakeTransaction.js'
 
 function createMockApp() {
   const usersByEmail = new Map<string, { id: string; name: string; email: string; password_hash: string; neighborhood: string }>()
@@ -37,7 +38,9 @@ function createMockApp() {
   app.use(express.json())
   app.use(cookieParser())
   app.use(authRateLimiter)
-  app.use('/api/auth', authRoutes(mockRepo as UserRepository, 'test-secret', 'http://localhost:5173'))
+  // A registration opens a session in a transaction: fake repository + fake connection
+  const sessionRepo = { createIfPasswordCurrent: vi.fn(async () => true), deleteByTokenHash: vi.fn(async () => undefined) }
+  app.use('/api/auth', authRoutes(mockRepo as UserRepository, sessionRepo, createFakeTransaction().pool))
 
   return { app, usersByEmail }
 }

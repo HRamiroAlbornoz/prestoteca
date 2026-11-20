@@ -1,150 +1,137 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import request from 'supertest'
 import express from 'express'
-import jwt from 'jsonwebtoken'
+import cookieParser from 'cookie-parser'
 import { createAuthMiddleware, type AuthRequest } from '../src/modules/middleware/auth.js'
-import { passwordFingerprint } from '../src/modules/auth/sessionToken.js'
+import { hashSessionToken, idleCutoffs, newSessionToken } from '../src/modules/auth/sessionToken.js'
 import { authRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import { originChecker } from '../src/modules/middleware/origin.js'
+import type { SessionRepository } from '../src/modules/auth/sessionRepo.js'
 
-const SECRET = 'a'.repeat(32)
+const SESSION_REQUIRED = { error: { code: 'SESSION_REQUIRED', message: 'Authentication required' } }
+// An old JWT: three dotted parts, never a value the server issues now
+const OLD_JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJpZCI6InVzZXItMSJ9.c2lnbmF0dXJlLXRoYXQtaXMtbm90LXJlYWw'
 
-function createFakeRepo() {
-  return {
-    findActiveById: vi.fn(),
-  }
+// A real app with cookie-parser (as index.ts mounts it), the middleware and one protected route
+function createApp(touchActive: Mock) {
+  const routeHandler = vi.fn((req: AuthRequest, res: express.Response) => {
+    res.json({ userId: req.userId, sessionTokenHash: req.sessionTokenHash })
+  })
+  const app = express()
+  app.use(cookieParser())
+  app.use(createAuthMiddleware({ touchActive: touchActive as SessionRepository['touchActive'] }))
+  app.get('/protected', routeHandler)
+  return { app, routeHandler }
 }
 
-describe('auth middleware', () => {
-  it('returns 401 when no token is provided', async () => {
-    const fakeRepo = createFakeRepo()
-    const authMiddleware = createAuthMiddleware(fakeRepo, SECRET)
-    const app = express()
-    app.use(authMiddleware)
-    app.get('/protected', (_req, res) => res.json({ ok: true }))
+describe('auth middleware (server sessions)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('AC-16 no cookie → 401, no database call, and no cookie of its own', async () => {
+    const touchActive = vi.fn()
+    const { app, routeHandler } = createApp(touchActive)
 
     const res = await request(app).get('/protected')
+
     expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Authentication required' } })
+    expect(res.body).toEqual(SESSION_REQUIRED)
+    expect(res.headers['set-cookie']).toBeUndefined()
+    expect(touchActive).not.toHaveBeenCalled()
+    expect(routeHandler).not.toHaveBeenCalled()
   })
 
-  it('returns 401 when token is invalid', async () => {
-    const fakeRepo = createFakeRepo()
-    const authMiddleware = createAuthMiddleware(fakeRepo, SECRET)
-    const app = express()
-    app.use(authMiddleware)
-    app.get('/protected', (_req, res) => res.json({ ok: true }))
+  it('AC-10 an old JWT cookie and a j:{} cookie → 401 and the cookie is cleared, without touching the database', async () => {
+    for (const cookie of [`token=${OLD_JWT}`, 'token=j:{}']) {
+      const touchActive = vi.fn()
+      const { app, routeHandler } = createApp(touchActive)
 
-    // This app has no cookie parser, so the token goes in the header the middleware also reads
-    const res = await request(app).get('/protected').set('Authorization', 'Bearer invalid.token.here')
-    expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Invalid or expired token' } })
-  })
+      const res = await request(app).get('/protected').set('Cookie', cookie)
 
-  it('R3a valid token with matching fingerprint returns 200 and calls findActiveById', async () => {
-    const fakeRepo = {
-      findActiveById: vi.fn().mockResolvedValue({
-        id: 'user-1',
-        name: 'Ana',
-        email: 'ana@example.com',
-        password_hash: 'hash-1',
-        neighborhood: 'Centro',
-        created_at: '2026-01-01',
-      }),
+      expect(res.status, cookie).toBe(401)
+      expect(res.body, cookie).toEqual(SESSION_REQUIRED)
+      expect(res.headers['set-cookie']?.at(-1), cookie).toMatch(/^token=;.*Expires=Thu, 01 Jan 1970/)
+      expect(touchActive, cookie).not.toHaveBeenCalled()
+      expect(routeHandler, cookie).not.toHaveBeenCalled()
     }
-    const authMiddleware = createAuthMiddleware(fakeRepo, SECRET)
-    const routeHandler = vi.fn((_req: AuthRequest, res) => res.json({ userId: _req.userId }))
-    const app = express()
-    app.use(authMiddleware)
-    app.get('/protected', routeHandler)
+  })
 
-    const token = jwt.sign({ id: 'user-1', pwf: passwordFingerprint('hash-1') }, SECRET)
-    const res = await request(app).get('/protected').set('Authorization', `Bearer ${token}`)
+  it('AC-10 the Authorization: Bearer header is no longer read', async () => {
+    const touchActive = vi.fn()
+    const { app } = createApp(touchActive)
+
+    const res = await request(app).get('/protected').set('Authorization', `Bearer ${newSessionToken()}`)
+
+    expect(res.status).toBe(401)
+    expect(touchActive).not.toHaveBeenCalled()
+  })
+
+  it('AC-29 a well-formed cookie of an unknown, expired or revoked session → 401 and the cookie is cleared', async () => {
+    const touchActive = vi.fn().mockResolvedValue(null)
+    const { app, routeHandler } = createApp(touchActive)
+
+    const res = await request(app).get('/protected').set('Cookie', `token=${newSessionToken()}`)
+
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual(SESSION_REQUIRED)
+    expect(res.headers['set-cookie']?.at(-1)).toMatch(/^token=;.*Expires=Thu, 01 Jan 1970/)
+    expect(routeHandler).not.toHaveBeenCalled()
+  })
+
+  it('AC-35 AC-2 asks the repository with the hash of the cookie, the app clock and idleCutoffs(now)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const now = new Date('2026-11-19T10:00:00.000Z')
+    vi.setSystemTime(now)
+    const token = newSessionToken()
+    const touchActive = vi.fn().mockResolvedValue({ userId: 'user-1', remember: false })
+    const { app } = createApp(touchActive)
+
+    await request(app).get('/protected').set('Cookie', `token=${token}`)
+
+    expect(touchActive).toHaveBeenCalledTimes(1)
+    expect(touchActive).toHaveBeenCalledWith(hashSessionToken(token), now, idleCutoffs(now))
+    expect(touchActive.mock.calls[0]?.[0]).not.toBe(token)
+  })
+
+  it('AC-21 a valid "Recordarme" session goes through and the cookie is sent again with the same value and 7 days', async () => {
+    const token = newSessionToken()
+    const touchActive = vi.fn().mockResolvedValue({ userId: 'user-1', remember: true })
+    const { app, routeHandler } = createApp(touchActive)
+
+    const res = await request(app).get('/protected').set('Cookie', `token=${token}`)
 
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ userId: 'user-1' })
-    expect(fakeRepo.findActiveById).toHaveBeenCalledWith('user-1')
+    expect(res.body).toEqual({ userId: 'user-1', sessionTokenHash: hashSessionToken(token) })
     expect(routeHandler).toHaveBeenCalledTimes(1)
+    const cookies = res.headers['set-cookie']!
+    expect(cookies).toHaveLength(1)
+    expect(cookies[0]).toMatch(new RegExp(`^token=${token};`))
+    expect(cookies[0]).toContain('Max-Age=604800')
   })
 
-  it('R3b token valid but findActiveById returns null (deleted account) returns 401', async () => {
-    const fakeRepo = {
-      findActiveById: vi.fn().mockResolvedValue(null),
-    }
-    const authMiddleware = createAuthMiddleware(fakeRepo, SECRET)
-    const routeHandler = vi.fn((_req, res) => res.json({ ok: true }))
-    const app = express()
-    app.use(authMiddleware)
-    app.get('/protected', routeHandler)
+  it('AC-22 a valid short session goes through without any Set-Cookie', async () => {
+    const token = newSessionToken()
+    const touchActive = vi.fn().mockResolvedValue({ userId: 'user-1', remember: false })
+    const { app } = createApp(touchActive)
 
-    const token = jwt.sign({ id: 'user-1', pwf: passwordFingerprint('hash-1') }, SECRET)
-    const res = await request(app).get('/protected').set('Authorization', `Bearer ${token}`)
+    const res = await request(app).get('/protected').set('Cookie', `token=${token}`)
 
-    expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Invalid or expired token' } })
-    expect(routeHandler).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ userId: 'user-1', sessionTokenHash: hashSessionToken(token) })
+    expect(res.headers['set-cookie']).toBeUndefined()
   })
 
-  it('R3c token with wrong fingerprint (password changed) returns 401', async () => {
-    const fakeRepo = {
-      findActiveById: vi.fn().mockResolvedValue({
-        id: 'user-1',
-        name: 'Ana',
-        email: 'ana@example.com',
-        password_hash: 'hash-2',
-        neighborhood: 'Centro',
-        created_at: '2026-01-01',
-      }),
-    }
-    const authMiddleware = createAuthMiddleware(fakeRepo, SECRET)
-    const routeHandler = vi.fn((_req: AuthRequest, res) => res.json({ ok: true }))
-    const app = express()
-    app.use(authMiddleware)
-    app.get('/protected', routeHandler)
-
-    const token = jwt.sign({ id: 'user-1', pwf: passwordFingerprint('hash-1') }, SECRET)
-    const res = await request(app).get('/protected').set('Authorization', `Bearer ${token}`)
-
-    expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Invalid or expired token' } })
-    expect(routeHandler).not.toHaveBeenCalled()
-  })
-
-  it('R3d token without pwf (old token) returns 401 without calling findActiveById', async () => {
-    const fakeRepo = {
-      findActiveById: vi.fn(),
-    }
-    const authMiddleware = createAuthMiddleware(fakeRepo, SECRET)
-    const routeHandler = vi.fn((_req: AuthRequest, res) => res.json({ ok: true }))
-    const app = express()
-    app.use(authMiddleware)
-    app.get('/protected', routeHandler)
-
-    const token = jwt.sign({ id: 'user-1' }, SECRET)
-    const res = await request(app).get('/protected').set('Authorization', `Bearer ${token}`)
-
-    expect(res.status).toBe(401)
-    expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Invalid or expired token' } })
-    expect(routeHandler).not.toHaveBeenCalled()
-    expect(fakeRepo.findActiveById).not.toHaveBeenCalled()
-  })
-
-  it('R3e database error returns 500 INTERNAL_ERROR', async () => {
-    const fakeRepo = {
-      findActiveById: vi.fn().mockRejectedValue(new Error('db down')),
-    }
+  it('AC-17 the database fails → 500 INTERNAL_ERROR, the route never runs and the cookie is left alone', async () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const authMiddleware = createAuthMiddleware(fakeRepo, SECRET)
-    const routeHandler = vi.fn((_req: AuthRequest, res) => res.json({ ok: true }))
-    const app = express()
-    app.use(authMiddleware)
-    app.get('/protected', routeHandler)
+    const touchActive = vi.fn().mockRejectedValue(new Error('db down'))
+    const { app, routeHandler } = createApp(touchActive)
 
-    const token = jwt.sign({ id: 'user-1', pwf: passwordFingerprint('hash-1') }, SECRET)
-    const res = await request(app).get('/protected').set('Authorization', `Bearer ${token}`)
+    const res = await request(app).get('/protected').set('Cookie', `token=${newSessionToken()}`)
 
     expect(res.status).toBe(500)
     expect(res.body).toEqual({ error: { code: 'INTERNAL_ERROR', message: 'Failed to check session' } })
+    expect(res.headers['set-cookie']).toBeUndefined()
     expect(routeHandler).not.toHaveBeenCalled()
     errorSpy.mockRestore()
   })

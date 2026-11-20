@@ -1,19 +1,31 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import bcrypt from 'bcrypt'
-import jwt from 'jsonwebtoken'
 import request from 'supertest'
+import { Pool } from 'pg'
 import { createApp } from '../src/index.js'
 import { resetRateLimiter } from '../src/modules/middleware/rateLimit.js'
 import { UserRepository } from '../src/modules/auth/userRepo.js'
-import { passwordFingerprint, signSessionToken } from '../src/modules/auth/sessionToken.js'
-
-const TEST_JWT_SECRET = vi.hoisted(() => {
-  const secret = 'a'.repeat(32)
-  process.env.JWT_SECRET = secret
-  return secret
-})
+import { SessionRepository } from '../src/modules/auth/sessionRepo.js'
+import { hashSessionToken, newSessionToken } from '../src/modules/auth/sessionToken.js'
+import { createFakeTransaction, type FakeTransaction } from './fakeTransaction.js'
 
 const ALLOWED_ORIGIN = 'http://localhost:5173'
+
+// The real app reaches the database only through these spies: the pool points at an invalid address
+function spySessions(session: { userId: string; remember: boolean } | null) {
+  return {
+    touchActive: vi.spyOn(SessionRepository.prototype, 'touchActive').mockResolvedValue(session),
+    deleteOthers: vi.spyOn(SessionRepository.prototype, 'deleteOthers').mockResolvedValue(0),
+    deleteAllForUser: vi.spyOn(SessionRepository.prototype, 'deleteAllForUser').mockResolvedValue(0),
+  }
+}
+
+// Routes with a transaction ask the real Pool for a connection: hand them the fake one
+function fakeConnection(): FakeTransaction {
+  const tx = createFakeTransaction()
+  vi.spyOn(Pool.prototype, 'connect').mockImplementation(tx.connect as never)
+  return tx
+}
 
 describe('session wiring — real app end to end', () => {
   const originalEnv = { ...process.env }
@@ -21,7 +33,6 @@ describe('session wiring — real app end to end', () => {
   beforeEach(() => {
     process.env.PORT = '3002'
     process.env.DATABASE_URL = 'postgresql://invalid:invalid@localhost:9999/nonexistent'
-    process.env.JWT_SECRET = 'a'.repeat(32)
     process.env.NODE_ENV = 'test'
     resetRateLimiter()
     vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -73,83 +84,129 @@ describe('session wiring — real app end to end', () => {
     expect(res.body.error?.code).not.toBe('SESSION_REQUIRED')
   })
 
-  // W3 — password change through the real app
-  it('W3 password change sets a new cookie with the new fingerprint', async () => {
-    const app = await createApp()
-
+  // A user whose stored password is "oldpassword1"
+  async function spyAna() {
     const oldHash = await bcrypt.hash('oldpassword1', 4)
-
-    vi.spyOn(UserRepository.prototype, 'findActiveById').mockImplementation(async () => ({
+    vi.spyOn(UserRepository.prototype, 'findActiveById').mockResolvedValue({
       id: 'user-1',
       name: 'Ana',
       email: 'ana@example.com',
       password_hash: oldHash,
       neighborhood: 'Centro',
       created_at: '2026-01-01',
-    }))
+    })
+    return { updatePassword: vi.spyOn(UserRepository.prototype, 'updatePassword').mockResolvedValue(true) }
+  }
 
-    const updateSpy = vi.spyOn(UserRepository.prototype, 'updatePassword').mockResolvedValue(true)
-
-    const oldToken = signSessionToken('user-1', oldHash, TEST_JWT_SECRET, 'http://localhost:5173')
+  // W3 — password change through the real app keeps THIS session as it is (AC-27)
+  it.each([
+    ['"Recordarme"', true],
+    ['a short session', false],
+  ])('W3 AC-27 with %s the route sends no cookie of its own; only the middleware renews the same value', async (_case, remember) => {
+    const app = await createApp()
+    await spyAna()
+    spySessions({ userId: 'user-1', remember })
+    fakeConnection()
+    const token = newSessionToken()
 
     const res = await request(app)
       .patch('/api/me/password')
-      .set('Cookie', `token=${oldToken}`)
+      .set('Cookie', `token=${token}`)
       .set('Origin', ALLOWED_ORIGIN)
       .send({ currentPassword: 'oldpassword1', newPassword: 'newpassword12' })
 
     expect(res.status).toBe(204)
-
-    const setCookie = res.headers['set-cookie']
-    expect(setCookie).toBeDefined()
-    const newTokenValue = setCookie![0].split(';')[0].split('=')[1]
-    expect(newTokenValue).toBeDefined()
-
-    const decoded = jwt.verify(newTokenValue, TEST_JWT_SECRET, { issuer: 'http://localhost:5173' }) as { id: string; pwf: string }
-    expect(decoded.id).toBe('user-1')
-    expect(decoded.pwf).toBe(passwordFingerprint(updateSpy.mock.calls[0][1]))
+    const cookies = res.headers['set-cookie'] as string[] | undefined
+    if (remember) {
+      expect(cookies).toHaveLength(1)
+      expect(cookies![0]).toMatch(new RegExp(`^token=${token};`))
+      expect(cookies![0]).toContain('Max-Age=604800')
+    } else {
+      expect(cookies).toBeUndefined()
+    }
   })
 
-  // W4 — after password change, new cookie works, old cookie is rejected
-  it('W4 after password change: new cookie works, old cookie → 401', async () => {
+  // W4 — the real wiring: same transaction, and the hash of THIS cookie is the one kept
+  it('W4 AC-8 password change closes the other sessions in the same transaction, keeping this cookie', async () => {
     const app = await createApp()
+    const { updatePassword } = await spyAna()
+    const sessions = spySessions({ userId: 'user-1', remember: false })
+    const tx = fakeConnection()
+    const token = newSessionToken()
 
-    let currentHash = await bcrypt.hash('oldpassword1', 4)
-
-    // Each call reads the CURRENT hash, so after the change the database "has" the new password
-    vi.spyOn(UserRepository.prototype, 'findActiveById').mockImplementation(async () => ({
-      id: 'user-1',
-      name: 'Ana',
-      email: 'ana@example.com',
-      password_hash: currentHash,
-      neighborhood: 'Centro',
-      created_at: '2026-01-01',
-    }))
-
-    const updateSpy = vi.spyOn(UserRepository.prototype, 'updatePassword').mockImplementation(async (_id, hash) => {
-      currentHash = hash
-      return true
-    })
-
-    const oldToken = signSessionToken('user-1', currentHash, TEST_JWT_SECRET, 'http://localhost:5173')
-
-    const change = await request(app)
+    const res = await request(app)
       .patch('/api/me/password')
-      .set('Cookie', `token=${oldToken}`)
+      .set('Cookie', `token=${token}`)
       .set('Origin', ALLOWED_ORIGIN)
       .send({ currentPassword: 'oldpassword1', newPassword: 'newpassword12' })
-    expect(change.status).toBe(204)
-    expect(updateSpy).toHaveBeenCalledTimes(1)
 
-    // The cookie the APP gave back, not one signed by the test
-    const newToken = change.headers['set-cookie']![0].split(';')[0].split('=')[1]
+    expect(res.status).toBe(204)
+    expect(updatePassword.mock.calls[0]?.[0]).toBe('user-1')
+    expect(updatePassword.mock.calls[0]?.[2]).toBe(tx.client)
+    expect(sessions.deleteOthers).toHaveBeenCalledWith('user-1', hashSessionToken(token), tx.client)
+    expect(tx.statements).toEqual(['BEGIN', 'COMMIT'])
+  })
 
-    const resNew = await request(app).get('/api/me').set('Cookie', `token=${newToken}`)
-    expect(resNew.status).toBe(200)
-    expect(resNew.body).toEqual({ id: 'user-1', name: 'Ana' })
+  it('AC-16 DELETE /api/me/other-sessions without a cookie → 401 and nothing is closed', async () => {
+    const app = await createApp()
+    const sessions = spySessions(null)
 
-    const resOld = await request(app).get('/api/me').set('Cookie', `token=${oldToken}`)
-    expect(resOld.status).toBe(401)
-    expect(resOld.body.error.code).toBe('SESSION_REQUIRED')
+    const res = await request(app).delete('/api/me/other-sessions').set('Origin', ALLOWED_ORIGIN)
+
+    expect(res.status).toBe(401)
+    expect(res.body).toEqual({ error: { code: 'SESSION_REQUIRED', message: 'Authentication required' } })
+    expect(sessions.touchActive).not.toHaveBeenCalled()
+    expect(sessions.deleteOthers).not.toHaveBeenCalled()
+  })
+
+  it('AC-13 DELETE /api/me/other-sessions without Origin → 403 before touching any session', async () => {
+    const app = await createApp()
+    const sessions = spySessions({ userId: 'user-1', remember: false })
+
+    const res = await request(app).delete('/api/me/other-sessions').set('Cookie', `token=${newSessionToken()}`)
+
+    expect(res.status).toBe(403)
+    expect(res.body.error.code).toBe('ORIGIN_NOT_ALLOWED')
+    expect(sessions.touchActive).not.toHaveBeenCalled()
+    expect(sessions.deleteOthers).not.toHaveBeenCalled()
+  })
+
+  it('AC-6 AC-19 DELETE /api/me/other-sessions closes the others with the user and the hash of THIS cookie → 204', async () => {
+    const app = await createApp()
+    const sessions = spySessions({ userId: 'user-1', remember: false })
+    const token = newSessionToken()
+
+    const res = await request(app)
+      .delete('/api/me/other-sessions')
+      .set('Cookie', `token=${token}`)
+      .set('Origin', ALLOWED_ORIGIN)
+
+    // deleteOthers resolves 0 here: 204 even when there was nothing to close
+    expect(res.status).toBe(204)
+    expect(sessions.deleteOthers).toHaveBeenCalledTimes(1)
+    expect(sessions.deleteOthers).toHaveBeenCalledWith('user-1', hashSessionToken(token))
+  })
+
+  it('AC-9 AC-33 deleting the account in "Recordarme" mode: renewal first, clearing cookie last', async () => {
+    const app = await createApp()
+    spySessions({ userId: 'user-1', remember: true })
+    const tx = fakeConnection()
+    // The deletion statements of accountDeletion.ts against the fake connection
+    vi.mocked(tx.client.query).mockImplementation((async (text: string) => {
+      tx.statements.push(text)
+      if (text.startsWith('SELECT id FROM users')) return { rows: [{ id: 'user-1' }], rowCount: 1 }
+      return { rows: [], rowCount: 0 }
+    }) as never)
+
+    const res = await request(app)
+      .delete('/api/me/account')
+      .set('Cookie', `token=${newSessionToken()}`)
+      .set('Origin', ALLOWED_ORIGIN)
+
+    expect(res.status).toBe(204)
+    const cookies = res.headers['set-cookie'] as unknown as string[]
+    expect(cookies).toHaveLength(2)
+    expect(cookies[0]).toContain('Max-Age=604800')
+    expect(cookies[1]).toMatch(/^token=;.*Expires=Thu, 01 Jan 1970/)
   })
 })

@@ -4,18 +4,19 @@ import express from 'express'
 import bcrypt from 'bcrypt'
 import type { Pool } from 'pg'
 import type { UserRepository } from '../auth/userRepo.js'
+import type { SessionRepository } from '../auth/sessionRepo.js'
 import type { AuthRequest } from '../middleware/auth.js'
-import { sendError, sendErrorCode } from '../errors/AppError.js'
+import { AppError, sendError, sendErrorCode } from '../errors/AppError.js'
 import { deleteAccount } from './accountDeletion.js'
-import { setSessionCookie, signSessionToken } from '../auth/sessionToken.js'
+import { clearSessionCookie } from '../auth/sessionToken.js'
+import { withTransaction } from '../db/transaction.js'
 
 const SALT_ROUNDS = 12
 
 export function meAccountRoutes(
   userRepo: UserRepository,
+  sessionRepo: Pick<SessionRepository, 'deleteOthers' | 'deleteAllForUser'>,
   pool: Pick<Pool, 'connect'>,
-  jwtSecret: string,
-  jwtIssuer: string,
 ): Router {
   const router = express.Router()
 
@@ -44,7 +45,9 @@ export function meAccountRoutes(
   // PATCH /api/me/password — change password
   router.patch('/me/password', async (req: AuthRequest, res: express.Response) => {
     const userId = req.userId
-    if (!userId) {
+    const sessionTokenHash = req.sessionTokenHash
+    // Without the hash of this session we cannot tell which session to keep: refuse before anything
+    if (!userId || !sessionTokenHash) {
       sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
       return
     }
@@ -84,17 +87,18 @@ export function meAccountRoutes(
       }
 
       const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS)
-      const changed = await userRepo.updatePassword(userId, passwordHash)
-      if (!changed) {
-        // The account was deleted while this request was running
-        sendErrorCode(res, 'ACCOUNT_NOT_FOUND', 'User not found')
-        return
-      }
 
-      // Keep THIS device signed in: a new token with the new password's fingerprint.
-      // Other devices still hold the old fingerprint, so they are signed out.
-      setSessionCookie(res, signSessionToken(userId, passwordHash, jwtSecret, jwtIssuer))
+      // The new password and the closing of every OTHER session happen together, or not at all
+      await withTransaction(pool, async (client) => {
+        const changed = await userRepo.updatePassword(userId, passwordHash, client)
+        if (!changed) {
+          // The account was deleted while this request was running
+          throw new AppError('ACCOUNT_NOT_FOUND', 'User not found')
+        }
+        await sessionRepo.deleteOthers(userId, sessionTokenHash, client)
+      })
 
+      // THIS session stays exactly as it is (same cookie value, same mode): no cookie from here
       res.status(204).send()
     } catch (err: unknown) {
       sendError(res, err, 'Failed to change password')
@@ -113,13 +117,31 @@ export function meAccountRoutes(
       // Hash a random value before opening the transaction: bcrypt takes ~200 ms,
       // and the user row stays locked for as long as the transaction is open
       const replacementHash = await bcrypt.hash(randomBytes(32).toString('hex'), SALT_ROUNDS)
-      await deleteAccount(pool, userId, replacementHash)
+      await deleteAccount(pool, sessionRepo, userId, replacementHash)
 
       // The session cookie belongs to an account that no longer exists
-      res.clearCookie('token')
+      clearSessionCookie(res)
       res.status(204).send()
     } catch (err: unknown) {
       sendError(res, err, 'Failed to delete account')
+    }
+  })
+
+  // DELETE /api/me/other-sessions — "Cerrar sesión en los otros dispositivos": every session of this
+  // account except the one making the request. 204 also when there was none to close.
+  router.delete('/me/other-sessions', async (req: AuthRequest, res: express.Response) => {
+    const userId = req.userId
+    const sessionTokenHash = req.sessionTokenHash
+    if (!userId || !sessionTokenHash) {
+      sendErrorCode(res, 'SESSION_REQUIRED', 'Not authenticated')
+      return
+    }
+
+    try {
+      await sessionRepo.deleteOthers(userId, sessionTokenHash)
+      res.status(204).send()
+    } catch (err: unknown) {
+      sendError(res, err, 'Failed to close other sessions')
     }
   })
 

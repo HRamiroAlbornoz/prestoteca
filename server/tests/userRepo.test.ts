@@ -309,6 +309,19 @@ describe('UserRepository', () => {
       expect(client.release).toHaveBeenCalled()
     })
 
+    // B2c — the driver may report rowCount as null: that is "nothing changed", never a crash or true
+    it('AC-8 B2c updatePassword without a transaction returns false when rowCount is null', async () => {
+      const { pool, client } = poolReturning([])
+      // poolReturning types rowCount as a number; pg's own type allows null, which is the case under test
+      client.query.mockImplementationOnce(async () => ({ rows: [], rowCount: null as unknown as number }))
+      const pwRepo = new UserRepository(pool as never)
+
+      const result = await pwRepo.updatePassword('user-1', 'hash-x')
+
+      expect(result).toBe(false)
+      expect(client.release).toHaveBeenCalled()
+    })
+
     // D1 — updatePassword must NOT write updated_at
     it('D1 updatePassword does not write updated_at (SQL + params + deleted_at filter)', async () => {
       const { pool, client } = poolReturning([])
@@ -376,5 +389,42 @@ describe('UserRepository', () => {
       const valid = usersColumnsFromMigrations()
       columns.forEach((col) => expect(valid).toContain(col))
     })
+  })
+})
+
+// --- server sessions (T003): updatePassword inside a transaction ----------------------------------
+
+describe('updatePassword with a transaction client', () => {
+  // The client of an open transaction: it answers like Postgres after changing one row
+  function txClient(rowCount: number | null) {
+    return { query: vi.fn(async () => ({ rows: [], rowCount })), release: vi.fn() }
+  }
+
+  it('AC-8 runs the same UPDATE on the given client, never opening a connection of its own', async () => {
+    const { pool } = poolReturning([])
+    const db = txClient(1)
+    const pwRepo = new UserRepository(pool as never)
+
+    const result = await pwRepo.updatePassword('user-1', 'hash-x', db as never)
+
+    expect(result).toBe(true)
+    expect(pool.connect).not.toHaveBeenCalled()
+    const [sql, params] = db.query.mock.calls[0] as unknown as [string, unknown[]]
+    expect(sql).toMatch(/SET password_hash = \$1 WHERE id = \$2 AND deleted_at IS NULL/)
+    expect(params).toEqual(['hash-x', 'user-1'])
+  })
+
+  it('AC-8 does not release the transaction client (withTransaction does)', async () => {
+    const { pool } = poolReturning([])
+    const db = txClient(1)
+    await new UserRepository(pool as never).updatePassword('user-1', 'hash-x', db as never)
+    expect(db.release).not.toHaveBeenCalled()
+  })
+
+  it('AC-8 returns false on the given client when the account was deleted meanwhile (rowCount 0 or null)', async () => {
+    const { pool } = poolReturning([])
+    const pwRepo = new UserRepository(pool as never)
+    expect(await pwRepo.updatePassword('user-1', 'hash-x', txClient(0) as never)).toBe(false)
+    expect(await pwRepo.updatePassword('user-1', 'hash-x', txClient(null) as never)).toBe(false)
   })
 })

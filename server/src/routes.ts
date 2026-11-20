@@ -10,18 +10,18 @@ import { SearchService } from './modules/search/searchService.js'
 import { LoanRepository } from './modules/loans/loanRepo.js'
 import { LoanService } from './modules/loans/loanService.js'
 import { UserRepository } from './modules/auth/userRepo.js'
+import { SessionRepository } from './modules/auth/sessionRepo.js'
 import type { ExpressApplication } from './index.js'
-import { loadEnv } from './modules/config/env.js'
 import { createAuthMiddleware } from './modules/middleware/auth.js'
 import { originChecker } from './modules/middleware/origin.js'
 import { generalRateLimiter } from './modules/middleware/rateLimit.js'
 
 export function wireRoutes(app: ExpressApplication): void {
-  const env = loadEnv()
   const pool = getPool()
 
   // Repositories
   const userRepo = new UserRepository(pool)
+  const sessionRepo = new SessionRepository(pool)
   const toolRepo = new ToolRepository(pool)
   const loanRepo = new LoanRepository(pool.query.bind(pool))
 
@@ -30,15 +30,15 @@ export function wireRoutes(app: ExpressApplication): void {
   const searchService = new SearchService(toolRepo)
   const loanService = new LoanService(loanRepo, pool.query.bind(pool))
 
-  // Auth middleware — created once with the repo and secret
-  const authMiddleware = createAuthMiddleware(userRepo, env.JWT_SECRET)
+  // Auth middleware — created once; it checks every session against the sessions table
+  const authMiddleware = createAuthMiddleware(sessionRepo)
 
   // CSRF protection — every POST/PATCH/DELETE under /api must come from the frontend's origin.
   // Mounted before any router so it also covers /api/auth (login, register, logout).
   app.use('/api', originChecker)
 
   // Auth routes (handles its own auth)
-  app.use('/api/auth', authRoutes(userRepo, env.JWT_SECRET, env.CORS_ORIGIN))
+  app.use('/api/auth', authRoutes(userRepo, sessionRepo, pool))
 
   // Tools routes — GET / is public, rest needs auth + general rate limit
   app.use('/api/tools', generalRateLimiter)
@@ -53,5 +53,5 @@ export function wireRoutes(app: ExpressApplication): void {
   app.use('/api', authMiddleware)
   app.use('/api', loansRoutes(loanService, pool.query.bind(pool)))
   app.use('/api', meRoutes(toolRepo, loanRepo))
-  app.use('/api', meAccountRoutes(userRepo, pool, env.JWT_SECRET, env.CORS_ORIGIN))
+  app.use('/api', meAccountRoutes(userRepo, sessionRepo, pool))
 }

@@ -4,7 +4,8 @@ import cookieParser from 'cookie-parser'
 import express from 'express'
 import helmet from 'helmet'
 import { loadEnv } from './modules/config/env.js'
-import { checkDbConnection } from './modules/db/pool.js'
+import { checkDbConnection, getPool } from './modules/db/pool.js'
+import { startSessionPurge } from './modules/auth/sessionPurge.js'
 import { authRateLimiter } from './modules/middleware/rateLimit.js'
 import { apiNotFound, errorHandler } from './modules/errors/AppError.js'
 import { wireRoutes } from './routes.js'
@@ -33,7 +34,7 @@ export async function createApp(): Promise<ExpressApplication> {
   app.use(express.json({ limit: '10kb' }))
   app.use(express.urlencoded({ extended: true, limit: '10kb' }))
 
-  // Cookie parsing (for JWT token in cookies)
+  // Cookie parsing (for the session cookie)
   app.use(cookieParser())
 
   // Health endpoint (no auth required)
@@ -86,5 +87,6 @@ if (process.argv[1]?.includes('index.ts') || process.argv[1]?.includes('index.js
     app.listen(env.PORT, () => {
       console.log(`Server running on port ${env.PORT} (${env.NODE_ENV})`)
     })
+    startSessionPurge(getPool())
   })()
 }

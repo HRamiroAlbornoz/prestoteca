@@ -611,7 +611,7 @@ Hernán) y con **las dos suites en verde**: `cd server && npm test && npx tsc -b
 | ID | [P] | Task | Done-check | Depends-on | Trace | Risk |
 | --- | --- | --- | --- | --- | --- | --- |
 | T001 | [P] | Add migration `005_create_sessions.sql` and its schema test | `cd server && npx vitest run tests/migrations.test.ts` verde, con pruebas nuevas que primero fallaron sin el archivo; afirma FK sin `CASCADE`, `CHAR(64) NOT NULL UNIQUE`, `CREATE TABLE/INDEX IF NOT EXISTS`, sin `DEFAULT now()`, `down` solo comentado | — | AC-33, AC-35 | 2 |
-| T002 | [P] | Add `newSessionToken`, `hashSessionToken`, `idleCutoffs`, `readSessionCookie`, `clearSessionCookie` | `cd server && npx vitest run tests/sessionToken.test.ts` verde (R1b sin cambios); bordes exactos de `idleCutoffs`; 43 caracteres base64url; los tres resultados de `readSessionCookie` (incl. `j:{}` como objeto); `vi.stubEnv('NODE_ENV','production')` → `Secure` | — | AC-1, AC-2, AC-14, AC-23, AC-35 | 2 |
+| T002 | [P] | Add `newSessionToken`, `hashSessionToken`, `idleCutoffs`, `readSessionCookie`, `clearSessionCookie` | `cd server && npx vitest run tests/sessionToken.test.ts` verde (R1b sin cambios); bordes exactos de `idleCutoffs`; 43 caracteres base64url; los tres resultados de `readSessionCookie` (incl. `j:{}` como objeto); `vi.stubEnv('NODE_ENV','production')` → `Secure` | — | AC-1, AC-2, AC-10, AC-14, AC-23, AC-35 | 2 |
 | T003 |  | Implement `SessionRepository` and `updatePassword(id, hash, db?)` | `cd server && npx vitest run tests/sessionRepo.test.ts tests/userRepo.test.ts` verde; las pruebas afirman el fragmento con `$1::timestamptz`/`$2::timestamptz` en `touchActive` y `purgeExpired`, `FOR SHARE` + `password_hash` + `deleted_at` en `createIfPasswordCurrent`, `user_id = $… AND token_hash <> $…` en `deleteOthers`, ningún `now()` de SQL, `rowCount ?? 0` | T001, T002 | AC-3, AC-7, AC-8, AC-15, AC-33, AC-36 | 2 |
 | T004 |  | Switch the app from JWT to server sessions | `cd server && npm test && npx tsc -b` verde con las pruebas reescritas del §6 paso 4; `grep -rn "signSessionToken\|passwordFingerprint\|pwf" server/src` vacío; `grep -rn "clearCookie('token')" server/src` vacío; cada criterio de la columna Trace aparece en el nombre de alguna prueba | T002, T003 | AC-4, AC-5, AC-6, AC-8, AC-9, AC-10, AC-12, AC-13, AC-16, AC-17, AC-19, AC-21, AC-22, AC-24, AC-25, AC-26, AC-27, AC-28, AC-29, AC-30, AC-33, AC-34 | 2 |
 | T005 | [P] | Add `startSessionPurge(pool)` and call it from `index.ts` | `cd server && npx vitest run tests/sessionPurge.test.ts` verde: corre al arrancar y cada hora (timers falsos), un rechazo de la base se registra sin `unhandledRejection`, `stop()` limpia; `index.ts` suma exactamente una línea | T003 | AC-37 | 2 |
@@ -636,7 +636,8 @@ y AC-32 se prueban en el cliente; el resto en el server. AC-29 y AC-19 tienen mi
 - Produce: tabla `sessions(id UUID PK DEFAULT gen_random_uuid(), user_id UUID NOT NULL REFERENCES users(id),
   token_hash CHAR(64) NOT NULL UNIQUE, remember BOOLEAN NOT NULL, created_at TIMESTAMPTZ NOT NULL, last_used_at
   TIMESTAMPTZ NOT NULL)` + `CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)`; comentario
-  `-- Down: DROP TABLE IF EXISTS sessions;`.
+  `down` comentado en dos líneas, como la 004 (`-- Down (manual rollback, only if ever needed):` y
+  `-- DROP TABLE IF EXISTS sessions;`).
 
 **T002 — Interfaces**
 - Produce (en `server/src/modules/auth/sessionToken.ts`): `newSessionToken(): string`,
