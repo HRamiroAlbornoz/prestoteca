@@ -175,14 +175,15 @@ describe('OtherSessionsSection — confirming (AC-18, AC-19)', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2)
   })
 
-  it('S8: while waiting, both buttons are disabled and more clicks send no second request', async () => {
+  it('S8: while waiting, the confirm button says "Cerrando sesiones...", both buttons are disabled and more clicks send no second request', async () => {
     const request = pendingRequest()
     const user = userEvent.setup()
     renderSection()
 
     await openAndConfirm(user)
 
-    const confirm = screen.getByRole('button', { name: 'Cerrar sesiones' })
+    const confirm = screen.getByRole('button', { name: 'Cerrando sesiones...' })
+    expect(screen.queryByRole('button', { name: 'Cerrar sesiones' })).toBeNull()
     expect(confirm).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled()
     // user-event does not click disabled buttons: a direct click is what a fast double tap
@@ -190,10 +191,16 @@ describe('OtherSessionsSection — confirming (AC-18, AC-19)', () => {
     confirm.click()
     confirm.click()
     expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(confirm.textContent).toBe('Cerrando sesiones...')
 
     request.answer(answer(204))
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(SUCCESS))
     expect(mockFetch).toHaveBeenCalledTimes(1)
+
+    // Opened again after the answer, the button has its normal label back
+    await user.click(screen.getByRole('button', { name: OPEN_LABEL }))
+    expect(screen.getByRole('button', { name: 'Cerrar sesiones' })).not.toBeDisabled()
+    expect(screen.queryByText('Cerrando sesiones...')).toBeNull()
   })
 
   it('S9: a double click on "Cerrar sesiones" in the same moment sends a single request', async () => {

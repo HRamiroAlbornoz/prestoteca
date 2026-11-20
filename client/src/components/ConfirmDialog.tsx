@@ -8,6 +8,8 @@ export interface ConfirmDialogProps {
   confirmLabel: string
   cancelLabel: string
   busy?: boolean
+  // Shown on the confirm button while busy, so a sighted person sees the wait (not only dimmed buttons)
+  busyLabel?: string
   onConfirm: () => void
   onCancel: () => void
   returnFocusTo: RefObject<HTMLElement | null>
@@ -20,6 +22,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   busy = false,
+  busyLabel,
   onConfirm,
   onCancel,
   returnFocusTo,
@@ -122,7 +125,7 @@ export function ConfirmDialog({
             className="min-h-[44px] rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
             onClick={onConfirm}
           >
-            {confirmLabel}
+            {busy && busyLabel ? busyLabel : confirmLabel}
           </button>
         </div>
       </div>

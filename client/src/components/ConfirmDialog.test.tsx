@@ -387,4 +387,39 @@ describe('ConfirmDialog (AC-18)', () => {
     expect(onCancel).toHaveBeenCalledTimes(1)
     expect(onSubmit).not.toHaveBeenCalled()
   })
+
+  it('C20: with a busyLabel, the confirm button shows it only while busy; the cancel label never changes', () => {
+    const BUSY_LABEL = 'Cerrando sesiones...'
+    const props = {
+      open: true,
+      busy: false,
+      busyLabel: BUSY_LABEL,
+      title: TITLE,
+      description: DESCRIPTION,
+      confirmLabel: CONFIRM_LABEL,
+      cancelLabel: CANCEL_LABEL,
+      onConfirm: vi.fn(),
+      onCancel: vi.fn(),
+      returnFocusTo: { current: null },
+    }
+    const { rerender } = render(<ConfirmDialog {...props} />)
+
+    // Not busy: confirm by its normal label, cancel by its label, busy label not shown
+    expect(screen.getByRole('button', { name: CONFIRM_LABEL })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: CANCEL_LABEL })).not.toBeDisabled()
+    expect(screen.queryByText(BUSY_LABEL)).toBeNull()
+
+    // Busy: confirm button shows busyLabel, both disabled
+    rerender(<ConfirmDialog {...props} busy />)
+    expect(screen.getByRole('button', { name: BUSY_LABEL })).toBeDisabled()
+    expect(screen.getByRole('button', { name: BUSY_LABEL }).textContent).toBe(BUSY_LABEL)
+    expect(screen.queryByRole('button', { name: CONFIRM_LABEL })).toBeNull()
+    expect(screen.getByRole('button', { name: CANCEL_LABEL })).toBeDisabled()
+
+    // Busy ends: back to normal labels
+    rerender(<ConfirmDialog {...props} busy={false} />)
+    expect(screen.getByRole('button', { name: CONFIRM_LABEL })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: CANCEL_LABEL })).not.toBeDisabled()
+    expect(screen.queryByText(BUSY_LABEL)).toBeNull()
+  })
 })
