@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterAll, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { ProfilePage } from '../pages/ProfilePage'
 import { MESSAGES } from '../errors/messages'
@@ -70,6 +70,23 @@ function resolveProfile(overrides?: { tools?: any[]; receivedLoans?: any[]; made
     ok: true,
     json: async () => overrides?.history ?? [],
   })
+}
+
+// The settings tab holds OtherSessionsSection, whose live regions (status and alert) are always
+// mounted, empty by default. A bare getByRole('alert') would find more than one, so each message
+// is looked for in its own place (plan server-sessions, step 12).
+
+// The load error: the only alert above the tabs, outside the tab panel
+function loadErrorAlert() {
+  const tabpanel = screen.getByRole('tabpanel')
+  const outsideTabs = screen.getAllByRole('alert').filter((alert) => !tabpanel.contains(alert))
+  expect(outsideTabs).toHaveLength(1)
+  return outsideTabs[0]
+}
+
+// The "Cambiar contraseña" card, where the password and delete-account messages are shown
+function passwordCard() {
+  return within(screen.getByRole('region', { name: 'Cambiar contraseña' }))
 }
 
 beforeEach(() => {
@@ -289,7 +306,7 @@ describe('ProfilePage', () => {
     renderProfile()
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
+      expect(loadErrorAlert()).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
     })
     expect(screen.queryByText('Not found')).not.toBeInTheDocument()
   })
@@ -387,7 +404,7 @@ describe('ProfilePage', () => {
     renderProfile()
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
+      expect(loadErrorAlert()).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
     })
     // Nothing from the requests is shown: only "Configuración" stays (F2)
     expect(screen.getAllByRole('tab')).toHaveLength(1)
@@ -405,7 +422,7 @@ describe('ProfilePage', () => {
     renderProfile()
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.NETWORK_ERROR)
+      expect(loadErrorAlert()).toHaveTextContent(MESSAGES.NETWORK_ERROR)
     })
   })
 
@@ -423,7 +440,7 @@ describe('ProfilePage', () => {
     renderProfile()
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
+      expect(loadErrorAlert()).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
     })
   })
 
@@ -441,7 +458,7 @@ describe('ProfilePage', () => {
     renderProfile()
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
+      expect(loadErrorAlert()).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
     })
   })
 
@@ -458,7 +475,7 @@ describe('ProfilePage', () => {
     renderProfile()
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
+      expect(loadErrorAlert()).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
     })
     // Nothing from the requests is used: only "Configuración" stays, with no count (F2)
     const tabs = screen.getAllByRole('tab')
@@ -479,7 +496,7 @@ describe('ProfilePage', () => {
     renderProfile()
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
+      expect(loadErrorAlert()).toHaveTextContent(MESSAGES.UNKNOWN_ERROR)
     })
     expect(screen.queryByText(MESSAGES.NETWORK_ERROR)).not.toBeInTheDocument()
   })
@@ -574,7 +591,7 @@ describe('ProfilePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /cambiar contraseña/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.CURRENT_PASSWORD_INCORRECT)
+      expect(passwordCard().getByRole('alert')).toHaveTextContent(MESSAGES.CURRENT_PASSWORD_INCORRECT)
     })
     // Profile content is still visible (no navigation)
     expect(screen.getByText('Mi perfil')).toBeInTheDocument()
@@ -616,7 +633,7 @@ describe('ProfilePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /cambiar contraseña/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(text)
+      expect(passwordCard().getByRole('alert')).toHaveTextContent(text)
     })
     expect(screen.queryByText(errorBody.message)).not.toBeInTheDocument()
   })
@@ -643,7 +660,7 @@ describe('ProfilePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /eliminar mi cuenta/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(text)
+      expect(passwordCard().getByRole('alert')).toHaveTextContent(text)
     })
     // Profile content is still visible
     expect(screen.getByText('Mi perfil')).toBeInTheDocument()
@@ -706,7 +723,7 @@ describe('ProfilePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /cambiar contraseña/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('Las contraseñas no coinciden')
+      expect(passwordCard().getByRole('alert')).toHaveTextContent('Las contraseñas no coinciden')
     })
     expect(mockFetch).not.toHaveBeenCalledWith('/api/me/password', expect.any(Object))
   })
@@ -737,9 +754,51 @@ describe('ProfilePage', () => {
     fireEvent.click(screen.getByRole('button', { name: /cambiar contraseña/i }))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(text)
+      expect(passwordCard().getByRole('alert')).toHaveTextContent(text)
     })
     expect(mockFetch).not.toHaveBeenCalledWith('/api/me/password', expect.any(Object))
+  })
+})
+
+describe('Settings: close the other sessions (server-sessions AC-18, AC-19)', () => {
+  it('P1: the settings tab shows the section; confirming sends one DELETE and shows the success in its own region', async () => {
+    resolveProfile()
+    mockFetch.mockResolvedValueOnce({ ok: true, status: 204, json: async () => ({}) })
+    renderProfile()
+
+    await waitFor(() => {
+      expect(screen.getByText('Configuración (0)')).toBeInTheDocument()
+    })
+    fireEvent.click(screen.getByText('Configuración (0)'))
+
+    const section = within(screen.getByRole('region', { name: 'Sesiones abiertas' }))
+    fireEvent.click(section.getByRole('button', { name: 'Cerrar sesión en los otros dispositivos' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesiones' }))
+
+    await waitFor(() => {
+      expect(section.getByRole('status')).toHaveTextContent('Cerramos la sesión en tus otros dispositivos.')
+    })
+    // The password card stays untouched, and the profile is not loaded again
+    expect(passwordCard().queryByRole('status')).toBeNull()
+    expect(passwordCard().queryByRole('alert')).toBeNull()
+    expect(mockFetch).toHaveBeenCalledTimes(3)
+    expect(mockFetch.mock.calls[2][0]).toBe('/api/me/other-sessions')
+    expect(mockFetch.mock.calls[2][1]).toMatchObject({ method: 'DELETE' })
+  })
+
+  it('P2: the section is also there in the load-error view (only "Configuración" left)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL_ERROR', message: 'Server English text' } }),
+    })
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => [] })
+    renderProfile()
+
+    await waitFor(() => {
+      expect(loadErrorAlert()).toHaveTextContent(MESSAGES.INTERNAL_ERROR)
+    })
+    expect(screen.getByRole('button', { name: 'Cerrar sesión en los otros dispositivos' })).toBeInTheDocument()
   })
 })
 
@@ -759,7 +818,7 @@ describe('F2 load error with Reintentar', () => {
     renderProfile()
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.INTERNAL_ERROR)
+      expect(loadErrorAlert()).toHaveTextContent(MESSAGES.INTERNAL_ERROR)
     })
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument()
     const tabs = screen.getAllByRole('tab')
@@ -789,7 +848,7 @@ describe('F2 load error with Reintentar', () => {
     renderProfile()
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument()
+      expect(loadErrorAlert()).toBeInTheDocument()
     })
 
     // No click on "Configuración": the error view must already show the settings content
@@ -888,7 +947,7 @@ describe('F2 load error with Reintentar', () => {
     await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(4))
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(MESSAGES.INTERNAL_ERROR)
+      expect(loadErrorAlert()).toHaveTextContent(MESSAGES.INTERNAL_ERROR)
     })
     await waitFor(() => {
       expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Reintentar' }))
@@ -910,7 +969,7 @@ describe('F2 load error with Reintentar', () => {
     renderProfile()
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument()
+      expect(loadErrorAlert()).toBeInTheDocument()
     })
 
     expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Reintentar' }))
@@ -974,7 +1033,7 @@ describe('F2 load error with Reintentar', () => {
     renderProfile()
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toBeInTheDocument()
+      expect(loadErrorAlert()).toBeInTheDocument()
     })
 
     expect(screen.getByRole('button', { name: 'Eliminar mi cuenta' })).toBeInTheDocument()
