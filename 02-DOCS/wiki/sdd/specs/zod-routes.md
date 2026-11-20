@@ -39,8 +39,9 @@ Además, `analyze` marca el principio 13 como incumplido (F1) en cada feature nu
 
 ## Cost of not building it
 
-- Para quien usa la pantalla: **casi nada**. La pantalla siempre manda fechas reales y páginas enteras, así que nunca
-  llega a los dos 500.
+- Para quien usa la pantalla: **casi nada**. La pantalla siempre manda fechas reales. La página la toma de la URL, así
+  que solo alguien que edita la URL a mano con un número enorme (`?page=99999999999999999999`) llega al 500 de hoy;
+  después verá el error de listado (fila 34).
 - Para quien llama a la API a mano o con un script: dos respuestas 500 donde corresponde un 400. Eso ensucia el log de
   errores y esconde bugs reales entre ruido.
 - Para el proyecto: la regla escrita y el código siguen diciendo cosas distintas, y `analyze` lo seguirá marcando como
@@ -99,7 +100,8 @@ descartó: debilita la regla por escrito y deja la validación repartida como es
 
 ## Users & context
 
-- **La pantalla de Prestoteca** (el cliente web). Manda siempre datos bien formados. No debería notar ningún cambio.
+- **La pantalla de Prestoteca** (el cliente web). Manda siempre datos bien formados, salvo una página enorme escrita a
+  mano en la URL. Fuera de ese caso, no debería notar ningún cambio.
 - **Quien llama a la API directo** (un script, curl, un cliente roto o malicioso). Es quien ve las respuestas a datos mal
   formados.
 - **Quien agrega o cambia una ruta** (Hernán, o Qwen con un brief). Necesita que el lugar donde vive la regla de cada
@@ -139,10 +141,11 @@ resultado esperado. Las únicas respuestas nuevas son estas:
 | --- | --- | --- |
 | `endDate` que no es un día real (`"mañana"`, `"2099-02-30"`) con un `startDate` real, o `startDate: "2099-02-30"` | pasa las comparaciones de texto y llega a la base: probablemente 500 `INTERNAL_ERROR` | 400 `LOAN_DATE_INVALID` (fila 40) |
 | `startDate: "mañana"` con un `endDate` real | 400 `LOAN_END_BEFORE_START` (`"2099-…" < "mañana"` en texto) | 400 `LOAN_DATE_INVALID` (fila 40) |
+| fecha mal formada que hoy pasa las comparaciones de texto, sobre una herramienta inexistente (o id no UUID), pausada o propia | 404 `TOOL_NOT_FOUND`, 409 `TOOL_PAUSED` o 400 `LOAN_OWN_TOOL` (la fecha recién llega a la base después de esos chequeos) | 400 `LOAN_DATE_INVALID`: el formato se revisa antes de buscar la herramienta |
 | una fecha real sin ceros (`"2026-1-5"`) | la base la acepta, pero la comparación de texto con "hoy" y con la otra fecha da resultados equivocados (p. ej. "ya pasó" para una fecha futura) | 400 `LOAN_DATE_INVALID` (fila 40) |
 | `page` que no es solo dígitos (`1abc`, `1.5`, `%202`, `-1`, `0`) | se acepta como 1 o 2, o 400 | 400 `BAD_REQUEST` |
 | `page` de solo dígitos pero demasiado grande para representarse | probablemente 500 | 400 `BAD_REQUEST` |
-| `page` repetido (`?page=1&page=2`) | se acepta como página 1 | 400 `BAD_REQUEST` (como `q`, `category` y `neighborhood` repetidos desde 5e) |
+| `page` repetido (`?page=1&page=2`) | se acepta como la primera de las dos (`?page=2&page=3` → página 2) | 400 `BAD_REQUEST` (como `q`, `category` y `neighborhood` repetidos desde 5e) |
 | cambio de contraseña con `newPassword: " clave123 "` | se guarda con los espacios; después el login (que recorta) no entra | se guarda `"clave123"`; el login con `"clave123"` o `" clave123 "` entra |
 | cambio de contraseña con `newPassword` que solo llega a 8 caracteres contando los espacios (`"  abcdef  "`) | se acepta (largo 10) | 400 `NEW_PASSWORD_LENGTH` (largo 6 después de recortar, igual que en el registro) |
 | cambio de contraseña con `currentPassword` correcta pero con espacios alrededor | 400 `CURRENT_PASSWORD_INCORRECT` | se acepta (se recorta antes de comparar, igual que el login) |
@@ -206,7 +209,10 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   "sin cambios" (`TOOL_EDIT_EMPTY`). En `POST /api/tools` la lista de categorías y condiciones ya corre antes de tocar
   la base, así que AC-9 la cubre. Por eso, una categoría inválida sobre una
   herramienta ajena sigue dando `TOOL_NOT_OWNER`, y sobre una que no existe, `TOOL_NOT_FOUND`.
-- **Varios campos inválidos a la vez:** gana el mismo error que gana hoy. El orden de cada ruta se conserva.
+- **Varios campos inválidos a la vez:** gana el mismo error que gana hoy. El orden de cada ruta se conserva. Las únicas
+  excepciones son las de *What result they get*: en el cambio de contraseña, "solo espacios" antes que el largo; en el
+  pedido de préstamo, la fecha mal formada antes que los chequeos que buscan la herramienta (no existe, pausada,
+  propia).
 - **Cambio de contraseña:** sigue este orden. Primero, si falta alguna contraseña o no es texto, da
   `PASSWORD_CHANGE_MISSING_FIELDS` (como hoy, mirando el valor sin recortar). Segundo, si `newPassword` es solo
   espacios, de cualquier largo, da `NEW_PASSWORD_BLANK`. Esto cambia la precedencia de hoy, que mira el largo antes; el
@@ -235,6 +241,9 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   `startDate: "mañana"`, Then recibe 400 `LOAN_DATE_INVALID`.
 - **AC-4** — Given lo mismo, When `endDate` es `"2099-02-30"`, `"2026-1-5"` o `"2027-02-29"`, Then recibe 400
   `LOAN_DATE_INVALID` en cada caso; y con `"2028-02-29"` como fin válido no recibe ese código.
+- **AC-4b** — Given un usuario con sesión, When pide un préstamo con `endDate: "mañana"` sobre una herramienta que no
+  existe, sobre una pausada y sobre una propia, Then recibe 400 `LOAN_DATE_INVALID` en los tres casos, y el manejador no
+  consulta la base.
 - **AC-5** — Given lo mismo, When falta `startDate` y `endDate` es `"mañana"`, Then recibe 400 `LOAN_DATES_MISSING`
   (la fila 24 gana a la 40).
 - **AC-6** — Given lo mismo, When las fechas tienen espacios alrededor (`" 2099-01-10 "`), Then se aceptan como hoy.
@@ -297,11 +306,11 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   ausente en el resto de la app; lo repetido ya da 400 en los otros parámetros de búsqueda desde 5e. *Riesgo:* bajo; la
   pantalla nunca manda ninguno de los dos.
 - **suposición tomada** — un tipo equivocado en `category` o `condition` (número, lista) se rechaza en el lugar que hoy
-  ocupa esa regla (después de leer la base), no antes. *Base:* conservar la precedencia de hoy (AC-1, AC-10b).
+  ocupa esa regla: en `PATCH`, después de leer la base; en `POST`, antes, como hoy. *Base:* conservar la precedencia de hoy (AC-1, AC-10b).
   *Riesgo:* el plan puede proponer revisar el tipo antes; si lo hace, tiene que listar el cambio de precedencia como
   respuesta nueva.
-- **decisión diferida** — unificar en un solo lugar la regla de la lista de categorías y condiciones (hoy en ruta,
-  servicio y repositorio). Es limpieza interna; el plan decide si entra o queda para después.
+- **decisión diferida** — unificar en un solo lugar la regla de la lista de categorías y condiciones (hoy en el
+  servicio, `publish` y `edit`, y en el repositorio, `create` y `update`; la ruta no la revisa). Es limpieza interna; el plan decide si entra o queda para después.
 - **decisión diferida** — formato de email en el registro. Sería una regla nueva; queda fuera de este ciclo.
 
 ## Revisions
@@ -322,5 +331,10 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   solo `PATCH` conserva reglas después. (3) AC-16 se limita a los errores del esquema; las transiciones de préstamo
   siguen nombrando el `status`. (4) `startDate: "mañana"` hoy da `LOAN_END_BEFORE_START`, no 500; AC-17 usa entradas que
   sí llegan a la base. (5) El cliente no cambia por el recorte de contraseña. (6) `?page=&page=` → 400.
+- **2026-11-20 — revisión con ojos frescos 3** (0 bloqueos, 1 should-fix y 3 nits, todos aplicados). (1) Hoy una fecha
+  mal formada pierde contra "herramienta no existe / pausada / propia"; se decide que el formato gane (va antes de la
+  base, como pide AC-9), listado como respuesta nueva, con AC-4b y la excepción escrita en *Behaviour*. (2) La lista de
+  categorías vive en el servicio y el repositorio, no en la ruta. (3) Una página enorme escrita a mano en la URL de la
+  pantalla hoy da 500 y después muestra la fila 34. (4) `page` repetida hoy toma la primera, no siempre la 1.
 </content>
 </invoke>
