@@ -617,7 +617,16 @@ slug: server-sessions
 - risk: no aplica (no hay cambio de código; solo esta entrada de docs).
 - controls: tests ✅ build ✅ (`tsc -b` en los dos) security ✅ (sin cambios de código) traceability ✅ (AC-1 a AC-37).
 - decision: ninguna nueva.
-- pendiente: desde el **2026-11-27** (PR 2 una semana estable en producción), borrar `JWT_SECRET` de Railway en los dos
-  entornos (servicio de la app), con OK de Hernán. Mejora opcional anotada en T015: texto "Cerrando…" en el botón de
-  confirmar mientras espera.
-- siguiente: con T016 completa, la feature server-sessions queda cerrada en `implement`.
+- `JWT_SECRET` **borrada de Railway** el 2026-11-20 (Claude con la CLI, pedido de Hernán, antes de la semana del
+  plan §0):
+  - Hernán aceptó adelantarlo. Si alguna vez hubiera que volver a un deploy de antes del PR 1, ese código no arranca
+    sin la variable: basta con crear un `JWT_SECRET` nuevo al azar de 32 caracteres o más (los JWT viejos no sirven
+    desde el PR 1, no se pierde nada).
+  - `railway variable delete JWT_SECRET -s prestoteca` en cada entorno → `{"deleted":true}`. El borrado **no** lanza un
+    deploy ni deja cambios en espera: el contenedor seguía con la variable hasta un `railway redeploy` a mano.
+  - staging: deploy `2a183cfc` SUCCESS; `/api/health` 200; log de arranque limpio; dentro del contenedor la variable
+    no existe; `smoke.mjs` → `SMOKE OK` ✅
+  - producción: deploy `f4deab07` SUCCESS (misma imagen, `main` `8482156`); `/api/health` 200; log de arranque limpio;
+    la variable no existe en el contenedor; `smoke.mjs` contra producción → `SMOKE OK` ✅
+- mejora opcional anotada en T015, sin hacer: texto "Cerrando…" en el botón de confirmar mientras espera.
+- siguiente: con T016 completa y `JWT_SECRET` borrada, la feature server-sessions queda cerrada en `implement`.
