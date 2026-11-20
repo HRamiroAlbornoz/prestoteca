@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import axe from 'axe-core'
+import { readFileSync } from 'node:fs'
 import { useRef, useState } from 'react'
 import { ConfirmDialog } from './ConfirmDialog'
 
@@ -421,5 +422,38 @@ describe('ConfirmDialog (AC-18)', () => {
     expect(screen.getByRole('button', { name: CONFIRM_LABEL })).not.toBeDisabled()
     expect(screen.getByRole('button', { name: CANCEL_LABEL })).not.toBeDisabled()
     expect(screen.queryByText(BUSY_LABEL)).toBeNull()
+  })
+
+  // jsdom does not load Tailwind, so the colors are pinned by their class names; the contrast itself is
+  // checked in a real browser (staging)
+  it('C21: while busy, the buttons keep a readable contrast: no opacity, a darker red, gray-500 text on cancel', () => {
+    render(
+      <ConfirmDialog
+        open
+        busy
+        busyLabel="Cerrando sesiones..."
+        title={TITLE}
+        description={DESCRIPTION}
+        confirmLabel={CONFIRM_LABEL}
+        cancelLabel={CANCEL_LABEL}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+        returnFocusTo={{ current: null }}
+      />,
+    )
+    const confirmBtn = screen.getByRole('button', { name: 'Cerrando sesiones...' })
+    const cancelBtn = screen.getByRole('button', { name: CANCEL_LABEL })
+    expect(confirmBtn).toHaveClass('disabled:bg-red-800', 'enabled:hover:bg-red-700')
+    expect(confirmBtn).not.toHaveClass('hover:bg-red-700')
+    expect(cancelBtn).toHaveClass('disabled:text-gray-500')
+    expect(confirmBtn.className).not.toContain('opacity')
+    expect(cancelBtn.className).not.toContain('opacity')
+  })
+
+  it('C22: in dark mode, the disabled cancel text gets a lighter gray (gray-500 on the dark card is below 4.5:1)', () => {
+    // Vitest runs from client/ (jsdom's import.meta.url is not a file URL)
+    const css = readFileSync('src/index.css', 'utf-8')
+    const dark = css.slice(css.indexOf('@media (prefers-color-scheme: dark)'))
+    expect(dark).toContain('.disabled\\:text-gray-500:disabled { color: #A1A1AA; }')
   })
 })

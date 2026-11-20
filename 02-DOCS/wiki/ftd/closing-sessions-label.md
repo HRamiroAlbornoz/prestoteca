@@ -64,11 +64,11 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
 - [x] **Controles.** Prueba: `npm test`, `npx tsc -b` y `npm run lint` del cliente en verde; cobertura de líneas ≥ 80 %
   en los dos archivos cambiados; ningún `it(` viejo borrado (diff de nombres contra `main`).
 - [x] **Riesgo y revisión.** Prueba: `rsc risk --base main` y la revisión que pida su tier.
-- [ ] **Contraste mientras espera.** Prueba: C21 y C22 en verde; un mutante con `opacity-50` de vuelta, otro con el
+- [x] **Contraste mientras espera.** Prueba: C21 y C22 en verde; un mutante con `opacity-50` de vuelta, otro con el
   hover sin `enabled:` y otro sin el override de modo oscuro caen; el CSS compilado (`npm run build`) trae
   `.disabled\:bg-red-800:disabled`, `.enabled\:hover\:bg-red-700:enabled:hover` y el override `#a1a1aa`; suite,
   `tsc -b` y lint en verde.
-- [ ] **Riesgo y revisión del contraste.** Prueba: `rsc risk` y la revisión que pida su tier.
+- [x] **Riesgo y revisión del contraste.** Prueba: `rsc risk` y la revisión que pida su tier.
 - [ ] **Staging, a mano.** Prueba: con el `DELETE` demorado desde la página, el botón muestra "Cerrando sesiones...",
   deshabilitado, y al terminar el diálogo se cierra y el éxito se anuncia como antes. Colores calculados en el
   navegador, en modo claro y oscuro: texto ≥ 4,5:1 en los dos botones mientras espera.
@@ -104,8 +104,35 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
   - el cambio de texto no se anuncia: intentional, límite conocido de arriba.
   - contraste: el botón deshabilitado usa `opacity-50` (blanco sobre rojo atenuado, ~2,2:1). WCAG excluye los
     controles deshabilitados, pero ahora el texto está para leerse → seguimiento, decide Hernán.
+- Contraste (Qwen, opción D, sin commitear):
+  - Rojo: con solo las pruebas, `Tests  2 failed | 41 passed (43)` (C21 y C22).
+  - Verde en `src/components`: `Tests  43 passed (43)`.
+  - Suite completa del cliente: `Tests  543 passed (543)`.
+  - `tsc -b`: exit 0.
+  - `npm run lint`: exit 0.
+  - Mutante 1 (`disabled:bg-red-800` → `disabled:opacity-50`): `Tests  1 failed | 42 passed (43)`.
+  - Mutante 2 (`enabled:hover:bg-red-700` → `hover:bg-red-700`): `Tests  1 failed | 42 passed (43)`.
+  - Mutante 3 (`disabled:text-gray-500` → `disabled:opacity-50`): `Tests  1 failed | 42 passed (43)`.
+  - Mutante 4 (sin override CSS `#A1A1AA`): `Tests  1 failed | 42 passed (43)`.
+  - Diff de nombres de test: C21 y C22 añadidos (20a21,22).
+  - CSS compilado: `.disabled\:bg-red-800:disabled` → 1, `.enabled\:hover\:bg-red-700:enabled:hover` → 1, `.disabled\:text-gray-500:disabled{color:#a1a1aa}` → 1.
+  - Risk tier: `tier 1`, `classes: default`, `reviewers: 1`, `human approval: not required`.
+- Contraste, verificación de Claude: componente y prueba idénticos al brief; `index.css` con la misma regla dentro del
+  bloque oscuro (una línea en blanco de más, sin efecto); en el worktree de Qwen, suite `22 passed`, `543 passed`,
+  `tsc -b` 0, lint 0, build con las tres reglas en el CSS compilado. Qwen siguió el método rsc: marcó solo su
+  casilla, escribió la evidencia con sus números y dejó `Next` al día; su mensaje final fue un resumen, no el reporte
+  pegado. `rsc risk --base HEAD` en el checkout principal → tier 1 (`default, docs`).
+- Contraste, revisión tier 1: **APPROVE WITH NITS**, sin bloqueos ni should-fix. La regla oscura gana (0,2,0, misma
+  capa y después de la de Tailwind; le gana a `.text-gray-700` oscuro); ningún override oscuro toca los rojos; un
+  botón deshabilitado no recibe foco, así que el contorno violeta no queda sobre el rojo oscuro; `ConfirmDialog` se
+  usa solo en `OtherSessionsSection.tsx`.
+  - C22 compara el texto exacto de la regla (cambiar el formato del CSS la rompería): intentional, la prueba real es
+    el navegador en staging.
+  - C21 solo fija nombres de clases: intentional, ya anotado.
+  - el override oscuro de `disabled:text-gray-500` es global, no solo del diálogo: intentional, cualquier texto
+    deshabilitado con ese gris necesita el mismo arreglo en modo oscuro.
 
 ## Next
 
-Contraste: brief de opción D (tarea completa) para Qwen, revisión con ojos frescos y OK de Hernán; después staging a
-mano y PR. (El "Cerrando sesiones..." ya está commiteado en `9cd1fd8`.)
+Commit de Hernán; después staging a mano (texto "Cerrando sesiones..." con el `DELETE` demorado y colores calculados
+en modo claro y oscuro) y PR.

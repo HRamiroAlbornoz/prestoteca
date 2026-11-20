@@ -114,7 +114,7 @@ export function ConfirmDialog({
             type="button"
             ref={cancelRef}
             disabled={busy}
-            className="min-h-[44px] rounded-md border border-gray-500 bg-white px-4 py-2 text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+            className="min-h-[44px] rounded-md border border-gray-500 bg-white px-4 py-2 text-gray-700 disabled:cursor-not-allowed disabled:text-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
             onClick={onCancel}
           >
             {cancelLabel}
@@ -122,7 +122,7 @@ export function ConfirmDialog({
           <button
             type="button"
             disabled={busy}
-            className="min-h-[44px] rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+            className="min-h-[44px] rounded-md bg-red-600 px-4 py-2 text-white enabled:hover:bg-red-700 disabled:cursor-not-allowed disabled:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
             onClick={onConfirm}
           >
             {busy && busyLabel ? busyLabel : confirmLabel}
