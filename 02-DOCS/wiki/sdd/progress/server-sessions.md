@@ -527,5 +527,20 @@ slug: server-sessions
   - Claude lo confirmó en `feat/server-sessions-client`: `22 passed`, `540 passed`, `tsc -b` 0, lint 0; sin
     `replace` → falla la prueba nueva (`1 failed | 28 passed`); alerta duplicada en el panel → `17 failed | 48
     passed` ✅
-- siguiente: commit de Hernán → ronda 2 del panel sobre T015a → `rsc review ledger panel server-sessions/pr2-client
-  --lenses correctness,security,tests` → aprobación de Hernán (paso 6) → staging.
+- commit: `354b0b3` (Hernán).
+- paso 5, ronda 2 (panel sobre `354b0b3`; esta vez un solo revisor con mutantes a la vez):
+  - pruebas: APPROVE, 0 hallazgos. N1 y N2 cerrados; sin `replace` falla solo la prueba nueva; pasa con
+    `--sequence.shuffle` (semillas 1-3) y aislada; alerta duplicada al principio, al final o con solo espacios →
+    `17 failed`. Sobreviven 2 sin acción: alerta vacía dentro del panel (equivalente: nadie la percibe) y un
+    `aria-live` sin `role="alert"` (fuera del contrato).
+  - seguridad (solo lectura): APPROVE, 0 hallazgos.
+  - corrección: APPROVE WITH NITS. Nit anotado, sin cambio: los ayudantes prohíben **cualquier** alerta con texto
+    dentro del panel; con error de carga la app muestra "Configuración", donde una alerta de contraseña o de
+    sesiones es legítima. Hoy ninguna prueba combina los dos estados (540 en verde); una prueba futura que lo haga
+    tendría que acotar el chequeo al texto del error de carga.
+- ledger: `rsc review ledger panel server-sessions/pr2-client --lenses correctness,security,tests` → "panel of 3
+  recorded (correctness, security, tests) on 354b0b3" ✅ (después del último commit de código).
+- `rsc risk --base origin/main` sigue mostrando la línea `escalate: asdd`: sale siempre que el tier es 2
+  (`scripts/lib/risk.js:55`, sin chequear nada); el que exige la spec es el guard de push. La spec commiteada tiene
+  `branch: feat/server-sessions-client` y pasa `spec gate`.
+- siguiente: aprobación explícita de Hernán (paso 6) → push y PR → `railway up -e staging` con revisión a mano.
