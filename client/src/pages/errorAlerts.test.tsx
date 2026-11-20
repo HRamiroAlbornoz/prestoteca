@@ -105,6 +105,9 @@ function profileLoadAlert() {
     const tabpanel = screen.getByRole('tabpanel')
     const outsideTabs = screen.getAllByRole('alert').filter((alert) => !tabpanel.contains(alert))
     expect(outsideTabs).toHaveLength(1)
+    // Inside the tab panel no alert has text: the load error is shown once, above the tabs
+    const insideWithText = screen.getAllByRole('alert').filter((alert) => tabpanel.contains(alert) && alert.textContent !== '')
+    expect(insideWithText).toHaveLength(0)
     return outsideTabs[0]
   })
 }

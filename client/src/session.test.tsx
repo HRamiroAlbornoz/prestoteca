@@ -253,6 +253,21 @@ describe('server-sessions: loading the app with a cookie that no longer works', 
       expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     },
   )
+
+  it('AC-31: "back" from the login returns to the page before, not to the private page (redirect uses replace)', async () => {
+    // A known page before. PrivateRoute replaces the /loans entry with the login, so "back" lands here.
+    // Without replace, "back" would land on /loans, which redirects to the login again.
+    window.history.pushState({}, '', '/')
+    renderAt('/loans')
+    expect(await screen.findByRole('heading', { name: /iniciar sesión/i })).toBeInTheDocument()
+    expect(window.location.pathname).toBe('/login')
+
+    window.history.back()
+
+    await waitFor(() => expect(window.location.pathname).toBe('/'))
+    expect(await screen.findByRole('form', { name: /filtros de búsqueda/i })).toBeInTheDocument()
+    expect(screen.queryByText(SESSION_ENDED)).not.toBeInTheDocument()
+  })
 })
 
 describe('AC-12: a failed login stays on the login and keeps the email', () => {
