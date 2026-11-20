@@ -545,4 +545,14 @@ slug: server-sessions
   `branch: feat/server-sessions-client` y pasa `spec gate`.
 - paso 6: **Hernán aprobó el PR 2** el 2026-11-20 ("Sí, apruebo el PR 2"), después de ver la puerta y las dos rondas
   del panel ✅
-- siguiente: push y PR (Hernán) → `railway up -e staging` con revisión a mano → merge → smoke en producción.
+- push y PR (Hernán): rama subida sin que el guard de push frene nada; **PR #53** abierto contra `main`
+  (https://github.com/HRamiroAlbornoz/prestoteca/pull/53). El repo no tiene CI.
+- staging (Claude, con el OK de Hernán): `railway up -e staging --service prestoteca --ci` desde `85286ac` →
+  `Deploy complete` (build del cliente y `tsc -b` del server).
+  - deploys: staging SUCCESS 2026-11-20 07:58 UTC (`railway up`); production sigue en SUCCESS 02:41 UTC, `main`
+    `03b1635` (sin tocar) ✅
+  - el bundle servido (`assets/index-ZsIom9ol.js`) trae "Recordarme", "Cerrar sesión en los otros dispositivos" y
+    "Cerramos la sesión en tus otros dispositivos" ✅
+  - `node server/scripts/smoke.mjs https://prestoteca-staging.up.railway.app` → `SMOKE OK`, exit 0 ✅
+- siguiente: revisión a mano en staging → actualizar el PR → merge → deploys de los dos entornos → smoke en
+  producción → verificación del PR 2.
