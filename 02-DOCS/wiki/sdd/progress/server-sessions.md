@@ -370,3 +370,18 @@ slug: server-sessions
 - pendiente: borrar `JWT_SECRET` de Railway (los dos entornos) cuando el PR 2 lleve una semana estable en producción.
 - siguiente: PR 2 (cliente), empezando por T011 — Hernán instala `@testing-library/user-event@14.6.1` en el cliente
   desde una rama nueva del PR 2.
+
+## T011 — 2026-11-19
+
+- status: complete. Rama del PR 2: `feat/server-sessions-client` (creada por Hernán desde `main` en `03b1635`).
+- quién: Hernán corrió `cd client && npm install --save-dev @testing-library/user-event@14.6.1 && npm test`.
+- done-check:
+  - `client/package.json` +1 línea (`"@testing-library/user-event": "^14.6.1"` en `devDependencies`);
+    `package-lock.json` +15 líneas, versión fijada en `14.6.1`, `dev: true`, licencia MIT ✅
+  - dependencia par `@testing-library/dom >=7.21.4` ya presente (`10.4.2`) ✅
+  - `npm audit`: 0 vulnerabilidades ✅
+  - `npm test` (cliente): `20 passed`, `486 passed`, igual que antes de instalar ✅
+  - `npx tsc -b` → exit 0; `oxlint` → exit 0 ✅
+- notas: los avisos `act(...)` y `HTMLCanvasElement's getContext()` en la salida de las pruebas ya estaban antes
+  (no cambian el resultado). npm escribe `^14.6.1`; el lockfile fija la versión exacta.
+- decision: ninguna. Siguiente: T012 ("Recordarme" en `LoginPage`) y T013 (`ConfirmDialog`), Qwen, de a una.
