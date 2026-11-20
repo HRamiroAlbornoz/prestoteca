@@ -290,3 +290,5 @@ timestamp: 2026-10-04T00:00:00Z
   - ⚠️ La fila 40 obliga a tocar el cliente (texto + prueba) en la misma rama que el server.
   - ✅ Hernán sumó el arreglo de la contraseña ("Sumalo a este cambio"): el cambio de contraseña pasa a recortar, como
     el registro y el login.
+  - ✅ En el pedido de préstamo, una fecha mal formada gana contra "la herramienta no existe / está pausada / es
+    propia" (el formato se revisa antes de la base). Propuesto por Claude en la revisión 3, aceptado por Hernán.

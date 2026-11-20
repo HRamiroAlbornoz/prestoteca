@@ -336,5 +336,6 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   base, como pide AC-9), listado como respuesta nueva, con AC-4b y la excepción escrita en *Behaviour*. (2) La lista de
   categorías vive en el servicio y el repositorio, no en la ruta. (3) Una página enorme escrita a mano en la URL de la
   pantalla hoy da 500 y después muestra la fila 34. (4) `page` repetida hoy toma la primera, no siempre la 1.
+  Hernán aceptó la decisión (1): "Acepto esa decisión incluida" (2026-11-20). No es la aprobación de la spec.
 </content>
 </invoke>
