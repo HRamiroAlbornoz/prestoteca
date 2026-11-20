@@ -221,6 +221,40 @@ describe('AC-11: the session ends during an action → login with the notice →
   })
 })
 
+// Spec server-sessions: the cookie expired or was revoked on the server, so GET /api/me answers 401
+// SESSION_REQUIRED (what the real server sends). Loading the app is not "the session ended during an action"
+// (AC-11 above): no notice, and a public page stays where it is.
+describe('server-sessions: loading the app with a cookie that no longer works', () => {
+  beforeEach(() => {
+    state.user = null
+  })
+
+  it.each([
+    ['/tools/7', 'heading', /taladro/i],
+    ['/', 'form', /filtros de búsqueda/i],
+  ] as const)('AC-29: the public page %s shows as logged out, without the notice and without a redirect', async (path, role, name) => {
+    renderAt(path)
+
+    expect(await screen.findByRole(role, { name })).toBeInTheDocument()
+    expect(await within(nav()).findByRole('link', { name: /iniciar sesión/i })).toBeInTheDocument()
+    expect(window.location.pathname).toBe(path)
+    expect(screen.queryByText(SESSION_ENDED)).not.toBeInTheDocument()
+  })
+
+  it.each(['/loans', '/loans/42', '/profile'])(
+    'AC-31: opening the private page %s goes to the login with returnTo and without the notice',
+    async (path) => {
+      renderAt(path)
+
+      expect(await screen.findByRole('heading', { name: /iniciar sesión/i })).toBeInTheDocument()
+      expect(window.location.pathname).toBe('/login')
+      expect(new URLSearchParams(window.location.search).get('returnTo')).toBe(path)
+      expect(screen.queryByText(SESSION_ENDED)).not.toBeInTheDocument()
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    },
+  )
+})
+
 describe('AC-12: a failed login stays on the login and keeps the email', () => {
   it('shows row 7, does not navigate and keeps the email that was typed', async () => {
     state.user = null

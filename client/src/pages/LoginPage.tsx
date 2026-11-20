@@ -8,6 +8,9 @@ import { useApiError } from '../errors/useApiError'
 interface LoginFormData {
   email: string
   password: string
+  // "Recordarme": the server keeps the session 7 days without use instead of 12 hours, and the cookie survives
+  // closing the browser. Always sent as true or false (spec server-sessions, AC-20)
+  remember: boolean
 }
 
 // returnTo comes from the URL, so anyone can craft it. Only same-site paths are followed:
@@ -28,6 +31,8 @@ export function LoginPage() {
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
+    // Unchecked when the screen opens: the long session is a choice, never the default
+    remember: false,
   })
   const [error, setError] = useState<string>('')
   // Once the person tries to log in, the "session ended" notice has done its job: it does not come back
@@ -120,6 +125,27 @@ export function LoginPage() {
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-violet-500"
             />
+          </div>
+
+          <div>
+            {/* The label is tied to the box, so tapping the word "Recordarme" ticks it too */}
+            <div className="flex items-center gap-2 min-h-11">
+              <input
+                id="remember"
+                type="checkbox"
+                checked={formData.remember}
+                onChange={(e) => setFormData({ ...formData, remember: e.target.checked })}
+                aria-describedby="remember-help"
+                // size-6 makes the box 24 px; min-h/min-w repeat it in the form responsive.test.tsx looks for
+                className="size-6 min-h-[24px] min-w-[24px] accent-violet-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+              />
+              <label htmlFor="remember" className="text-sm text-gray-700">
+                Recordarme
+              </label>
+            </div>
+            <p id="remember-help" className="text-xs text-gray-600">
+              No la marques en una compu compartida.
+            </p>
           </div>
 
           <button

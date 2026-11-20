@@ -385,3 +385,42 @@ slug: server-sessions
 - notas: los avisos `act(...)` y `HTMLCanvasElement's getContext()` en la salida de las pruebas ya estaban antes
   (no cambian el resultado). npm escribe `^14.6.1`; el lockfile fija la versión exacta.
 - decision: ninguna. Siguiente: T012 ("Recordarme" en `LoginPage`) y T013 (`ConfirmDialog`), Qwen, de a una.
+
+## T012 — 2026-11-20
+
+- status: complete (sin commitear al escribir esta entrada).
+- quién: Claude escribió el código y las pruebas y los probó en seco; dos revisiones con ojos frescos del brief
+  (pedidas por Hernán) antes de lanzar; Qwen copió y corrió los chequeos (Orca, worktree `t012-remember`, un solo
+  intento, `ALL CHECKS MATCHED`); Claude volvió a comprobar (`cmp` de los 3 archivos, 14 mutantes en el worktree de
+  Qwen) y copió al checkout.
+- cambios: `client/src/pages/LoginPage.tsx` (+26: casilla "Recordarme" debajo de la contraseña, desmarcada, etiqueta
+  asociada, `aria-describedby="remember-help"` al texto "No la marques en una compu compartida.", 24 px, contorno de
+  foco con `focus-visible`; el login manda `{ email, password, remember }`), `client/src/pages/authPages.test.tsx`
+  (+116: cuerpo exacto con `remember: false` y 6 pruebas de AC-20 con `user-event`), `client/src/session.test.tsx`
+  (+34: AC-29 en `/` y `/tools/7`, AC-31 en `/loans`, `/loans/42`, `/profile`, App real con `/api/me` → 401
+  `SESSION_REQUIRED`).
+- desvío del plan (aprobado por Hernán, plan corregido en `f6f1995` y `53af4eb`): pruebas nuevas de AC-29 y AC-31 en
+  vez de renombrar `sessionPersist.test.tsx:46` y `session.test.tsx:113`, que no probaban esos criterios.
+- done-check:
+  - `npx vitest run src/pages/authPages.test.tsx src/session.test.tsx src/pages/accessibility.test.tsx
+    src/pages/responsive.test.tsx` → `4 passed`, `85 passed` ✅
+  - `npm test` (cliente) → `20 passed`, `497 passed` (486 + 11); `npx tsc -b` 0; `oxlint` 0 ✅
+  - mutantes: 14/14 muertos (`prestoteca-briefs/T012-files/t012-mutate.mjs`), más los propios de los revisores ✅
+- `rsc risk --base HEAD` → **tier 2** (clase `auth` solo por la ruta `client/src/session.test.tsx`; el plan
+  pronosticaba tier 1). Hernán eligió el panel de 3 ahora.
+- review (panel, ronda 1): seguridad APPROVE (0 hallazgos); corrección APPROVE (7 mutantes propios muertos);
+  pruebas APPROVE WITH NITS (13 mutantes propios: 9 muertos, 4 sobreviven, ninguno es un incumplimiento de la spec).
+  - nits anotados, sin cambio:
+    - la redirección de `PrivateRoute` sin `replace` sobrevive (AC-31 no lo pide; "atrás" volvería a rebotar);
+    - el texto de ayuda con `sr-only` o la fila sin `min-h-11` sobreviven: jsdom no carga Tailwind, así que
+      `toBeVisible()` solo atrapa el atributo `hidden` (M9) → revisión a mano en staging (T015);
+    - `aria-hidden` en el texto de ayuda es equivalente (la descripción sigue llegando por `aria-describedby`);
+    - `disabled={loading}` en la casilla no lo pide ningún criterio;
+    - el login manda `formData` entero: un campo futuro viajaría solo (hoy lo atrapan las pruebas de cuerpo exacto);
+    - `size-6` y `min-h/min-w-[24px]` podrían desalinearse (el comentario lo explica).
+- para T015 (staging, a mano): foco visible en la casilla (también en modo oscuro), texto de ayuda chico y visible,
+  casilla de 24 px y fila tocable en un teléfono de 320 px.
+- controls: tests ✅ build ✅ (`tsc -b`) security ✅ (panel APPROVE) traceability ✅ (AC-20, AC-29, AC-31 con prueba;
+  AC-26 del lado del cliente = siempre manda el campo, el modo corto se prueba en T004).
+- decision: ninguna nueva. Siguiente: commit de Hernán → `rsc review ledger panel server-sessions/T012 --lenses
+  correctness,security,tests` → aprobación de tier 2 de Hernán → T013 (`ConfirmDialog`).
