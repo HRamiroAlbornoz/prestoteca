@@ -574,7 +574,7 @@ AC-31 (cliente, pruebas nuevas con la App real); 12 → AC-11, AC-18, AC-19, AC-
 | R1 — Deploy sin la tabla | se despliega el PR 1 antes de correr la 005 | todo pedido protegido → 500, nadie usa la app | migración primero, con consulta de comprobación anotada; el checklist de cierre lo exige en orden |
 | R2 — La cookie no se borra | `clearSessionCookie` con atributos distintos de los de `setSessionCookie` | logout "anda" en el server pero el navegador conserva una cookie inútil | una sola función con los atributos; prueba que compara los dos `Set-Cookie` |
 | R3 — Escritura en cada pedido | `touchActive` actualiza la fila siempre | más carga en la base | medir en staging contra la mediana de 5c (292 ms); si sube de forma medible, renovar solo si el último uso tiene más de 60 s (decisión abierta, no se construye sin medición) |
-| R4 — Diálogo propio con huecos de accesibilidad | foco o lectura en pantalla mal resueltos | quien usa teclado o lector queda atrapado o sin contexto | pruebas de componente de AC-18 + revisión a mano con teclado en staging; `checklist-accesibilidad` |
+| R4 — Diálogo propio con huecos de accesibilidad | foco o lectura en pantalla mal resueltos | quien usa teclado o lector queda atrapado o sin contexto | pruebas de componente de AC-18 + revisión a mano con teclado en staging; `checklist-accesibilidad`. Límites aceptados: sin bloqueo del scroll de fondo ni `inert` en el resto de la página (la spec no los pide; `aria-modal` + foco atrapado cubren AC-18) |
 | R5 — Cableado roto entre piezas | una ruta usa el middleware viejo o se olvida `deleteOthers` | un criterio pasa en unidad y falla en la app | barrido del paso 7 contra `createApp` (lección de 5c) |
 | R6 — Reloj de la app y de la base distintos | alguien usa `now()` de SQL en una sentencia | bordes de 7 d / 12 h corridos | §0 lo prohíbe; la prueba de SQL verifica que la hora llega como parámetro |
 | R6b — La regla del plazo vive en SQL | `>` en vez de `>=` o un `CASE` mal escrito | sesiones que duran de más o de menos | una sola fuente (`idleCutoffs`) + bordes probados con SQL real en staging (paso 9) |
@@ -674,8 +674,10 @@ y AC-32 se prueban en el cliente; el resto en el server. AC-29 y AC-19 tienen mi
   `id` propio referido por `aria-describedby`.
 
 **T013 — Interfaces**
-- Produce: `ConfirmDialog({ open, title, description, confirmLabel, cancelLabel, confirmDisabled, onConfirm,
-  onCancel, returnFocusTo })` en `client/src/components/ConfirmDialog.tsx`; no hace pedidos ni conoce la sesión.
+- Produce: `ConfirmDialog({ open, title, description, confirmLabel, cancelLabel, busy, onConfirm, onCancel,
+  returnFocusTo })` en `client/src/components/ConfirmDialog.tsx`; no hace pedidos ni conoce la sesión. `busy` = el
+  padre espera la respuesta: los dos botones deshabilitados, Escape no hace nada y el foco queda en el panel del
+  diálogo (que acepta foco con `tabIndex={-1}`); al volver a `false` con el diálogo abierto, el foco va a "Cancelar".
 
 **T014 — Interfaces**
 - Consume: `ConfirmDialog` (T013); `OTHER_SESSIONS_CLOSE_FAILED` y `RATE_LIMITED` de `messages.ts`; `useApiError`
@@ -792,3 +794,9 @@ Cada brief para Qwen sigue lo aprendido en error-codes y 5b-6: checklist de cada
   `responsive.test.tsx` (la casilla debe pasar el control de área táctil de 24 px). Segunda revisión: AC-26 queda en
   la traza de T012 solo como "el cliente siempre manda el campo" (el criterio se prueba en T004); el foco visible y
   el tamaño del texto chico no se pueden probar en jsdom y pasan a la revisión a mano de T015.
+- **2026-11-20 — T013, el diálogo mientras espera (decisión de Hernán, opción A).** La revisión del brief mostró que
+  la spec no decía qué hacen Escape y "Cancelar" mientras "Cerrar sesiones" espera la respuesta. Hernán eligió que no
+  hagan nada: el pedido ya salió y cancelarlo a mitad mentiría. La prop `confirmDisabled` pasa a `busy` (los dos
+  botones deshabilitados, Escape ignorado, foco en el panel). También: el foco atrapado cubre el caso en que el foco
+  no está en un botón habilitado (botón recién deshabilitado o clic sobre el texto del panel); borde de "Cancelar"
+  con contraste ≥ 3:1; límites aceptados en R4 (sin bloqueo de scroll ni `inert`).
