@@ -554,5 +554,28 @@ slug: server-sessions
   - el bundle servido (`assets/index-ZsIom9ol.js`) trae "Recordarme", "Cerrar sesión en los otros dispositivos" y
     "Cerramos la sesión en tus otros dispositivos" ✅
   - `node server/scripts/smoke.mjs https://prestoteca-staging.up.railway.app` → `SMOKE OK`, exit 0 ✅
-- siguiente: revisión a mano en staging → actualizar el PR → merge → deploys de los dos entornos → smoke en
+- revisión a mano en staging (Claude con Chrome, pedido por Hernán; cuenta de prueba `qa-sessions-pr2@example.com`
+  creada con su confirmación y borrada al final):
+  - login: "Recordarme" desmarcada, etiqueta asociada, `aria-describedby="remember-help"`, texto de ayuda debajo
+    (12 px, contraste 6,91:1 en modo oscuro), foco con Tab visible (anillo violeta de 2 px), barra espaciadora y
+    clic en la etiqueta la cambian ✅
+  - 320 px (iframe de 320 px; la ventana maximizada no se pudo achicar): sin scroll horizontal, casilla 24 × 24 px,
+    fila de 44 px, texto de ayuda en 2 líneas ✅
+  - el login manda `remember: true` (booleano) con la casilla marcada → 200 ✅
+  - sesión B por `curl` sin "Recordarme": `Set-Cookie` `HttpOnly; Secure; SameSite=Lax` sin `Max-Age` ✅
+  - diálogo solo con teclado: Enter lo abre; nombre "¿Cerrar la sesión en tus otros dispositivos?", descripción,
+    `aria-modal="true"`; foco inicial en "Cancelar" con anillo visible; Tab → "Cerrar sesiones" → "Cancelar";
+    Shift+Tab → "Cerrar sesiones"; Escape lo cierra y el foco vuelve al botón (visible); B sigue en 200 ✅
+  - confirmar (con el `DELETE` demorado 3 s desde la página para ver la espera): `aria-busy="true"`, los dos botones
+    deshabilitados, foco en el panel; al terminar 204, diálogo cerrado, "Cerramos la sesión en tus otros
+    dispositivos." en la región `status`, foco de vuelta en el botón (visible). **B → 401, A → 200** ✅
+  - cambiar de pestaña mientras espera: el fondo del diálogo tapa las pestañas (no se puede); "atrás" del navegador
+    en plena espera → la app queda en `/`, sin alertas ni aviso de sesión, sesión abierta (`/api/me` 200), sin
+    errores en la consola ✅
+  - observación (no bloquea): mientras espera, el foco está en el panel **sin indicador visible** y la única señal
+    de espera es que los botones se atenúan; el lector de pantalla tiene `aria-busy`. Ya estaba previsto en las notas
+    de T013/T014. Mejora posible para después: un texto "Cerrando…" en el botón de confirmar mientras espera.
+  - limpieza: `DELETE /api/me/account` → 204, `/api/me` → 401, login con esa cuenta → 401; archivos temporales con
+    la contraseña y la cookie borrados.
+- siguiente: actualizar la sección de staging del PR #53 → merge → deploys de los dos entornos → smoke en
   producción → verificación del PR 2.
