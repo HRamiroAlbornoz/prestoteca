@@ -272,3 +272,19 @@ timestamp: 2026-10-04T00:00:00Z
     valor, cualquier otro → 400 `BAD_REQUEST`), probado en AC-25.
   - ⚠️ El principio 13 sigue sin cumplirse en las rutas hasta la feature nueva (backlog); `analyze` de otras features
     lo va a volver a marcar hasta entonces.
+
+## D16 — Alcance de zod-routes: mismas respuestas, dos endurecimientos, fila 40
+
+- **Fecha:** 2026-11-20
+- **Contexto:** `specify` de [zod-routes](specs/zod-routes.md), la feature que D15 prometió. Las rutas ya rechazan los
+  tipos equivocados (5b, 5d, 5e, 5f); quedan dos entradas que probablemente dan 500 (fecha de préstamo mal formada,
+  página enorme) y `page` acepta valores como `1abc`.
+- **Opciones elegidas por Hernán:** fecha mal formada → código nuevo, fila 40 (no `BAD_REQUEST` ni
+  `LOAN_DATES_MISSING`), con el texto "Las fechas tienen que ser días reales del calendario, con el formato
+  AAAA-MM-DD."; `page` solo dígitos, si no 400; alcance = cuerpo, query e id (la cookie de sesión y `Origin` quedan
+  fuera); cadena ASDD con parada en cada fase.
+- **Por qué:** el refactor no debe cambiar lo que ya está fijado por pruebas; la cookie y `Origin` ya tienen chequeos
+  estrictos y propios, y tocarlos suma riesgo de tier 2 sin ganar nada visible.
+- **Consecuencias:**
+  - ✅ El principio 13 queda cumplido en las rutas al cerrar la feature; F1 deja de aparecer en `analyze`.
+  - ⚠️ La fila 40 obliga a tocar el cliente (texto + prueba) en la misma rama que el server.
