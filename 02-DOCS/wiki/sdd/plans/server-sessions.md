@@ -306,10 +306,12 @@ messages.ts: OTHER_SESSIONS_CLOSE_FAILED (fila 39), código del cliente como LOG
   en la pestaña "Configuración".
 - **Sin cambios en el cliente** para el logout y la carga: con 204, `NavBar.tsx:26-38` va al inicio y olvida al
   usuario; con 500, `AuthContext.tsx:77` devuelve `'failed'` y la barra mantiene la sesión con la fila 10
-  (`NavBar.tsx:79-85`) — eso ya cumple AC-30 del lado del cliente. Al cargar con una cookie que ya no sirve, la
-  cobertura existente es `client/src/contexts/sessionPersist.test.tsx:46` (AC-29: 401 → sin sesión) y
-  `client/src/session.test.tsx:113` (AC-31: página privada → login con `returnTo`); el paso 11 las vuelve a correr y
-  les agrega el id del criterio al nombre.
+  (`NavBar.tsx:79-85`) — eso ya cumple AC-30 del lado del cliente. Al cargar con una cookie que ya no sirve, el
+  código del cliente ya hace lo correcto, pero ninguna prueba existente lo fija: `session.test.tsx:113` es el AC-11
+  de error-codes (muestra el aviso, que AC-31 prohíbe) y `sessionPersist.test.tsx:44` mira una cookie legible desde
+  JavaScript. El paso 11 agrega en `client/src/session.test.tsx` pruebas nuevas con la App real y `/api/me` → 401
+  `SESSION_REQUIRED`: AC-29 (`/` y `/tools/7`: sin sesión, sin aviso, sin redirección) y AC-31 (`/loans`,
+  `/loans/42`, `/profile`: login con `returnTo`, sin aviso).
 - El diálogo es propio y no el `<dialog>` nativo: jsdom 30.1.3 (el entorno de pruebas del cliente) no implementa
   `showModal`, así que el nativo no se podría probar (D13).
 
@@ -489,7 +491,7 @@ el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos int
 `CASCADE`); 2 → AC-1, AC-2, AC-23 (`idleCutoffs`), AC-35 (token), AC-14 (atributos con `NODE_ENV=production`); 3 →
 AC-3, AC-7, AC-15, AC-36 (SQL), AC-8/AC-33 (`FOR SHARE`); 4 → AC-4 a AC-6, AC-8 a AC-10, AC-12, AC-13, AC-16,
 AC-17, AC-19, AC-21, AC-22, AC-24 a AC-28, AC-29 (lado server), AC-30, AC-33, AC-34; 5 → AC-37; 11 → AC-20, AC-29 y
-AC-31 (cliente, pruebas existentes renombradas); 12 → AC-11, AC-18, AC-19, AC-32.
+AC-31 (cliente, pruebas nuevas con la App real); 12 → AC-11, AC-18, AC-19, AC-32.
 8. Cierre del PR 1 en local: pasos 1 a 5 de la **puerta de push de tier 2** (arriba), con
    `branch: feat/server-sessions-server` en la spec.
 9. **Staging:** migración 005 con el procedimiento de §4 (psql dentro del contenedor de Postgres de staging) →
@@ -621,7 +623,7 @@ Hernán) y con **las dos suites en verde**: `cd server && npm test && npx tsc -b
 | T009 |  | Verify PR 1 on staging | archivo `02-DOCS/wiki/sdd/verifications/server-sessions-<fecha>.md` con: 005 aplicada con `ON_ERROR_STOP` + restricciones e índice comprobados; `railway up -e staging`; lista de deploys de los dos entornos (producción sin cambios); cada punto de la comprobación del §6; `smoke.mjs`; medición de latencia (R3); al final, las cuentas `qa-sessions-*@example.com` borradas desde la app (`DELETE /api/me/account`) y una consulta de solo lectura que confirma 0 cuentas activas con ese prefijo | T008 | AC-1 a AC-3, AC-4 a AC-10, AC-14, AC-15, AC-21 a AC-23, AC-27, AC-33, AC-36, AC-37 | 2 |
 | T010 |  | Ship PR 1 to production | aprobación explícita de Hernán; push + PR; 005 en producción comprobada **antes** del merge; merge; lista de deploys de los dos entornos; smoke en producción anotado en la verificación (el smoke registra y borra su propia cuenta: deja una fila anonimizada "Usuario eliminado", sin datos personales, como todo borrado de cuenta — D4) | T009 | todos los de PR 1 | 2 |
 | T011 |  | Install `@testing-library/user-event` in the client | Hernán corre `cd client && npm install --save-dev @testing-library/user-event@14.6.1`; `cd client && npm test` sigue verde | T010 | AC-18, AC-20 | 1 |
-| T012 | [P] | Add the "Recordarme" checkbox to `LoginPage` | `cd client && npx vitest run src/pages/authPages.test.tsx src/pages/accessibility.test.tsx` verde; casilla con etiqueta, desmarcada, `aria-describedby` al texto de ayuda, se marca con `user.keyboard(' ')`; el login manda `remember: true/false`; las pruebas de AC-29 (`sessionPersist.test.tsx:46`) y AC-31 (`session.test.tsx:113`) renombradas con su id y verdes | T011 | AC-20, AC-26, AC-29, AC-31 | 1 |
+| T012 | [P] | Add the "Recordarme" checkbox to `LoginPage` | `cd client && npx vitest run src/pages/authPages.test.tsx src/session.test.tsx src/pages/accessibility.test.tsx src/pages/responsive.test.tsx` verde; casilla con etiqueta, desmarcada, `aria-describedby` al texto de ayuda, se marca con `user.keyboard(' ')`, área táctil de 24 px y foco visible; el login manda `remember: true/false`; pruebas nuevas de AC-29 y AC-31 en `session.test.tsx` con la App real (`/api/me` → 401 `SESSION_REQUIRED`) | T011 | AC-20, AC-26, AC-29, AC-31 | 1 |
 | T013 | [P] | Add the reusable `ConfirmDialog` component | `cd client && npx vitest run src/components/ConfirmDialog.test.tsx` verde: `role="dialog"`, `aria-modal`, nombre y descripción accesibles, foco inicial en "Cancelar", `user.tab()` y `user.tab({ shift: true })` ciclan adentro, Escape cancela, el foco vuelve al botón que lo abrió | T011 | AC-18 | 1 |
 | T014 |  | Add `OtherSessionsSection` to the profile settings | `cd client && npm test && npx tsc -b && npm run lint` verde; `OtherSessionsSection.test.tsx` cubre éxito (dos veces, anunciado las dos), un solo pedido con el botón deshabilitado, 401 → login, 429 → fila 35, 500 / `ORIGIN_NOT_ALLOWED` / no JSON / red → fila 39, `AbortError` → nada; `profilePage.test.tsx` con sus búsquedas de `alert`/`status` acotadas con `within()` | T012, T013 | AC-11, AC-18, AC-19, AC-32 | 1 |
 | T015 |  | Run the tier-2 push gate for PR 2 and ship it | spec con `branch: feat/server-sessions-client`; puerta de push completa (pasos 1 a 6); `railway up -e staging` con revisión a mano (casilla, diálogo con teclado, dos navegadores); lista de deploys de los dos entornos; PR, merge, smoke en producción; verificación del PR 2 escrita | T014 | AC-11, AC-18, AC-19, AC-20, AC-32 | 2 |
@@ -781,3 +783,8 @@ Cada brief para Qwen sigue lo aprendido en error-codes y 5b-6: checklist de cada
   accesibilidad y 320 px en §0. F3: el tier 2 del PR 2 es decisión del plan, no medición. F4: borrado de las cuentas
   de prueba de staging en T009 y nota del smoke de producción en T010. F6: la condición se llama
   `ACTIVE_SESSION_CONDITION`.
+- **2026-11-20 — T012, pruebas de AC-29 y AC-31 (aprobado por Hernán).** Las dos pruebas que el plan mandaba
+  renombrar no prueban esos criterios (`session.test.tsx:113` muestra el aviso que AC-31 prohíbe;
+  `sessionPersist.test.tsx:44` mira otra cosa). Se reemplaza "renombrar" por pruebas nuevas con la App real en
+  `session.test.tsx` (§3.5, paso 11, fila T012). El done-check de T012 suma `session.test.tsx` y
+  `responsive.test.tsx` (la casilla debe pasar el control de área táctil de 24 px).
