@@ -166,3 +166,26 @@ operación, sin efecto en el código: (1) `npx railway` en este repo corre el pa
 ssh` corta la conexión a veces (`Connection timed out`) y hay que reintentar; (3) `railway restart` puede no terminar
 aunque el reinicio se haga: se confirma por los logs; (4) listar las variables con `railway variables --json` queda
 bloqueado por el sistema de permisos porque trae los valores; se comprueba dentro del contenedor.
+
+## 6. Producción (T010) — hecha
+
+- **005 antes del merge** (OK de Hernán): producción tenía `loans`, `tools`, `users` y no `sessions`; la migración
+  corrió con `ON_ERROR_STOP=1 -1` (`CREATE TABLE`, `CREATE INDEX`, exit 0); después: 6 columnas `NOT NULL`,
+  `PRIMARY KEY (id)`, `UNIQUE (token_hash)`, `FOREIGN KEY (user_id) REFERENCES users(id)` sin `ON DELETE`, índice
+  `idx_sessions_user`, 0 filas.
+- **Merge:** PR #51 squash → `main` en `9c89186`.
+- **Deploys desde `main`:** producción `975632f8` SUCCESS y staging `c44fd3bc` SUCCESS; `GET /api/health` → 200 en los
+  dos (`"db":"connected"`); log de arranque de producción sin errores.
+- **Smoke en producción** (`node server/scripts/smoke.mjs https://prestoteca-production.up.railway.app`, corrida
+  `mwod6y65`): **SMOKE OK**, todos los chequeos en OK — registro 201 con cookie `Secure` y `HttpOnly`, email repetido
+  409, login sin `Origin` 403, contraseña mala y email desconocido con la misma respuesta 401, logout 204, login 200,
+  herramienta y préstamo de punta a punta, préstamo ajeno igual a uno inexistente (404), borrado bloqueado con préstamo
+  activo (409), borrado 204 con la cookie vaciada y 401 después, email reutilizable; las 3 cuentas del smoke borradas.
+- **Solo lectura al final:** 1 cuenta activa (la cuenta fija de prueba), 0 cuentas `smoke-*` activas, 0 filas en
+  `sessions`, 0 sesiones de cuentas borradas.
+
+## Veredicto de producción (2026-11-19): PASS
+
+El PR 1 corre en producción sobre la tabla `sessions`. Como estaba previsto (AC-10), las cookies JWT viejas dejaron
+de valer y cada persona inicia sesión una vez. `JWT_SECRET` sigue en Railway hasta que el PR 2 lleve una semana
+estable.
