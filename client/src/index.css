@@ -48,6 +48,9 @@
     .text-gray-400 { color: #52525B; }
     .text-gray-700 { color: #E4E4E7; }
 
+    /* A disabled "Cancelar" in a dialog: gray-500 on the dark card is ~3.7:1, below the 4.5:1 AA minimum */
+    .disabled\:text-gray-500:disabled { color: #A1A1AA; }
+
     /* Borders */
     .border-gray-200 { border-color: #27272A; }
     .border-gray-300 { border-color: #3F3F46; }

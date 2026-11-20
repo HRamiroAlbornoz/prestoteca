@@ -119,7 +119,7 @@ de los botones existentes de Configuración):
 | Pedido protegido dentro del plazo de su modo | Responde normal y el plazo sin uso vuelve a empezar. |
 | Pedido protegido con una sesión sin usar por más de su plazo (7 días o 12 h) | `401 SESSION_REQUIRED`. En pantalla: "Tu sesión terminó. Iniciá sesión para continuar." y redirección al login. |
 | "Salir" | Igual que hoy: `204` y vuelve al inicio sin sesión. Además, la cookie usada **antes** del logout, mandada de nuevo, recibe `401 SESSION_REQUIRED`. |
-| Tocar "Cerrar sesión en los otros dispositivos" | Se abre una confirmación: "¿Cerrar la sesión en tus otros dispositivos? Vas a seguir con la sesión abierta acá." con los botones "Cerrar sesiones" y "Cancelar". El foco pasa a la confirmación; Escape o "Cancelar" la cierran sin hacer nada y el foco vuelve al botón. |
+| Tocar "Cerrar sesión en los otros dispositivos" | Se abre una confirmación: "¿Cerrar la sesión en tus otros dispositivos? Vas a seguir con la sesión abierta acá." con los botones "Cerrar sesiones" y "Cancelar". El foco pasa a la confirmación; Escape o "Cancelar" la cierran sin hacer nada y el foco vuelve al botón. Al tocar "Cerrar sesiones", mientras espera la respuesta ese botón dice "Cerrando sesiones..."; al terminar vuelve a "Cerrar sesiones". |
 | Confirmar | Todas las sesiones de la cuenta **menos la actual** reciben `401 SESSION_REQUIRED` en su próximo pedido. La actual sigue. En Configuración aparece, anunciado a lectores de pantalla: "Cerramos la sesión en tus otros dispositivos." (también si no había otras sesiones abiertas). |
 | Demasiados pedidos seguidos al cerrar las otras (`429`) | El mensaje general de la fila 35: "Hubo demasiados pedidos en poco tiempo. Esperá un minuto y volvé a intentar." Las sesiones siguen abiertas. |
 | Falla al cerrar las otras (sin conexión, error del servidor) | Mensaje propio, fila 39 de la tabla de [error-codes](./error-codes.md): "No pudimos cerrar la sesión en tus otros dispositivos. Revisá tu conexión e intentá de nuevo en un momento." En Configuración, anunciado a lectores de pantalla, sin texto del servidor. Las sesiones siguen abiertas. |
@@ -393,3 +393,8 @@ de los botones existentes de Configuración):
 - **2026-11-18 — enmiendas pedidas por el plan, aprobadas por Hernán** ("Apruebo esas dos enmiendas"): la huella de
   la contraseña de 5c deja de ser una restricción (el plan la elimina, D14; AC-8 sigue igual); nuevo **AC-37**: una
   sesión vencida deja de estar guardada a más tardar una hora después.
+- **2026-11-20 — texto de espera, aprobado por Hernán.** La revisión a mano de T015 en staging mostró que, mientras
+  se cierran las otras sesiones, la única señal visible es que los botones se atenúan. El botón de confirmar dice
+  "Cerrando sesiones..." mientras espera (fila de la confirmación en *What result they get*). AC-18 no cambia: el
+  botón sigue deshabilitado y se manda un solo pedido. FTD:
+  [closing-sessions-label](../../ftd/closing-sessions-label.md).

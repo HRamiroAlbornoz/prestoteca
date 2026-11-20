@@ -140,6 +140,7 @@ export function OtherSessionsSection() {
         confirmLabel="Cerrar sesiones"
         cancelLabel="Cancelar"
         busy={busy}
+        busyLabel="Cerrando sesiones..."
         onConfirm={handleConfirm}
         onCancel={handleCancel}
         returnFocusTo={openButtonRef}
