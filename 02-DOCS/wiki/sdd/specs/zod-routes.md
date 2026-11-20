@@ -28,8 +28,8 @@ Eso tiene dos costos.
 1. **Cada campo nuevo puede olvidar su chequeo de tipo.** En 5b, 5d, 5e y 5f aparecieron cuatro bugs de esta misma
    clase ("un tipo inesperado da 500"). Los encontraron revisiones, no una regla.
 2. **Quedan dos entradas mal formadas que probablemente dan 500** (deducido del código, no probado en Postgres):
-   - una fecha de préstamo que no es una fecha (`"mañana"`, `"2099-02-30"`): pasa la comparación de texto y la rechaza
-     la base;
+   - una fecha de préstamo que no es una fecha y que pasa las comparaciones de texto (`endDate: "mañana"`, o
+     `"2099-02-30"` en cualquiera de las dos): llega a la base y la base la rechaza;
    - un número de página enorme (`?page=99999999999999999999`): el desplazamiento desborda el entero de la base.
 3. **El cambio de contraseña no recorta espacios, y el registro y el login sí.** Quien cambia su contraseña a
    `" clave123 "` no puede volver a entrar, porque el login manda `"clave123"` (deducido del código). Hernán pidió sumarlo
@@ -85,7 +85,10 @@ descartó: debilita la regla por escrito y deja la validación repartida como es
 - **Las reglas que necesitan la base**: que la herramienta exista, que no esté pausada, la superposición de fechas, el
   dueño, las transiciones de estado del préstamo, la cuenta activa. Siguen como están.
 - **Validar las respuestas** del server (la salida).
-- **Los formularios del cliente.** Ya usan Zod (`zod/mini`). El cliente solo suma el texto de la fila 40.
+- **Los formularios del cliente.** Ya usan Zod (`zod/mini`). El cliente solo suma el texto de la fila 40. El formulario
+  de cambio de contraseña sigue midiendo el largo sin recortar (`ProfilePage.tsx`): con `"  abcdef  "` deja pasar el
+  pedido y el server responde `NEW_PASSWORD_LENGTH`, que ya tiene su texto. Se acepta así; el cliente no cambia por el
+  recorte.
 - **El servicio de respaldos** (`backup/`), el límite de 10 kb del cuerpo, los límites de pedidos por minuto y las
   variables de entorno (ya validadas).
 - **Lo que un agente podría agregar "por las dudas"**: mensajes de error por campo, una respuesta con la lista de todos
@@ -134,7 +137,8 @@ resultado esperado. Las únicas respuestas nuevas son estas:
 
 | Entrada | Hoy (deducido) | Después |
 | --- | --- | --- |
-| `startDate` o `endDate` presente pero no es un día real con formato `AAAA-MM-DD` (`"mañana"`, `"2099-02-30"`) | probablemente 500 `INTERNAL_ERROR` | 400 `LOAN_DATE_INVALID` (fila 40) |
+| `endDate` que no es un día real (`"mañana"`, `"2099-02-30"`) con un `startDate` real, o `startDate: "2099-02-30"` | pasa las comparaciones de texto y llega a la base: probablemente 500 `INTERNAL_ERROR` | 400 `LOAN_DATE_INVALID` (fila 40) |
+| `startDate: "mañana"` con un `endDate` real | 400 `LOAN_END_BEFORE_START` (`"2099-…" < "mañana"` en texto) | 400 `LOAN_DATE_INVALID` (fila 40) |
 | una fecha real sin ceros (`"2026-1-5"`) | la base la acepta, pero la comparación de texto con "hoy" y con la otra fecha da resultados equivocados (p. ej. "ya pasó" para una fecha futura) | 400 `LOAN_DATE_INVALID` (fila 40) |
 | `page` que no es solo dígitos (`1abc`, `1.5`, `%202`, `-1`, `0`) | se acepta como 1 o 2, o 400 | 400 `BAD_REQUEST` |
 | `page` de solo dígitos pero demasiado grande para representarse | probablemente 500 | 400 `BAD_REQUEST` |
@@ -142,6 +146,8 @@ resultado esperado. Las únicas respuestas nuevas son estas:
 | cambio de contraseña con `newPassword: " clave123 "` | se guarda con los espacios; después el login (que recorta) no entra | se guarda `"clave123"`; el login con `"clave123"` o `" clave123 "` entra |
 | cambio de contraseña con `newPassword` que solo llega a 8 caracteres contando los espacios (`"  abcdef  "`) | se acepta (largo 10) | 400 `NEW_PASSWORD_LENGTH` (largo 6 después de recortar, igual que en el registro) |
 | cambio de contraseña con `currentPassword` correcta pero con espacios alrededor | 400 `CURRENT_PASSWORD_INCORRECT` | se acepta (se recorta antes de comparar, igual que el login) |
+| cambio de contraseña con `newPassword` de solo espacios y menos de 8 o más de 72 (`"   "`) | 400 `NEW_PASSWORD_LENGTH` (hoy el largo se mira antes que "solo espacios") | 400 `NEW_PASSWORD_BLANK` (solo espacios, de cualquier largo) |
+| cambio de contraseña con `newPassword` de más de 72 contando los espacios, pero de 8 a 72 recortada | 400 `NEW_PASSWORD_LENGTH` | se acepta (se guarda recortada) |
 
 **Fila 40 nueva en la tabla de [error-codes](error-codes.md)** (texto elegido por Hernán el 2026-11-20):
 
@@ -195,23 +201,29 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **Entrada inválida:** si la regla que falla es de las que hoy corren antes de cualquier trabajo del manejador, la
   ruta responde **sin que el manejador consulte la base ni calcule hashes** (la sesión ya se revisó antes, como hoy).
   Nada cambia en la base.
-- **Reglas que conservan su lugar después de leer la base** (hoy en el servicio o el repositorio de herramientas): en
-  `POST` y `PATCH /api/tools`, la lista de categorías y condiciones; en `PATCH /api/tools/:id`, además, el largo del
-  nombre, la descripción vacía o larga y "sin cambios" (`TOOL_EDIT_EMPTY`). Por eso, una categoría inválida sobre una
+- **Reglas que conservan su lugar después de leer la base** (hoy en el servicio o el repositorio de herramientas), solo
+  en `PATCH /api/tools/:id`: la lista de categorías y condiciones, el largo del nombre, la descripción vacía o larga y
+  "sin cambios" (`TOOL_EDIT_EMPTY`). En `POST /api/tools` la lista de categorías y condiciones ya corre antes de tocar
+  la base, así que AC-9 la cubre. Por eso, una categoría inválida sobre una
   herramienta ajena sigue dando `TOOL_NOT_OWNER`, y sobre una que no existe, `TOOL_NOT_FOUND`.
 - **Varios campos inválidos a la vez:** gana el mismo error que gana hoy. El orden de cada ruta se conserva.
 - **Cambio de contraseña:** sigue este orden. Primero, si falta alguna contraseña o no es texto, da
   `PASSWORD_CHANGE_MISSING_FIELDS` (como hoy, mirando el valor sin recortar). Segundo, si `newPassword` es solo
-  espacios, da `NEW_PASSWORD_BLANK` (como hoy). Tercero, se recortan las dos contraseñas. Cuarto, se revisa el largo de
+  espacios, de cualquier largo, da `NEW_PASSWORD_BLANK`. Esto cambia la precedencia de hoy, que mira el largo antes; el
+  cambio está listado en *What result they get*. Si el largo fuera primero, 8 espacios recortados darían
+  `NEW_PASSWORD_LENGTH` y romperían la respuesta de hoy. Tercero, se recortan las dos contraseñas. Cuarto, se revisa el largo de
   `newPassword` ya recortada (8 a 72) y da `NEW_PASSWORD_LENGTH`. Quinto, se compara `currentPassword` ya recortada. Una
   `currentPassword` de solo espacios sigue dando `CURRENT_PASSWORD_INCORRECT`, como hoy.
 - **Fechas del préstamo:** si falta alguna → fila 24 (como hoy). Si está pero no es un día real `AAAA-MM-DD` → fila 40.
   Después vienen, como hoy, "ya pasó" (25) y "fin antes que inicio" (26). Se aceptan los años bisiestos (`2028-02-29`
   vale, `2027-02-29` no).
-- **Página:** ausente o vacía (`?page=`) = 1, como hoy. Si viene con valor, tiene que ser una sola vez, solo dígitos,
-  con valor ≥ 1 y que se pueda representar. Si no, `BAD_REQUEST`. Una página válida pero más allá de la última devuelve el listado vacío, como hoy.
+- **Página:** ausente o vacía (`?page=`) = 1, como hoy. Repetida (aunque sea vacía, `?page=&page=`) → `BAD_REQUEST`.
+  Si viene una vez con valor, tiene que ser solo dígitos, con valor ≥ 1 y que se pueda representar. Si no,
+  `BAD_REQUEST`. Una página válida pero más allá de la última devuelve el listado vacío, como hoy.
 - **Campos desconocidos:** se ignoran, como hoy.
-- **Lo que no se revela:** el `message` de un error de validación no repite el valor que mandó el cliente.
+- **Lo que no se revela:** el `message` de un error que produce el esquema no repite el valor que mandó el cliente.
+  Los errores de transición de préstamo (`LOAN_TRANSITION_INVALID`, `LOAN_TRANSITION_WRONG_ROLE`) no son del esquema:
+  hoy nombran el `status` pedido y siguen como están.
 
 ## Acceptance criteria
 
@@ -246,13 +258,17 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   `NEW_PASSWORD_LENGTH`; When es `"        "` (8 espacios), Then recibe 400 `NEW_PASSWORD_BLANK`, como hoy.
 - **AC-13c** — Given el cambio de contraseña, When `currentPassword` es la correcta con un espacio al final, Then el
   cambio se acepta (204).
+- **AC-13d** — Given el cambio de contraseña, When `newPassword` es `"   "` (3 espacios), Then recibe 400
+  `NEW_PASSWORD_BLANK`; When es una contraseña de 70 caracteres con 2 espacios a cada lado (74 en total), Then se
+  acepta (204).
 - **AC-14** — Given el control de la suite, When una ruta del alcance lee cuerpo, query o id sin un esquema declarado,
   Then el control falla.
 - **AC-15** — Given el cliente, When el server responde `LOAN_DATE_INVALID`, Then la pantalla muestra el texto de la
   fila 40.
-- **AC-16** — Given un error de validación, When se lee su `message`, Then no contiene el valor que mandó el cliente.
-- **AC-17** — Given staging con Postgres real, When se mandan las entradas de AC-3 y AC-7, Then responden 400 (y queda
-  escrito si antes daban 500).
+- **AC-16** — Given un error que produce el esquema (no los de transición de préstamo), When se lee su `message`, Then
+  no contiene el valor que mandó el cliente.
+- **AC-17** — Given staging con Postgres real, When se mandan `endDate: "mañana"`, `startDate: "2099-02-30"` y
+  `?page=99999999999999999999`, Then responden 400 (y queda escrito si antes daban 500).
 
 ## Points to clarify
 
@@ -300,5 +316,11 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   valida: la base lo sigue resolviendo y las ~45 pruebas con ids falsos no cambian (Non-goals). (3) AC-9 mide solo el
   manejador, después del chequeo de sesión. (4) `?page=` vacía = 1 y `page` repetida = 400, ahora escritos. (5) Mismo
   esquema para JSON y formulario, sin convertir tipos (AC-12).
+- **2026-11-20 — revisión con ojos frescos 2** (0 bloqueos, 3 should-fix y 3 nits, todos aplicados). (1) Hoy el
+  cambio de contraseña mira el largo antes que "solo espacios": el nuevo orden está listado como respuesta nueva
+  (AC-13d), con el caso "más de 72 sin recortar". (2) En `POST /api/tools` la lista de categorías corre antes de la base;
+  solo `PATCH` conserva reglas después. (3) AC-16 se limita a los errores del esquema; las transiciones de préstamo
+  siguen nombrando el `status`. (4) `startDate: "mañana"` hoy da `LOAN_END_BEFORE_START`, no 500; AC-17 usa entradas que
+  sí llegan a la base. (5) El cliente no cambia por el recorte de contraseña. (6) `?page=&page=` → 400.
 </content>
 </invoke>
