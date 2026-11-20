@@ -424,3 +424,7 @@ slug: server-sessions
   AC-26 del lado del cliente = siempre manda el campo, el modo corto se prueba en T004).
 - decision: ninguna nueva. Siguiente: commit de Hernán → `rsc review ledger panel server-sessions/T012 --lenses
   correctness,security,tests` → aprobación de tier 2 de Hernán → T013 (`ConfirmDialog`).
+- commit: `0ef4491` (Hernán); panel de 3 registrado en el ledger sobre `0ef4491` (ronda 1 de 3).
+- pendiente acordado con Hernán: sumar antes del panel de cierre del PR 2 (T015) una prueba en `session.test.tsx`
+  que fije el `replace` de la redirección de `PrivateRoute` (abrir `/loans` sin sesión → login → "atrás" no vuelve a
+  rebotar). Lo cubre el panel de cierre, que revisa toda la rama.
