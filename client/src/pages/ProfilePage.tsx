@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { LoanStatus } from '../components/LoanStatus'
 import { ToolCard, type Tool } from '../components/ToolCard'
+import { OtherSessionsSection } from '../components/OtherSessionsSection'
 import { useApiError } from '../errors/useApiError'
 import { readApiError, fetchFailureCode } from '../errors/apiError'
 import { messageFor, type ClientErrorCode } from '../errors/messages'
@@ -455,9 +456,10 @@ export function ProfilePage() {
           {/* Settings tab */}
           {shownTab === 'settings' && (
             <div className="space-y-8">
-              {/* Change password */}
-              <div className="bg-white rounded-lg shadow-xs p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              {/* Change password. A <section> with a name is a "region": tests (and screen readers)
+                  can find its messages apart from the ones of the other cards */}
+              <section aria-labelledby="change-password-heading" className="bg-white rounded-lg shadow-xs p-6">
+                <h2 id="change-password-heading" className="text-lg font-semibold text-gray-900 mb-4">
                   Cambiar contraseña
                 </h2>
 
@@ -525,7 +527,10 @@ export function ProfilePage() {
                     Cambiar contraseña
                   </button>
                 </form>
-              </div>
+              </section>
+
+              {/* Close the sessions on the other devices: own state and own messages */}
+              <OtherSessionsSection />
 
               {/* Delete account */}
               <div className="bg-white rounded-lg shadow-xs p-6 border border-red-200">

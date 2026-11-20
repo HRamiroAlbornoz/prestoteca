@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import axe from 'axe-core'
 import type { ReactElement } from 'react'
@@ -84,13 +84,37 @@ function renderAt(element: ReactElement, pattern: string, path: string) {
   )
 }
 
-// The three checks every case shares: exact Spanish text in the single alert, no server text,
+// The three checks every case shares: exact Spanish text in the alert, no server text,
 // and no accessibility violation with the error visible.
-async function expectSpanishAlert(container: HTMLElement, text: string) {
-  const alert = await screen.findByRole('alert')
+// `findAlert` says where the alert is. By default it is the single alert of the screen; the
+// profile's settings tab has more than one (OtherSessionsSection keeps its own, always mounted).
+async function expectSpanishAlert(
+  container: HTMLElement,
+  text: string,
+  findAlert: () => Promise<HTMLElement> = () => screen.findByRole('alert'),
+) {
+  const alert = await findAlert()
   expect(alert.textContent?.trim()).toBe(text)
   expect(screen.queryByText(SERVER_TEXT)).toBeNull()
   expect((await axe.run(container)).violations).toEqual([])
+}
+
+// The profile's load error: the only alert above the tabs, outside the tab panel
+function profileLoadAlert() {
+  return waitFor(() => {
+    const tabpanel = screen.getByRole('tabpanel')
+    const outsideTabs = screen.getAllByRole('alert').filter((alert) => !tabpanel.contains(alert))
+    expect(outsideTabs).toHaveLength(1)
+    // Inside the tab panel no alert has text: the load error is shown once, above the tabs
+    const insideWithText = screen.getAllByRole('alert').filter((alert) => tabpanel.contains(alert) && alert.textContent !== '')
+    expect(insideWithText).toHaveLength(0)
+    return outsideTabs[0]
+  })
+}
+
+// The alert of the "Cambiar contraseña" card (the password and delete-account messages)
+function passwordCardAlert() {
+  return within(screen.getByRole('region', { name: 'Cambiar contraseña' })).findByRole('alert')
 }
 
 const TOOL = {
@@ -288,7 +312,7 @@ describe('error alerts (AC-1, AC-9)', () => {
     )
     const { container } = renderAt(<ProfilePage />, '/profile', '/profile')
 
-    await expectSpanishAlert(container, 'Hubo demasiados pedidos en poco tiempo. Esperá un minuto y volvé a intentar.')
+    await expectSpanishAlert(container, 'Hubo demasiados pedidos en poco tiempo. Esperá un minuto y volvé a intentar.', profileLoadAlert)
   })
 
   it('E12 ProfilePage: password change 401 CURRENT_PASSWORD_INCORRECT shows row 12 and stays', async () => {
@@ -306,7 +330,7 @@ describe('error alerts (AC-1, AC-9)', () => {
     fireEvent.change(screen.getByLabelText(/^confirmar nueva contraseña/i), { target: { value: 'newpassword1' } })
     fireEvent.click(screen.getByRole('button', { name: /cambiar contraseña/i }))
 
-    await expectSpanishAlert(container, 'La contraseña actual no es correcta. Revisala e intentá de nuevo.')
+    await expectSpanishAlert(container, 'La contraseña actual no es correcta. Revisala e intentá de nuevo.', passwordCardAlert)
     // A wrong current password is a 401, but not a session problem: it does not go to the login
     expect(screen.queryByTestId('location')).toBeNull()
   })
@@ -324,7 +348,7 @@ describe('error alerts (AC-1, AC-9)', () => {
     fireEvent.click(await screen.findByText('Configuración (0)'))
     fireEvent.click(screen.getByRole('button', { name: /eliminar mi cuenta/i }))
 
-    await expectSpanishAlert(container, 'No podés eliminar tu cuenta mientras tengas préstamos en curso.')
+    await expectSpanishAlert(container, 'No podés eliminar tu cuenta mientras tengas préstamos en curso.', passwordCardAlert)
   })
 
   it('E13 NavBar: logout that fails shows row 10', async () => {

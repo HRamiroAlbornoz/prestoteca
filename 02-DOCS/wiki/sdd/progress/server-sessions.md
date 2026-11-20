@@ -370,3 +370,212 @@ slug: server-sessions
 - pendiente: borrar `JWT_SECRET` de Railway (los dos entornos) cuando el PR 2 lleve una semana estable en producción.
 - siguiente: PR 2 (cliente), empezando por T011 — Hernán instala `@testing-library/user-event@14.6.1` en el cliente
   desde una rama nueva del PR 2.
+
+## T011 — 2026-11-19
+
+- status: complete. Rama del PR 2: `feat/server-sessions-client` (creada por Hernán desde `main` en `03b1635`).
+- quién: Hernán corrió `cd client && npm install --save-dev @testing-library/user-event@14.6.1 && npm test`.
+- done-check:
+  - `client/package.json` +1 línea (`"@testing-library/user-event": "^14.6.1"` en `devDependencies`);
+    `package-lock.json` +15 líneas, versión fijada en `14.6.1`, `dev: true`, licencia MIT ✅
+  - dependencia par `@testing-library/dom >=7.21.4` ya presente (`10.4.2`) ✅
+  - `npm audit`: 0 vulnerabilidades ✅
+  - `npm test` (cliente): `20 passed`, `486 passed`, igual que antes de instalar ✅
+  - `npx tsc -b` → exit 0; `oxlint` → exit 0 ✅
+- notas: los avisos `act(...)` y `HTMLCanvasElement's getContext()` en la salida de las pruebas ya estaban antes
+  (no cambian el resultado). npm escribe `^14.6.1`; el lockfile fija la versión exacta.
+- decision: ninguna. Siguiente: T012 ("Recordarme" en `LoginPage`) y T013 (`ConfirmDialog`), Qwen, de a una.
+
+## T012 — 2026-11-20
+
+- status: complete (sin commitear al escribir esta entrada).
+- quién: Claude escribió el código y las pruebas y los probó en seco; dos revisiones con ojos frescos del brief
+  (pedidas por Hernán) antes de lanzar; Qwen copió y corrió los chequeos (Orca, worktree `t012-remember`, un solo
+  intento, `ALL CHECKS MATCHED`); Claude volvió a comprobar (`cmp` de los 3 archivos, 14 mutantes en el worktree de
+  Qwen) y copió al checkout.
+- cambios: `client/src/pages/LoginPage.tsx` (+26: casilla "Recordarme" debajo de la contraseña, desmarcada, etiqueta
+  asociada, `aria-describedby="remember-help"` al texto "No la marques en una compu compartida.", 24 px, contorno de
+  foco con `focus-visible`; el login manda `{ email, password, remember }`), `client/src/pages/authPages.test.tsx`
+  (+116: cuerpo exacto con `remember: false` y 6 pruebas de AC-20 con `user-event`), `client/src/session.test.tsx`
+  (+34: AC-29 en `/` y `/tools/7`, AC-31 en `/loans`, `/loans/42`, `/profile`, App real con `/api/me` → 401
+  `SESSION_REQUIRED`).
+- desvío del plan (aprobado por Hernán, plan corregido en `f6f1995` y `53af4eb`): pruebas nuevas de AC-29 y AC-31 en
+  vez de renombrar `sessionPersist.test.tsx:46` y `session.test.tsx:113`, que no probaban esos criterios.
+- done-check:
+  - `npx vitest run src/pages/authPages.test.tsx src/session.test.tsx src/pages/accessibility.test.tsx
+    src/pages/responsive.test.tsx` → `4 passed`, `85 passed` ✅
+  - `npm test` (cliente) → `20 passed`, `497 passed` (486 + 11); `npx tsc -b` 0; `oxlint` 0 ✅
+  - mutantes: 14/14 muertos (`prestoteca-briefs/T012-files/t012-mutate.mjs`), más los propios de los revisores ✅
+- `rsc risk --base HEAD` → **tier 2** (clase `auth` solo por la ruta `client/src/session.test.tsx`; el plan
+  pronosticaba tier 1). Hernán eligió el panel de 3 ahora.
+- review (panel, ronda 1): seguridad APPROVE (0 hallazgos); corrección APPROVE (7 mutantes propios muertos);
+  pruebas APPROVE WITH NITS (13 mutantes propios: 9 muertos, 4 sobreviven, ninguno es un incumplimiento de la spec).
+  - nits anotados, sin cambio:
+    - la redirección de `PrivateRoute` sin `replace` sobrevive (AC-31 no lo pide; "atrás" volvería a rebotar);
+    - el texto de ayuda con `sr-only` o la fila sin `min-h-11` sobreviven: jsdom no carga Tailwind, así que
+      `toBeVisible()` solo atrapa el atributo `hidden` (M9) → revisión a mano en staging (T015);
+    - `aria-hidden` en el texto de ayuda es equivalente (la descripción sigue llegando por `aria-describedby`);
+    - `disabled={loading}` en la casilla no lo pide ningún criterio;
+    - el login manda `formData` entero: un campo futuro viajaría solo (hoy lo atrapan las pruebas de cuerpo exacto);
+    - `size-6` y `min-h/min-w-[24px]` podrían desalinearse (el comentario lo explica).
+- para T015 (staging, a mano): foco visible en la casilla (también en modo oscuro), texto de ayuda chico y visible,
+  casilla de 24 px y fila tocable en un teléfono de 320 px.
+- controls: tests ✅ build ✅ (`tsc -b`) security ✅ (panel APPROVE) traceability ✅ (AC-20, AC-29, AC-31 con prueba;
+  AC-26 del lado del cliente = siempre manda el campo, el modo corto se prueba en T004).
+- decision: ninguna nueva. Siguiente: commit de Hernán → `rsc review ledger panel server-sessions/T012 --lenses
+  correctness,security,tests` → aprobación de tier 2 de Hernán → T013 (`ConfirmDialog`).
+- commit: `0ef4491` (Hernán); panel de 3 registrado en el ledger sobre `0ef4491` (ronda 1 de 3).
+- aprobación de tier 2: **Hernán aprobó T012** el 2026-11-20, después de ver el panel y el resumen de riesgo.
+- pendiente acordado con Hernán: sumar antes del panel de cierre del PR 2 (T015) una prueba en `session.test.tsx`
+  que fije el `replace` de la redirección de `PrivateRoute` (abrir `/loans` sin sesión → login → "atrás" no vuelve a
+  rebotar). Lo cubre el panel de cierre, que revisa toda la rama.
+
+## T013 — 2026-11-20
+
+- status: complete (sin commitear al escribir esta entrada).
+- quién: **Qwen escribió el componente y las pruebas** (opción D elegida por Hernán: "darle otra oportunidad"), con
+  un brief de especificación de Claude (interfaz, marcado, 7 reglas, lista cerrada de pruebas, rojo → verde, dos
+  autochequeos de mutantes). Dos revisiones del brief con ojos frescos, cada una con una versión descartable para
+  probar que se podía cumplir. Qwen entregó en **un solo intento** (`ALL CHECKS MATCHED`).
+- decisión de Hernán (opción A, registrada en el plan): mientras el padre espera (`busy`), los dos botones quedan
+  deshabilitados, Escape no hace nada y el foco queda en el panel. La prop `confirmDisabled` del plan pasó a `busy`.
+- archivos nuevos: `client/src/components/ConfirmDialog.tsx` (131 líneas) y `ConfirmDialog.test.tsx` (390 líneas,
+  19 pruebas C1-C19).
+- cambio de Claude después del revisor (sin cambio de comportamiento): sacó condiciones repetidas de la trampa de foco
+  (`enabled.length > 0`, `panelRef.current &&`), con comentarios por caso; sumó C19 (adentro de un `<form>`, los
+  botones no lo envían).
+- done-check:
+  - rojo: `Failed to resolve import "./ConfirmDialog"`, `vitest exit 1` ✅
+  - `npx vitest run src/components/ConfirmDialog.test.tsx` → `19 passed` ✅
+  - `npm test` (cliente) → `21 passed`, `516 passed` (497 + 19); `npx tsc -b` 0; `oxlint` 0 ✅
+  - mutantes: 2 de Qwen (trampa sin `preventDefault` → C4, C5, C6, C14, C18; sin devolver el foco → C7, C8, C10) y
+    16 de Claude D1-D16 (`prestoteca-briefs/T013-files/t013-mutate.mjs`), todos muertos ✅
+- `rsc risk --base HEAD` → **tier 1** (1 revisor, sin aprobación humana).
+- review (tier 1, ronda 1): APPROVE WITH NITS, 12 mutantes nuevos: 7 muertos, 1 hueco real (confirm sin
+  `type="button"` → fixed con C19 y D16), 4 equivalentes (doble foco inicial en los dos efectos, guarda `!open` del
+  segundo efecto, ref leído tarde, `returnFocusTo` fuera de las dependencias — equivalentes con un ref estable).
+  - nits anotados, sin cambio: los dos efectos enfocan "Cancelar" al abrir (se dejan tal cual los validaron las dos
+    revisiones del brief); `returnFocusTo` en línea haría saltar el foco (ya está en las notas de T014: siempre
+    `useRef`); Escape no corta la propagación ni mira `isComposing` (nadie más escucha Escape hoy).
+- para T014: mientras `busy`, el panel tiene foco sin indicador visible (`focus:outline-hidden`, como pide el
+  marcado) y la espera solo se anuncia con `aria-busy`; T014 puede cambiar el texto del botón o usar su región viva.
+  Revisar a mano en staging (T015) cómo se ve el foco durante la espera.
+- controls: tests ✅ build ✅ security ✅ (sin pedidos ni datos) traceability ✅ (AC-18 del lado del diálogo).
+- decision: ninguna nueva (la de `busy` ya está en el plan). Siguiente: commit de Hernán → T014.
+- commit: `e6c3181` (Hernán).
+
+## T014 — 2026-11-20
+
+- status: complete (sin commitear al escribir esta entrada).
+- quién: **Claude**, según el reparto del plan (en `profilePage.test.tsx` Qwen quedó en loop 5 h en T015 de
+  error-codes). No se le preguntó a Hernán antes de empezar, aunque el reparto dice "se pregunta antes de lanzar cada
+  una"; Hernán lo notó después.
+- archivos nuevos: `client/src/components/OtherSessionsSection.tsx` y `OtherSessionsSection.test.tsx` (21 pruebas
+  S1-S17, S12 con 5 casos). Cambios: `ProfilePage.tsx` monta la sección entre "Cambiar contraseña" y "Eliminar
+  cuenta"; la tarjeta de contraseña pasa a `<section aria-labelledby>` (región con nombre).
+- título de la sección: "Sesiones abiertas", con un texto de una línea (la spec no fijaba encabezado).
+- pruebas reescritas: 28 búsquedas de una sola `alert` (25 en `profilePage.test.tsx`, 3 en `errorAlerts.test.tsx`)
+  acotadas a la alerta de carga (fuera del `tabpanel`) o a la región "Cambiar contraseña". Pruebas nuevas P1 y P2 en
+  `profilePage.test.tsx` (la sección dentro de la página real y en la vista de error de carga).
+- done-check:
+  - rojo: con la sección montada, 28 pruebas viejas fallaban por varias `alert` ✅
+  - `npm test` (cliente) → `22 passed`, `539 passed` (516 + 23); `npx tsc -b` 0; `npm run lint` 0 ✅
+  - mutantes: 21 de Claude (`prestoteca-briefs/T014-files/t014-mutate.mjs`), todos muertos; M11 pasó a equivalente
+    tras el arreglo de la revisión (ver abajo) y se reemplazó por M21 y M22 ✅
+- `rsc risk --base HEAD` → **tier 1** (clase `default`, 1 revisor, sin aprobación humana).
+- review (tier 1, ronda 1): APPROVE WITH NITS, 10 mutantes propios: 4 muertos, 6 sobreviven (2 equivalentes, 2 nits
+  reales, 1 fuera de la spec, 1 duplicado).
+  - fixed: las clases de caja de las regiones vacías no tenían prueba (S1 y S17 las fijan; M22 muerto);
+    `handle` (login + olvidar al usuario) corría antes de mirar `aborted` → la comprobación va antes (S16; M21 muerto).
+  - nits anotados, sin cambio: `res.ok` en vez de `status === 204` (la spec dice 204, ningún otro 2xx existe); cambiar
+    de pestaña desmonta la sección y cancela el pedido sin mensaje (coherente con "AbortError → nada") → mirarlo en
+    el smoke de T015; si `handle` algún día no navega, el diálogo quedaría `busy` (hoy siempre navega).
+- para T015 (staging, a mano): la tarjeta en un teléfono de 320 px, foco visible al volver al botón, lector de pantalla
+  anunciando éxito dos veces seguidas.
+- controls: tests ✅ build ✅ security ✅ (un solo pedido, sin texto del servidor en pantalla) traceability ✅ (AC-11
+  S12, AC-18 S2-S10, AC-19 S6-S7, AC-32 S11).
+- decision: ninguna nueva. Siguiente: commit de Hernán → T015 (puerta de tier 2 del PR 2).
+- commit: `2c8c74c` (Hernán).
+- decisión de Hernán (2026-11-20): la opción D (Qwen escribe desde un brief de especificación de Claude, revisado y
+  con el OK de Hernán antes de lanzarlo) vale para **todas** las tareas de código que quedan, no solo para T013. La
+  columna "Quién" del reparto del plan no la reemplaza. T014 no la siguió; queda como está (commiteada y revisada).
+
+## T015 — 2026-11-20 (puerta de push de tier 2 del PR 2, en curso)
+
+- paso 1: spec con `branch: feat/server-sessions-client` (commit automático de docs `9a1962a`) ✅
+- paso 2 (`verify`): cliente `22 passed`, `539 passed`, `tsc -b` 0, lint 0; server `37 passed`, `817 passed`,
+  `tsc -b` 0 (la rama no toca `server/`). Cobertura por archivo cambiado (líneas / ramas): `ConfirmDialog.tsx`
+  100 / 96,96; `OtherSessionsSection.tsx` 100 / 96,42; `LoginPage.tsx` 100 / 92,85; `ProfilePage.tsx` 89,92 / 84,8
+  → todos ≥ 80 % ✅
+- paso 3: `rsc risk --base origin/main` → **tier 2** (clase `auth` por `client/src/session.test.tsx`), 3 revisores,
+  aprobación humana requerida ✅
+- paso 4: `rsc spec gate` → `1/1 pass` ✅
+- paso 5, ronda 1 (panel sobre la rama entera, en paralelo):
+  - seguridad: APPROVE, 0 hallazgos.
+  - corrección: APPROVE WITH NITS; único nit `res.ok` vs `204` (ya anotado en T014).
+  - pruebas: APPROVE WITH NITS; mapa AC → prueba completo para AC-11, 18, 19, 20, 26, 29, 31, 32. Dos huecos:
+    N1, ninguna prueba fija `replace` en `PrivateRoute` (el pendiente acordado en T012, que Claude no agregó antes
+    del panel); N2, `loadErrorAlert` / `profileLoadAlert` no prohíben el error de carga duplicado dentro del panel.
+  - nota: los revisores de corrección y pruebas corrieron mutantes sobre los mismos archivos a la vez; los dos
+    restauraron y el árbol quedó limpio. Para la próxima, un solo revisor con mutantes a la vez, o cada uno en su copia.
+- T015a (N1 + N2), opción D: **Qwen escribió** las dos correcciones desde un brief de Claude con tres revisiones de
+  ojos frescos (la tercera corrió el brief entero; arreglos: salida de 3.400 líneas a un archivo, `grep -c || true`,
+  frenos que restauran antes de parar, línea `FAIL` exacta). Qwen entregó en **un solo intento** (`ALL CHECKS
+  MATCHED`).
+  - archivos: `session.test.tsx` (+15, la prueba nueva de AC-31 con "atrás"), `profilePage.test.tsx` (+3) y
+    `errorAlerts.test.tsx` (+3) en los dos ayudantes. Sin borrar ninguna línea.
+  - Claude lo confirmó en `feat/server-sessions-client`: `22 passed`, `540 passed`, `tsc -b` 0, lint 0; sin
+    `replace` → falla la prueba nueva (`1 failed | 28 passed`); alerta duplicada en el panel → `17 failed | 48
+    passed` ✅
+- commit: `354b0b3` (Hernán).
+- paso 5, ronda 2 (panel sobre `354b0b3`; esta vez un solo revisor con mutantes a la vez):
+  - pruebas: APPROVE, 0 hallazgos. N1 y N2 cerrados; sin `replace` falla solo la prueba nueva; pasa con
+    `--sequence.shuffle` (semillas 1-3) y aislada; alerta duplicada al principio, al final o con solo espacios →
+    `17 failed`. Sobreviven 2 sin acción: alerta vacía dentro del panel (equivalente: nadie la percibe) y un
+    `aria-live` sin `role="alert"` (fuera del contrato).
+  - seguridad (solo lectura): APPROVE, 0 hallazgos.
+  - corrección: APPROVE WITH NITS. Nit anotado, sin cambio: los ayudantes prohíben **cualquier** alerta con texto
+    dentro del panel; con error de carga la app muestra "Configuración", donde una alerta de contraseña o de
+    sesiones es legítima. Hoy ninguna prueba combina los dos estados (540 en verde); una prueba futura que lo haga
+    tendría que acotar el chequeo al texto del error de carga.
+- ledger: `rsc review ledger panel server-sessions/pr2-client --lenses correctness,security,tests` → "panel of 3
+  recorded (correctness, security, tests) on 354b0b3" ✅ (después del último commit de código).
+- `rsc risk --base origin/main` sigue mostrando la línea `escalate: asdd`: sale siempre que el tier es 2
+  (`scripts/lib/risk.js:55`, sin chequear nada); el que exige la spec es el guard de push. La spec commiteada tiene
+  `branch: feat/server-sessions-client` y pasa `spec gate`.
+- paso 6: **Hernán aprobó el PR 2** el 2026-11-20 ("Sí, apruebo el PR 2"), después de ver la puerta y las dos rondas
+  del panel ✅
+- push y PR (Hernán): rama subida sin que el guard de push frene nada; **PR #53** abierto contra `main`
+  (https://github.com/HRamiroAlbornoz/prestoteca/pull/53). El repo no tiene CI.
+- staging (Claude, con el OK de Hernán): `railway up -e staging --service prestoteca --ci` desde `85286ac` →
+  `Deploy complete` (build del cliente y `tsc -b` del server).
+  - deploys: staging SUCCESS 2026-11-20 07:58 UTC (`railway up`); production sigue en SUCCESS 02:41 UTC, `main`
+    `03b1635` (sin tocar) ✅
+  - el bundle servido (`assets/index-ZsIom9ol.js`) trae "Recordarme", "Cerrar sesión en los otros dispositivos" y
+    "Cerramos la sesión en tus otros dispositivos" ✅
+  - `node server/scripts/smoke.mjs https://prestoteca-staging.up.railway.app` → `SMOKE OK`, exit 0 ✅
+- revisión a mano en staging (Claude con Chrome, pedido por Hernán; cuenta de prueba `qa-sessions-pr2@example.com`
+  creada con su confirmación y borrada al final):
+  - login: "Recordarme" desmarcada, etiqueta asociada, `aria-describedby="remember-help"`, texto de ayuda debajo
+    (12 px, contraste 6,91:1 en modo oscuro), foco con Tab visible (anillo violeta de 2 px), barra espaciadora y
+    clic en la etiqueta la cambian ✅
+  - 320 px (iframe de 320 px; la ventana maximizada no se pudo achicar): sin scroll horizontal, casilla 24 × 24 px,
+    fila de 44 px, texto de ayuda en 2 líneas ✅
+  - el login manda `remember: true` (booleano) con la casilla marcada → 200 ✅
+  - sesión B por `curl` sin "Recordarme": `Set-Cookie` `HttpOnly; Secure; SameSite=Lax` sin `Max-Age` ✅
+  - diálogo solo con teclado: Enter lo abre; nombre "¿Cerrar la sesión en tus otros dispositivos?", descripción,
+    `aria-modal="true"`; foco inicial en "Cancelar" con anillo visible; Tab → "Cerrar sesiones" → "Cancelar";
+    Shift+Tab → "Cerrar sesiones"; Escape lo cierra y el foco vuelve al botón (visible); B sigue en 200 ✅
+  - confirmar (con el `DELETE` demorado 3 s desde la página para ver la espera): `aria-busy="true"`, los dos botones
+    deshabilitados, foco en el panel; al terminar 204, diálogo cerrado, "Cerramos la sesión en tus otros
+    dispositivos." en la región `status`, foco de vuelta en el botón (visible). **B → 401, A → 200** ✅
+  - cambiar de pestaña mientras espera: el fondo del diálogo tapa las pestañas (no se puede); "atrás" del navegador
+    en plena espera → la app queda en `/`, sin alertas ni aviso de sesión, sesión abierta (`/api/me` 200), sin
+    errores en la consola ✅
+  - observación (no bloquea): mientras espera, el foco está en el panel **sin indicador visible** y la única señal
+    de espera es que los botones se atenúan; el lector de pantalla tiene `aria-busy`. Ya estaba previsto en las notas
+    de T013/T014. Mejora posible para después: un texto "Cerrando…" en el botón de confirmar mientras espera.
+  - limpieza: `DELETE /api/me/account` → 204, `/api/me` → 401, login con esa cuenta → 401; archivos temporales con
+    la contraseña y la cookie borrados.
+- siguiente: actualizar la sección de staging del PR #53 → merge → deploys de los dos entornos → smoke en
+  producción → verificación del PR 2.

@@ -306,10 +306,12 @@ messages.ts: OTHER_SESSIONS_CLOSE_FAILED (fila 39), código del cliente como LOG
   en la pestaña "Configuración".
 - **Sin cambios en el cliente** para el logout y la carga: con 204, `NavBar.tsx:26-38` va al inicio y olvida al
   usuario; con 500, `AuthContext.tsx:77` devuelve `'failed'` y la barra mantiene la sesión con la fila 10
-  (`NavBar.tsx:79-85`) — eso ya cumple AC-30 del lado del cliente. Al cargar con una cookie que ya no sirve, la
-  cobertura existente es `client/src/contexts/sessionPersist.test.tsx:46` (AC-29: 401 → sin sesión) y
-  `client/src/session.test.tsx:113` (AC-31: página privada → login con `returnTo`); el paso 11 las vuelve a correr y
-  les agrega el id del criterio al nombre.
+  (`NavBar.tsx:79-85`) — eso ya cumple AC-30 del lado del cliente. Al cargar con una cookie que ya no sirve, el
+  código del cliente ya hace lo correcto, pero ninguna prueba existente lo fija: `session.test.tsx:113` es el AC-11
+  de error-codes (muestra el aviso, que AC-31 prohíbe) y `sessionPersist.test.tsx:44` mira una cookie legible desde
+  JavaScript. El paso 11 agrega en `client/src/session.test.tsx` pruebas nuevas con la App real y `/api/me` → 401
+  `SESSION_REQUIRED`: AC-29 (`/` y `/tools/7`: sin sesión, sin aviso, sin redirección) y AC-31 (`/loans`,
+  `/loans/42`, `/profile`: login con `returnTo`, sin aviso).
 - El diálogo es propio y no el `<dialog>` nativo: jsdom 30.1.3 (el entorno de pruebas del cliente) no implementa
   `showModal`, así que el nativo no se podría probar (D13).
 
@@ -489,7 +491,7 @@ el cambio de JWT a sesiones es **un solo paso** (4): partirlo dejaría pasos int
 `CASCADE`); 2 → AC-1, AC-2, AC-23 (`idleCutoffs`), AC-35 (token), AC-14 (atributos con `NODE_ENV=production`); 3 →
 AC-3, AC-7, AC-15, AC-36 (SQL), AC-8/AC-33 (`FOR SHARE`); 4 → AC-4 a AC-6, AC-8 a AC-10, AC-12, AC-13, AC-16,
 AC-17, AC-19, AC-21, AC-22, AC-24 a AC-28, AC-29 (lado server), AC-30, AC-33, AC-34; 5 → AC-37; 11 → AC-20, AC-29 y
-AC-31 (cliente, pruebas existentes renombradas); 12 → AC-11, AC-18, AC-19, AC-32.
+AC-31 (cliente, pruebas nuevas con la App real); 12 → AC-11, AC-18, AC-19, AC-32.
 8. Cierre del PR 1 en local: pasos 1 a 5 de la **puerta de push de tier 2** (arriba), con
    `branch: feat/server-sessions-server` en la spec.
 9. **Staging:** migración 005 con el procedimiento de §4 (psql dentro del contenedor de Postgres de staging) →
@@ -508,8 +510,10 @@ AC-31 (cliente, pruebas existentes renombradas); 12 → AC-11, AC-18, AC-19, AC-
     que AC-18 y AC-20 no se podrían probar. Las pruebas usan `user.tab()`, `user.tab({ shift: true })` y
     `user.keyboard(' ')`; el foco atrapado del diálogo hace `preventDefault` solo en los bordes.
     Después: casilla "Recordarme" en `LoginPage` — **pruebas que se reescriben:** `authPages.test.tsx:250-258` (el cuerpo
-    exacto del login suma `remember: false`), y las de etiqueta y axe del login en `accessibility.test.tsx` — depende
-    de: PR 1 en producción — serial. *(La fila 39 en `messages.ts` ya no va acá: ver paso 0.)*
+    exacto del login suma `remember: false`); las de etiqueta y axe del login en `accessibility.test.tsx` y la de área
+    táctil en `responsive.test.tsx` se vuelven a correr sin cambios y siguen verdes con la casilla. **Pruebas nuevas:**
+    las de la casilla (AC-20) en `authPages.test.tsx` y las de AC-29 y AC-31 en `session.test.tsx` (App real,
+    `/api/me` → 401 `SESSION_REQUIRED`; ver §3.5) — depende de: PR 1 en producción — serial. *(La fila 39 en `messages.ts` ya no va acá: ver paso 0.)*
 12. `ConfirmDialog` + `OtherSessionsSection` en el perfil — **pruebas que se reescriben:** las ~18 búsquedas de un
     solo `getByRole('alert')` / `getByRole('status')` de `profilePage.test.tsx`, acotadas con `within()` a su
     tarjeta, porque la sección nueva deja sus regiones siempre montadas — depende de: 11 — serial.
@@ -570,7 +574,7 @@ AC-31 (cliente, pruebas existentes renombradas); 12 → AC-11, AC-18, AC-19, AC-
 | R1 — Deploy sin la tabla | se despliega el PR 1 antes de correr la 005 | todo pedido protegido → 500, nadie usa la app | migración primero, con consulta de comprobación anotada; el checklist de cierre lo exige en orden |
 | R2 — La cookie no se borra | `clearSessionCookie` con atributos distintos de los de `setSessionCookie` | logout "anda" en el server pero el navegador conserva una cookie inútil | una sola función con los atributos; prueba que compara los dos `Set-Cookie` |
 | R3 — Escritura en cada pedido | `touchActive` actualiza la fila siempre | más carga en la base | medir en staging contra la mediana de 5c (292 ms); si sube de forma medible, renovar solo si el último uso tiene más de 60 s (decisión abierta, no se construye sin medición) |
-| R4 — Diálogo propio con huecos de accesibilidad | foco o lectura en pantalla mal resueltos | quien usa teclado o lector queda atrapado o sin contexto | pruebas de componente de AC-18 + revisión a mano con teclado en staging; `checklist-accesibilidad` |
+| R4 — Diálogo propio con huecos de accesibilidad | foco o lectura en pantalla mal resueltos | quien usa teclado o lector queda atrapado o sin contexto | pruebas de componente de AC-18 + revisión a mano con teclado en staging; `checklist-accesibilidad`. Límites aceptados: sin bloqueo del scroll de fondo ni `inert` en el resto de la página (la spec no los pide; `aria-modal` + foco atrapado cubren AC-18) |
 | R5 — Cableado roto entre piezas | una ruta usa el middleware viejo o se olvida `deleteOthers` | un criterio pasa en unidad y falla en la app | barrido del paso 7 contra `createApp` (lección de 5c) |
 | R6 — Reloj de la app y de la base distintos | alguien usa `now()` de SQL en una sentencia | bordes de 7 d / 12 h corridos | §0 lo prohíbe; la prueba de SQL verifica que la hora llega como parámetro |
 | R6b — La regla del plazo vive en SQL | `>` en vez de `>=` o un `CASE` mal escrito | sesiones que duran de más o de menos | una sola fuente (`idleCutoffs`) + bordes probados con SQL real en staging (paso 9) |
@@ -621,7 +625,7 @@ Hernán) y con **las dos suites en verde**: `cd server && npm test && npx tsc -b
 | T009 |  | Verify PR 1 on staging | archivo `02-DOCS/wiki/sdd/verifications/server-sessions-<fecha>.md` con: 005 aplicada con `ON_ERROR_STOP` + restricciones e índice comprobados; `railway up -e staging`; lista de deploys de los dos entornos (producción sin cambios); cada punto de la comprobación del §6; `smoke.mjs`; medición de latencia (R3); al final, las cuentas `qa-sessions-*@example.com` borradas desde la app (`DELETE /api/me/account`) y una consulta de solo lectura que confirma 0 cuentas activas con ese prefijo | T008 | AC-1 a AC-3, AC-4 a AC-10, AC-14, AC-15, AC-21 a AC-23, AC-27, AC-33, AC-36, AC-37 | 2 |
 | T010 |  | Ship PR 1 to production | aprobación explícita de Hernán; push + PR; 005 en producción comprobada **antes** del merge; merge; lista de deploys de los dos entornos; smoke en producción anotado en la verificación (el smoke registra y borra su propia cuenta: deja una fila anonimizada "Usuario eliminado", sin datos personales, como todo borrado de cuenta — D4) | T009 | todos los de PR 1 | 2 |
 | T011 |  | Install `@testing-library/user-event` in the client | Hernán corre `cd client && npm install --save-dev @testing-library/user-event@14.6.1`; `cd client && npm test` sigue verde | T010 | AC-18, AC-20 | 1 |
-| T012 | [P] | Add the "Recordarme" checkbox to `LoginPage` | `cd client && npx vitest run src/pages/authPages.test.tsx src/pages/accessibility.test.tsx` verde; casilla con etiqueta, desmarcada, `aria-describedby` al texto de ayuda, se marca con `user.keyboard(' ')`; el login manda `remember: true/false`; las pruebas de AC-29 (`sessionPersist.test.tsx:46`) y AC-31 (`session.test.tsx:113`) renombradas con su id y verdes | T011 | AC-20, AC-26, AC-29, AC-31 | 1 |
+| T012 | [P] | Add the "Recordarme" checkbox to `LoginPage` | `cd client && npx vitest run src/pages/authPages.test.tsx src/session.test.tsx src/pages/accessibility.test.tsx src/pages/responsive.test.tsx` verde; casilla con etiqueta, desmarcada, `aria-describedby` al texto de ayuda, se marca con `user.keyboard(' ')`, área táctil de 24 px, texto de ayuda debajo de la casilla; el login manda siempre `remember: true/false` (AC-26: el cliente nuevo nunca omite el campo; el modo corto sin el campo se prueba en el server, T004); pruebas nuevas de AC-29 y AC-31 en `session.test.tsx` con la App real (`/api/me` → 401 `SESSION_REQUIRED`). El foco visible y el tamaño del texto chico se revisan a mano en staging (T015) | T011 | AC-20, AC-26, AC-29, AC-31 | 1 |
 | T013 | [P] | Add the reusable `ConfirmDialog` component | `cd client && npx vitest run src/components/ConfirmDialog.test.tsx` verde: `role="dialog"`, `aria-modal`, nombre y descripción accesibles, foco inicial en "Cancelar", `user.tab()` y `user.tab({ shift: true })` ciclan adentro, Escape cancela, el foco vuelve al botón que lo abrió | T011 | AC-18 | 1 |
 | T014 |  | Add `OtherSessionsSection` to the profile settings | `cd client && npm test && npx tsc -b && npm run lint` verde; `OtherSessionsSection.test.tsx` cubre éxito (dos veces, anunciado las dos), un solo pedido con el botón deshabilitado, 401 → login, 429 → fila 35, 500 / `ORIGIN_NOT_ALLOWED` / no JSON / red → fila 39, `AbortError` → nada; `profilePage.test.tsx` con sus búsquedas de `alert`/`status` acotadas con `within()` | T012, T013 | AC-11, AC-18, AC-19, AC-32 | 1 |
 | T015 |  | Run the tier-2 push gate for PR 2 and ship it | spec con `branch: feat/server-sessions-client`; puerta de push completa (pasos 1 a 6); `railway up -e staging` con revisión a mano (casilla, diálogo con teclado, dos navegadores); lista de deploys de los dos entornos; PR, merge, smoke en producción; verificación del PR 2 escrita | T014 | AC-11, AC-18, AC-19, AC-20, AC-32 | 2 |
@@ -670,14 +674,20 @@ y AC-32 se prueban en el cliente; el resto en el server. AC-29 y AC-19 tienen mi
   `id` propio referido por `aria-describedby`.
 
 **T013 — Interfaces**
-- Produce: `ConfirmDialog({ open, title, description, confirmLabel, cancelLabel, confirmDisabled, onConfirm,
-  onCancel, returnFocusTo })` en `client/src/components/ConfirmDialog.tsx`; no hace pedidos ni conoce la sesión.
+- Produce: `ConfirmDialog({ open, title, description, confirmLabel, cancelLabel, busy, onConfirm, onCancel,
+  returnFocusTo })` en `client/src/components/ConfirmDialog.tsx`; no hace pedidos ni conoce la sesión. `busy` = el
+  padre espera la respuesta: los dos botones deshabilitados, Escape no hace nada y el foco queda en el panel del
+  diálogo (que acepta foco con `tabIndex={-1}`); al volver a `false` con el diálogo abierto, el foco va a "Cancelar".
 
 **T014 — Interfaces**
 - Consume: `ConfirmDialog` (T013); `OTHER_SESSIONS_CLOSE_FAILED` y `RATE_LIMITED` de `messages.ts`; `useApiError`
   solo para `SESSION_REQUIRED`; `fetchFailureCode` para distinguir `AbortError`.
 - Produce: `OtherSessionsSection()` en `client/src/components/OtherSessionsSection.tsx`, montada por
   `ProfilePage.tsx` en "Configuración".
+- Notas de la revisión del brief de T013 (2026-11-20): `returnFocusTo` es un `useRef`, nunca un objeto en línea; el
+  botón que abre el diálogo no se deshabilita mientras espera (si sigue deshabilitado al cerrar, el foco se pierde);
+  el pedido único se cuida con un ref además de `busy`; al terminar, el texto del mensaje y `open = false` van en la
+  misma actualización (el foco vuelve después de que el texto ya está en pantalla).
 
 ### Reparto entre Qwen y Claude (propuesta, se pregunta antes de lanzar cada una)
 
@@ -781,3 +791,16 @@ Cada brief para Qwen sigue lo aprendido en error-codes y 5b-6: checklist de cada
   accesibilidad y 320 px en §0. F3: el tier 2 del PR 2 es decisión del plan, no medición. F4: borrado de las cuentas
   de prueba de staging en T009 y nota del smoke de producción en T010. F6: la condición se llama
   `ACTIVE_SESSION_CONDITION`.
+- **2026-11-20 — T012, pruebas de AC-29 y AC-31 (aprobado por Hernán).** Las dos pruebas que el plan mandaba
+  renombrar no prueban esos criterios (`session.test.tsx:113` muestra el aviso que AC-31 prohíbe;
+  `sessionPersist.test.tsx:44` mira otra cosa). Se reemplaza "renombrar" por pruebas nuevas con la App real en
+  `session.test.tsx` (§3.5, paso 11, fila T012). El done-check de T012 suma `session.test.tsx` y
+  `responsive.test.tsx` (la casilla debe pasar el control de área táctil de 24 px). Segunda revisión: AC-26 queda en
+  la traza de T012 solo como "el cliente siempre manda el campo" (el criterio se prueba en T004); el foco visible y
+  el tamaño del texto chico no se pueden probar en jsdom y pasan a la revisión a mano de T015.
+- **2026-11-20 — T013, el diálogo mientras espera (decisión de Hernán, opción A).** La revisión del brief mostró que
+  la spec no decía qué hacen Escape y "Cancelar" mientras "Cerrar sesiones" espera la respuesta. Hernán eligió que no
+  hagan nada: el pedido ya salió y cancelarlo a mitad mentiría. La prop `confirmDisabled` pasa a `busy` (los dos
+  botones deshabilitados, Escape ignorado, foco en el panel). También: el foco atrapado cubre el caso en que el foco
+  no está en un botón habilitado (botón recién deshabilitado o clic sobre el texto del panel); borde de "Cancelar"
+  con contraste ≥ 3:1; límites aceptados en R4 (sin bloqueo de scroll ni `inert`).
