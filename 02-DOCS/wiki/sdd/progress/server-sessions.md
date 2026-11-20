@@ -500,7 +500,7 @@ slug: server-sessions
   con el OK de Hernán antes de lanzarlo) vale para **todas** las tareas de código que quedan, no solo para T013. La
   columna "Quién" del reparto del plan no la reemplaza. T014 no la siguió; queda como está (commiteada y revisada).
 
-## T015 — 2026-11-20 (puerta de push de tier 2 del PR 2, en curso)
+## T015 — 2026-11-20 (puerta de push de tier 2 del PR 2)
 
 - paso 1: spec con `branch: feat/server-sessions-client` (commit automático de docs `9a1962a`) ✅
 - paso 2 (`verify`): cliente `22 passed`, `539 passed`, `tsc -b` 0, lint 0; server `37 passed`, `817 passed`,
@@ -585,3 +585,39 @@ slug: server-sessions
 - status: **complete**.
 - siguiente: T016 (las dos suites, `tsc`, lint y cobertura sobre `main`; opción D: brief para Qwen, revisado y con el
   OK de Hernán) → sacar `JWT_SECRET` de Railway desde el 2026-11-27.
+
+## T016 — 2026-11-20
+
+- status: complete — **todos los chequeos de "hecho" pasan sobre `main` (`8482156`)**.
+- quién: **Qwen escribió** el script de cobertura por archivo (`coverage-report.mjs`, fuera del repo) desde una
+  especificación de Claude y corrió todos los chequeos (opción D; Orca, dispatch `ctx_cde63277040e`, worktree
+  `t016-closing-check` creado desde `main`). Brief revisado por dos agentes con ojos frescos; el segundo armó una versión
+  descartable solo desde la especificación y coincidió con todas las salidas esperadas al primer intento. Qwen entregó en
+  **un solo intento**, con `worker_done` (resumido en vez de pegar las salidas; 2 rondas de arreglos de su script: el
+  corte de la ruta y el acceso a `.pct`).
+- verificación de Claude:
+  - el script de Qwen da la misma salida y el mismo código de salida que la referencia de Claude (oculta para Qwen) en el
+    server, el cliente, la carpeta equivocada y sin argumento, sobre la cobertura que escribió el worktree de Qwen;
+  - 3 mutantes propios sobre su script, todos caen: mínimo 90 % → `ProfilePage.tsx` `FAIL` y exit 1; mínimo 89,92 % →
+    `PASS` (el borde usa `>=`); `LoginPage.tsx` quitado del resumen → `NOT MEASURED` y exit 1;
+  - los números de Qwen coinciden con la corrida de prueba de Claude en el checkout principal sobre el mismo commit;
+  - worktree de Qwen con `git status` limpio y en `8482156`; después, worker liberado y worktree borrado (su rama no
+    tenía commits propios).
+- done-check:
+  - server: `npx vitest run --coverage` → `37 passed`, `817 passed`, exit 0 (incluye los mínimos globales); `tsc -b` 0 ✅
+  - cliente: `npx vitest run --coverage` → `22 passed`, `540 passed`, exit 0; `tsc -b` 0; `npm run lint` (oxlint) 0 ✅
+  - cobertura de **líneas** ≥ 80 % en cada archivo `.ts`/`.tsx` de `src/` que cambió la feature (`1fbd2d0..main`, sin
+    pruebas): los 12 del server y los 4 del cliente en `PASS`; los más bajos, `server/src/index.ts` 83,33 % (funciones
+    66,66 %: el bloque de arranque) y `client/src/pages/ProfilePage.tsx` 89,92 % ✅
+  - cada fila T001-T015 tiene su entrada con evidencia (15 entradas, 15 `status: complete`; Claude leyó la evidencia de
+    cada una). Las notas "pendiente: commit / aprobación de tier 2" de T001-T008 quedaron resueltas: commits en las
+    entradas siguientes, aprobación de tier 2 del PR 1 en T010 y del PR 2 en T015 ✅
+  - cada AC del server aparece en `server/tests` y cada AC del cliente (AC-11, 18, 19, 20, 29, 31, 32) en `client/src`;
+    `jsonwebtoken` no aparece en `server/` ni en `client/` ✅
+- risk: no aplica (no hay cambio de código; solo esta entrada de docs).
+- controls: tests ✅ build ✅ (`tsc -b` en los dos) security ✅ (sin cambios de código) traceability ✅ (AC-1 a AC-37).
+- decision: ninguna nueva.
+- pendiente: desde el **2026-11-27** (PR 2 una semana estable en producción), borrar `JWT_SECRET` de Railway en los dos
+  entornos (servicio de la app), con OK de Hernán. Mejora opcional anotada en T015: texto "Cerrando…" en el botón de
+  confirmar mientras espera.
+- siguiente: con T016 completa, la feature server-sessions queda cerrada en `implement`.
