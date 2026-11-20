@@ -69,7 +69,7 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
   `.disabled\:bg-red-800:disabled`, `.enabled\:hover\:bg-red-700:enabled:hover` y el override `#a1a1aa`; suite,
   `tsc -b` y lint en verde.
 - [x] **Riesgo y revisión del contraste.** Prueba: `rsc risk` y la revisión que pida su tier.
-- [ ] **Staging, a mano.** Prueba: con el `DELETE` demorado desde la página, el botón muestra "Cerrando sesiones...",
+- [x] **Staging, a mano.** Prueba: con el `DELETE` demorado desde la página, el botón muestra "Cerrando sesiones...",
   deshabilitado, y al terminar el diálogo se cierra y el éxito se anuncia como antes. Colores calculados en el
   navegador, en modo claro y oscuro: texto ≥ 4,5:1 en los dos botones mientras espera.
 - [ ] **PR, merge y producción.** Prueba: PR fusionado, deploys SUCCESS en los dos entornos, el bundle servido trae
@@ -132,7 +132,24 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
   - el override oscuro de `disabled:text-gray-500` es global, no solo del diálogo: intentional, cualquier texto
     deshabilitado con ese gris necesita el mismo arreglo en modo oscuro.
 
+- Commits de Hernán: `9cd1fd8` ("Cerrando sesiones...") y `309ef73` (contraste).
+- Staging (Claude, con el OK de Hernán), 2026-11-20:
+  - `railway up -e staging --service prestoteca --ci` desde `309ef73` → `Deploy complete`; staging SUCCESS
+    (`0c0366b2`), producción sin tocar en `9adc307`; `/api/health` 200; `smoke.mjs` → `SMOKE OK` ✅
+  - el bundle servido trae "Cerrando sesiones..." y el CSS las tres reglas (`.disabled\:bg-red-800:disabled`,
+    `.enabled\:hover\:bg-red-700:enabled:hover`, override oscuro `#a1a1aa`) ✅
+  - en Chrome, cuenta de prueba `qa-csl2-…@example.com` (contraseña al azar generada en la página, nunca mostrada), el
+    `DELETE` demorado 8 s desde la página: al confirmar, el botón dice **"Cerrando sesiones..."**, los dos botones
+    deshabilitados, `opacity: 1`, el diálogo con `aria-busy="true"`; al terminar, el diálogo se cierra y
+    "Cerramos la sesión en tus otros dispositivos." aparece en la región `status` ✅
+  - colores calculados en el navegador mientras espera (el rojo de Tailwind 4 es `red-800` = `#9f0712`, no el
+    `#991b1b` de v3):
+    - modo oscuro: "Cancelar" `#a1a1aa` sobre `#18181b` = **6,91:1**; confirmar blanco sobre `#9f0712` = **8,36:1** ✅
+    - modo claro (reglas oscuras apagadas desde la página): "Cancelar" `#6a7282` sobre blanco = **4,84:1**; confirmar
+      **8,36:1** ✅
+  - limpieza: `DELETE /api/me/account` → 204, `/api/me` → 401; pestaña cerrada.
+
 ## Next
 
-Commit de Hernán; después staging a mano (texto "Cerrando sesiones..." con el `DELETE` demorado y colores calculados
-en modo claro y oscuro) y PR.
+PR de `feat/closing-sessions-label` contra `main` (Hernán), merge, deploys de los dos entornos, bundle de producción
+con "Cerrando sesiones..." y `smoke.mjs` contra producción.
