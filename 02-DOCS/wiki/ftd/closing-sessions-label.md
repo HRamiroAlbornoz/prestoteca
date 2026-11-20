@@ -19,6 +19,12 @@ Quien ve la pantalla no sabe si la app está trabajando o se trabó.
 - La spec `server-sessions` se enmienda: la fila de la confirmación suma el texto de espera.
 - Rama propia `feat/closing-sessions-label`, un solo PR. El código lo escribe Qwen desde un brief de especificación
   (opción D), revisado y con el OK de Hernán antes de lanzarlo.
+- **Contraste mientras espera (2026-11-20, después de la revisión tier 1):** los dos botones deshabilitados usaban
+  `opacity-50`, así que el texto quedaba en ~2,28:1 (claro) y ~3,06:1 (oscuro), por debajo de 4,5:1 (AA). Hernán
+  eligió arreglarlo en este mismo FTD y rama: el botón de confirmar deshabilitado pasa a `red-800` sin opacidad
+  (blanco sobre `red-800` = 8,31:1) y su hover solo aplica habilitado (`enabled:hover:bg-red-700`); "Cancelar"
+  deshabilitado pasa a texto `gray-500` sin opacidad (4,83:1 en claro) con un override de modo oscuro `#A1A1AA`
+  (6,91:1; `gray-500` sobre la tarjeta oscura daría 3,66:1).
 
 ## Scope
 
@@ -31,6 +37,8 @@ Quien ve la pantalla no sabe si la app está trabajando o se trabó.
   nombre de espera y afirma que "Cerrar sesiones" vuelve después de la respuesta.
 - Enmienda de la spec: fila "Tocar «Cerrar sesión en los otros dispositivos»" de *What result they get* y una entrada
   en *Revisions*.
+- Contraste: clases de los dos botones de `ConfirmDialog.tsx` (sin `disabled:opacity-50`) y una línea de override de
+  modo oscuro en `client/src/index.css`; pruebas C21 (clases) y C22 (override).
 
 **No entra:**
 - Anunciar la espera al lector de pantalla con una región viva: ya tiene `aria-busy` en el diálogo, y un anuncio más
@@ -56,8 +64,14 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
 - [x] **Controles.** Prueba: `npm test`, `npx tsc -b` y `npm run lint` del cliente en verde; cobertura de líneas ≥ 80 %
   en los dos archivos cambiados; ningún `it(` viejo borrado (diff de nombres contra `main`).
 - [x] **Riesgo y revisión.** Prueba: `rsc risk --base main` y la revisión que pida su tier.
+- [ ] **Contraste mientras espera.** Prueba: C21 y C22 en verde; un mutante con `opacity-50` de vuelta, otro con el
+  hover sin `enabled:` y otro sin el override de modo oscuro caen; el CSS compilado (`npm run build`) trae
+  `.disabled\:bg-red-800:disabled`, `.enabled\:hover\:bg-red-700:enabled:hover` y el override `#a1a1aa`; suite,
+  `tsc -b` y lint en verde.
+- [ ] **Riesgo y revisión del contraste.** Prueba: `rsc risk` y la revisión que pida su tier.
 - [ ] **Staging, a mano.** Prueba: con el `DELETE` demorado desde la página, el botón muestra "Cerrando sesiones...",
-  deshabilitado, y al terminar el diálogo se cierra y el éxito se anuncia como antes.
+  deshabilitado, y al terminar el diálogo se cierra y el éxito se anuncia como antes. Colores calculados en el
+  navegador, en modo claro y oscuro: texto ≥ 4,5:1 en los dos botones mientras espera.
 - [ ] **PR, merge y producción.** Prueba: PR fusionado, deploys SUCCESS en los dos entornos, el bundle servido trae
   "Cerrando sesiones...", `smoke.mjs` contra producción `SMOKE OK`.
 
@@ -93,4 +107,5 @@ el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él
 
 ## Next
 
-Commit de Hernán; después staging a mano (el `DELETE` demorado desde la página) y PR.
+Contraste: brief de opción D (tarea completa) para Qwen, revisión con ojos frescos y OK de Hernán; después staging a
+mano y PR. (El "Cerrando sesiones..." ya está commiteado en `9cd1fd8`.)
