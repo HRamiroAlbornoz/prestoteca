@@ -684,6 +684,10 @@ y AC-32 se prueban en el cliente; el resto en el server. AC-29 y AC-19 tienen mi
   solo para `SESSION_REQUIRED`; `fetchFailureCode` para distinguir `AbortError`.
 - Produce: `OtherSessionsSection()` en `client/src/components/OtherSessionsSection.tsx`, montada por
   `ProfilePage.tsx` en "Configuración".
+- Notas de la revisión del brief de T013 (2026-11-20): `returnFocusTo` es un `useRef`, nunca un objeto en línea; el
+  botón que abre el diálogo no se deshabilita mientras espera (si sigue deshabilitado al cerrar, el foco se pierde);
+  el pedido único se cuida con un ref además de `busy`; al terminar, el texto del mensaje y `open = false` van en la
+  misma actualización (el foco vuelve después de que el texto ya está en pantalla).
 
 ### Reparto entre Qwen y Claude (propuesta, se pregunta antes de lanzar cada una)
 
