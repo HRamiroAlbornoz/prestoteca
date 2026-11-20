@@ -54,6 +54,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Datos mal armados que quedaban: descripción vacía al editar, búsqueda con parámetros repetidos e id que no es UUID | done | [02-DOCS/wiki/ftd/malformed-input-leftovers.md](./ftd/malformed-input-leftovers.md) |
 | El servidor valida el barrio del registro contra la lista fija | done | [02-DOCS/wiki/ftd/neighborhood-validation.md](./ftd/neighborhood-validation.md) |
 | Cuentas de prueba en producción: limpiar y dejar una fija | done | [02-DOCS/wiki/ftd/prod-test-accounts.md](./ftd/prod-test-accounts.md) |
+| "Cerrando sesiones..." mientras se cierran las otras sesiones | in-progress | [02-DOCS/wiki/ftd/closing-sessions-label.md](./ftd/closing-sessions-label.md) |
 
 ## Product docs
 
