@@ -6,12 +6,14 @@ tags: [sdd, spec, validation, server]
 timestamp: 2026-11-20T19:00:00Z
 topic: sdd
 slug: zod-routes
-status: draft
+status: approved
+approved: 2026-11-20
+approved_by: Hernán — "La apruebo" (aprobada ítem por ítem, no en autopiloto, tras cuatro revisiones con ojos frescos; `clarify` corre en la sesión siguiente)
 ---
 
 # Spec — Toda entrada externa del server validada por un esquema declarado
 
-> Slug: `zod-routes` · Status: draft · Created: 2026-11-20
+> Slug: `zod-routes` · Status: approved (2026-11-20) · Created: 2026-11-20
 > Inherits: [constitution](../constitution.md) (principio 13: "All external data validated server-side (Zod schemas,
 > length limits, safeParse)")
 > Origen: punto 8 del backlog y decisión [D15](../decisions.md) (excepción aceptada en server-sessions, "Zod después,
@@ -376,5 +378,6 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   dos casos. (3) La enmienda de la fila 40 queda detallada en cinco puntos, incluida la prueba del cliente que pasa de
   39 a 40 filas (AC-19). (4) `tsc -b` es el principio 5, no el 4. (5) El ejemplo de `"2026-1-5"` usa el caso real
   ("fin antes que inicio" mal comparado).
+- **2026-11-20 — aprobada.** Hernán: "La apruebo". Pausa a pedido de Hernán; lo siguiente es `clarify`.
 </content>
 </invoke>
