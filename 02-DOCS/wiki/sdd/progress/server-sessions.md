@@ -462,3 +462,36 @@ slug: server-sessions
   Revisar a mano en staging (T015) cómo se ve el foco durante la espera.
 - controls: tests ✅ build ✅ security ✅ (sin pedidos ni datos) traceability ✅ (AC-18 del lado del diálogo).
 - decision: ninguna nueva (la de `busy` ya está en el plan). Siguiente: commit de Hernán → T014.
+- commit: `e6c3181` (Hernán).
+
+## T014 — 2026-11-20
+
+- status: complete (sin commitear al escribir esta entrada).
+- quién: **Claude**, según el reparto del plan (en `profilePage.test.tsx` Qwen quedó en loop 5 h en T015 de
+  error-codes). No se le preguntó a Hernán antes de empezar, aunque el reparto dice "se pregunta antes de lanzar cada
+  una"; Hernán lo notó después.
+- archivos nuevos: `client/src/components/OtherSessionsSection.tsx` y `OtherSessionsSection.test.tsx` (21 pruebas
+  S1-S17, S12 con 5 casos). Cambios: `ProfilePage.tsx` monta la sección entre "Cambiar contraseña" y "Eliminar
+  cuenta"; la tarjeta de contraseña pasa a `<section aria-labelledby>` (región con nombre).
+- título de la sección: "Sesiones abiertas", con un texto de una línea (la spec no fijaba encabezado).
+- pruebas reescritas: 28 búsquedas de una sola `alert` (25 en `profilePage.test.tsx`, 3 en `errorAlerts.test.tsx`)
+  acotadas a la alerta de carga (fuera del `tabpanel`) o a la región "Cambiar contraseña". Pruebas nuevas P1 y P2 en
+  `profilePage.test.tsx` (la sección dentro de la página real y en la vista de error de carga).
+- done-check:
+  - rojo: con la sección montada, 28 pruebas viejas fallaban por varias `alert` ✅
+  - `npm test` (cliente) → `22 passed`, `539 passed` (516 + 23); `npx tsc -b` 0; `npm run lint` 0 ✅
+  - mutantes: 21 de Claude (`prestoteca-briefs/T014-files/t014-mutate.mjs`), todos muertos; M11 pasó a equivalente
+    tras el arreglo de la revisión (ver abajo) y se reemplazó por M21 y M22 ✅
+- `rsc risk --base HEAD` → **tier 1** (clase `default`, 1 revisor, sin aprobación humana).
+- review (tier 1, ronda 1): APPROVE WITH NITS, 10 mutantes propios: 4 muertos, 6 sobreviven (2 equivalentes, 2 nits
+  reales, 1 fuera de la spec, 1 duplicado).
+  - fixed: las clases de caja de las regiones vacías no tenían prueba (S1 y S17 las fijan; M22 muerto);
+    `handle` (login + olvidar al usuario) corría antes de mirar `aborted` → la comprobación va antes (S16; M21 muerto).
+  - nits anotados, sin cambio: `res.ok` en vez de `status === 204` (la spec dice 204, ningún otro 2xx existe); cambiar
+    de pestaña desmonta la sección y cancela el pedido sin mensaje (coherente con "AbortError → nada") → mirarlo en
+    el smoke de T015; si `handle` algún día no navega, el diálogo quedaría `busy` (hoy siempre navega).
+- para T015 (staging, a mano): la tarjeta en un teléfono de 320 px, foco visible al volver al botón, lector de pantalla
+  anunciando éxito dos veces seguidas.
+- controls: tests ✅ build ✅ security ✅ (un solo pedido, sin texto del servidor en pantalla) traceability ✅ (AC-11
+  S12, AC-18 S2-S10, AC-19 S6-S7, AC-32 S11).
+- decision: ninguna nueva. Siguiente: commit de Hernán → T015 (puerta de tier 2 del PR 2).
