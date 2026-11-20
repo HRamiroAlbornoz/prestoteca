@@ -352,3 +352,10 @@ slug: server-sessions
   opinión de Claude (riesgos restantes: la carrera de la contraseña releída en READ COMMITTED no se forzó en vivo; el
   orden en producción — 005 antes del merge — es crítico; al desplegar, todos cierran sesión una vez por AC-10).
   El código aprobado es el del panel (`dee7ae2`); después solo hay commits de `docs(auto)`.
+- PR #51 abierto (MERGEABLE, head `395b061`).
+- 005 en **producción** (OK de Hernán, 2026-11-19), antes del merge:
+  - antes: tablas públicas `loans`, `tools`, `users`; sin `sessions` ✅
+  - aplicada con `ON_ERROR_STOP=1 -1` → `CREATE TABLE`, `CREATE INDEX`, exit 0 ✅
+  - después: 6 columnas `NOT NULL` (`token_hash` `character`), `PRIMARY KEY (id)`, `UNIQUE (token_hash)`,
+    `FOREIGN KEY (user_id) REFERENCES users(id)` sin `ON DELETE`, índice `idx_sessions_user`; 0 filas ✅
+- siguiente: merge del PR #51 → deploys de los dos entornos → smoke en producción.
