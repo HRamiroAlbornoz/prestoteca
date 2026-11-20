@@ -495,3 +495,7 @@ slug: server-sessions
 - controls: tests ✅ build ✅ security ✅ (un solo pedido, sin texto del servidor en pantalla) traceability ✅ (AC-11
   S12, AC-18 S2-S10, AC-19 S6-S7, AC-32 S11).
 - decision: ninguna nueva. Siguiente: commit de Hernán → T015 (puerta de tier 2 del PR 2).
+- commit: `2c8c74c` (Hernán).
+- decisión de Hernán (2026-11-20): la opción D (Qwen escribe desde un brief de especificación de Claude, revisado y
+  con el OK de Hernán antes de lanzarlo) vale para **todas** las tareas de código que quedan, no solo para T013. La
+  columna "Quién" del reparto del plan no la reemplaza. T014 no la siguió; queda como está (commiteada y revisada).
