@@ -39,6 +39,10 @@ Quien ve la pantalla no sabe si la app está trabajando o se trabó.
   aparte).
 - Otros botones de la app con texto de espera (ya lo tienen).
 
+**Límite conocido (aceptado):** el nombre accesible del botón cambia mientras está deshabilitado y el foco está en
+el panel, así que el lector de pantalla no lee "Cerrando sesiones..."; para él la señal de espera sigue siendo
+`aria-busy`. La mejora es para quien ve la pantalla.
+
 ## Checklist
 
 - [ ] **Spec enmendada.** Prueba: el diff de `02-DOCS/wiki/sdd/specs/server-sessions.md` muestra la fila con
