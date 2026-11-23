@@ -118,8 +118,8 @@ descartó: debilita la regla por escrito y deja la validación repartida como es
 
 ## Users & context
 
-- **La pantalla de Prestoteca** (el cliente web). Manda siempre datos bien formados, salvo una página enorme escrita a
-  mano en la URL, un año de más de 4 cifras en el selector de fecha y contraseñas con espacios alrededor en el cambio de
+- **La pantalla de Prestoteca** (el cliente web). Manda siempre datos bien formados, salvo una página enorme o un id mal codificado
+  escritos a mano en la URL, un año de más de 4 cifras en el selector de fecha y contraseñas con espacios alrededor en el cambio de
   contraseña. Fuera de esos casos, no debería notar ningún cambio.
 - **Quien llama a la API directo** (un script, curl, un cliente roto o malicioso). Es quien ve las respuestas a datos mal
   formados.
@@ -173,8 +173,10 @@ con pruebas **contra el código viejo antes del refactor** (AC-18):
 - `category` o `condition` en la edición de una herramienta propia: `""`, `null` o `5` → `BAD_REQUEST`; una categoría
   inválida gana sobre un nombre corto;
 - `name: ""` en la edición de una herramienta propia → `TOOL_NAME_LENGTH`;
-- `q` de solo espacios → filtra por esos espacios (no se recorta);
-- `page` con ceros adelante (`007`) → página 7.
+- `q`, `category` o `neighborhood` de solo espacios en la búsqueda → filtran por esos espacios (no se recortan);
+- `page` con ceros adelante (`007`, o 30 ceros y un `7`) → página 7;
+- login con un email de más de 254 caracteres → 401 `INVALID_CREDENTIALS` (el login no mide el largo);
+- `status: " aceptado "` en un préstamo propio → 409 `LOAN_TRANSITION_INVALID` (no se recorta).
 
 Las únicas respuestas nuevas son estas:
 
@@ -185,18 +187,18 @@ Las únicas respuestas nuevas son estas:
 | fecha mal formada que hoy pasa las comparaciones de texto, sobre una herramienta inexistente (o id no UUID), pausada o propia | 404 `TOOL_NOT_FOUND`, 409 `TOOL_PAUSED` o 400 `LOAN_OWN_TOOL` (la fecha recién llega a la base después de esos chequeos) | 400 `LOAN_DATE_INVALID`: el formato se revisa antes de buscar la herramienta |
 | una fecha real sin ceros (`"2026-1-5"`) | la base la acepta, pero la comparación de texto con "hoy" y con la otra fecha da resultados equivocados (p. ej. `endDate: "2027-1-5"` con `startDate: "2027-01-10"` pasa como "fin después del inicio", porque `"2027-01-10" < "2027-1-5"` en texto) | 400 `LOAN_DATE_INVALID` (fila 40) |
 | una fecha mal formada que hoy pierde una comparación de texto: `startDate: "01/02/2099"` (hoy "ya pasó"), `endDate: "1/2/2099"` con inicio `2099-01-10` (hoy "fin antes que inicio"), o un inicio pasado junto con `endDate: "mañana"` (hoy "ya pasó") | 400 `LOAN_START_IN_PAST` o `LOAN_END_BEFORE_START` | 400 `LOAN_DATE_INVALID`: el formato de las dos fechas se revisa antes de compararlas |
-| un texto que Postgres acepta como fecha, pero que no es `AAAA-MM-DD`: `"20990110"`, `"2099-01-10T00:00:00Z"`, `"tomorrow"`, `"infinity"` (las dos fechas en `"infinity"` crean un préstamo sin fin) | probablemente 201 | 400 `LOAN_DATE_INVALID` |
-| un año de más de 4 cifras (`"20266-01-05"`). **La pantalla lo puede mandar**: el selector de fecha del navegador acepta años de 5 y 6 cifras | como fin, probablemente 201 o `LOAN_END_BEFORE_START`, según el inicio (comparación de texto) | 400 `LOAN_DATE_INVALID` (la pantalla muestra la fila 40) |
+| un texto que Postgres acepta como fecha, pero que no es `AAAA-MM-DD`: `"20990110"`, `"2099-01-10T00:00:00Z"`, `"tomorrow"`, `"infinity"` (las dos fechas en `"infinity"` crean un préstamo sin fin) | como fin, probablemente 201; como inicio, según el caso, 201 o `LOAN_END_BEFORE_START` | 400 `LOAN_DATE_INVALID` |
+| un año de más de 4 cifras (`"20266-01-05"`). **La pantalla lo puede mandar**: el selector de fecha del navegador acepta años de 5 y 6 cifras | como inicio o como fin, probablemente 201, o la fila 25 o 26, según la otra fecha (comparación de texto) | 400 `LOAN_DATE_INVALID` (la pantalla muestra la fila 40) |
 | `page` que no es solo dígitos (`1abc`, `1.5`, `%202`, `-1`, `0`) | se acepta como 1 o 2, o 400 | 400 `BAD_REQUEST` |
 | `page` de solo dígitos mayor que 9007199254740991 (el mayor entero que el server representa exacto) | 200 con listado vacío hasta unos 7,68e17; de ahí en más, probablemente 500 | 400 `BAD_REQUEST` |
-| `page` repetido (`?page=1&page=2`) | se acepta como la primera de las dos (`?page=2&page=3` → página 2) | 400 `BAD_REQUEST` (como `q`, `category` y `neighborhood` repetidos desde 5e) |
+| `page` repetido (`?page=1&page=2`) | si la primera tiene valor, se acepta como esa (`?page=2&page=3` → página 2); si está vacía, ya da 400 | 400 `BAD_REQUEST` (como `q`, `category` y `neighborhood` repetidos desde 5e) |
 | una página de las tres filas de arriba que hoy se acepta, junto con `q` de más de 60 | 400 `SEARCH_QUERY_TOO_LONG` | 400 `BAD_REQUEST`: la página se revisa primero, como ya pasa con `page=0` |
 | un carácter nulo en un texto que llega a la base: `name` y `email` del registro, `email` del login, `q`, `category` y `neighborhood` de la búsqueda, `name` y `description` de una herramienta (publicar y editar), `note` del préstamo | probablemente 500, o el error que dependía de la base: en `PATCH`, `TOOL_NOT_FOUND`, `TOOL_NOT_OWNER` o las reglas que corren después de leerla; en el préstamo, `TOOL_NOT_FOUND`, `TOOL_PAUSED`, `LOAN_OWN_TOOL` o `LOAN_DATES_OVERLAP` | 400 `BAD_REQUEST`, si no falla ninguna regla anterior a la base (ver *Behaviour*) |
-| registro con un email de hasta 254 caracteres que pasa de 254 en minúsculas (solo con la letra `İ`) | probablemente 500 | 400 `REGISTER_EMAIL_TOO_LONG` (el largo se mide sobre el email en minúsculas; la regla conserva su lugar en el orden) |
+| registro con un email de hasta 254 caracteres que pasa de 254 en minúsculas (solo con la letra `İ`) | probablemente 500, o 400 `REGISTER_NEIGHBORHOOD_INVALID` si además el barrio no está en la lista | 400 `REGISTER_EMAIL_TOO_LONG` (el largo se mide sobre el email en minúsculas; la regla conserva su lugar en el orden) |
 | id mal codificado en la URL (`/api/tools/%zz`) en una ruta pública, o con sesión en una protegida | 500 `INTERNAL_ERROR` (probado) | 400 `BAD_REQUEST` |
 | un cuerpo que el server no puede leer: charset no soportado, `Content-Encoding` no soportado, gzip corrupto, formulario demasiado anidado o con más de 1000 campos | 500 `INTERNAL_ERROR` (probado) | 400 `BAD_REQUEST`, antes de la sesión y de la ruta |
 | cambio de contraseña con `newPassword: " clave123 "` | se guarda con los espacios; después el login (que recorta) no entra | se guarda `"clave123"`; el login con `"clave123"` o `" clave123 "` entra |
-| cambio de contraseña con `newPassword` que solo llega a 8 caracteres contando los espacios (`"  abcdef  "`) | se acepta (largo 10) | 400 `NEW_PASSWORD_LENGTH` (largo 6 después de recortar, igual que en el registro) |
+| cambio de contraseña con `newPassword` que solo llega a 8 caracteres contando los espacios y no es solo espacios (`"  abcdef  "`) | se acepta (largo 10) | 400 `NEW_PASSWORD_LENGTH` (largo 6 después de recortar, igual que en el registro) |
 | cambio de contraseña con `currentPassword` correcta pero con espacios alrededor | 401 `CURRENT_PASSWORD_INCORRECT` | se acepta (se recorta antes de comparar, igual que el login) |
 | cambio de contraseña de una cuenta cuya contraseña guardada tiene espacios alrededor (por un cambio anterior), con `currentPassword` tal cual fue guardada | se acepta (204) | 401 `CURRENT_PASSWORD_INCORRECT` (aceptado; ver *Non-goals*) |
 | cambio de contraseña con `newPassword` de solo espacios y menos de 8 o más de 72 (`"   "`) | 400 `NEW_PASSWORD_LENGTH` (hoy el largo se mira antes que "solo espacios") | 400 `NEW_PASSWORD_BLANK` (solo espacios, de cualquier largo) |
@@ -257,7 +259,7 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   razón. Ya se sabe de dos, y las dos solo suman la fila 40: `client/src/errors/messages.test.ts` (39 → 40 filas) y
   `server/tests/errorCodes.test.ts` (su lista de status esperados suma `LOAN_DATE_INVALID: 400`).
 - **Un control en la suite** que falla si una ruta lee cuerpo, query o id sin pasarlo por un esquema declarado. Hay que
-  verlo fallar una vez contra una ruta escrita a propósito sin esquema.
+  verlo fallar en los cuatro casos de AC-14, escritos a propósito.
 - **Mutantes**: sacar el esquema de una ruta, o aflojar una regla, hace fallar alguna prueba.
 - **Staging con Postgres real**: los 500 de hoy que llegan a la base (fecha, página, carácter nulo, email) se reproducen antes del cambio (o se descartan si no ocurren) y dan
   400 después. Queda escrito en el archivo de verificación.
@@ -277,8 +279,8 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **Varios campos inválidos a la vez:** gana el mismo error que gana hoy. El orden de cada ruta se conserva. Las únicas
   excepciones son las de *What result they get*: en el cambio de contraseña, "solo espacios" antes que el largo; en el
   pedido de préstamo, la fecha mal formada antes que "ya pasó", que "fin antes que inicio" y que los chequeos que buscan
-  la herramienta (no existe, pausada, propia); en el listado, toda página inválida antes que `SEARCH_QUERY_TOO_LONG`; y el
-  carácter nulo, antes que las reglas que necesitan la base (ver abajo).
+  la herramienta (no existe, pausada, propia); en el listado, toda página inválida antes que `SEARCH_QUERY_TOO_LONG`; en
+  el registro, el email que crece en minúsculas antes que el barrio inválido; y el carácter nulo, antes que las reglas que necesitan la base (ver abajo).
 - **Cambio de contraseña:** sigue este orden. Primero, si falta alguna contraseña o no es texto, da
   `PASSWORD_CHANGE_MISSING_FIELDS` (como hoy, mirando el valor sin recortar). Segundo, si `newPassword` es solo
   espacios, de cualquier largo, da `NEW_PASSWORD_BLANK`. Esto cambia la precedencia de hoy, que mira el largo antes; el
@@ -286,9 +288,10 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   `NEW_PASSWORD_LENGTH` y romperían la respuesta de hoy. Tercero, se recortan las dos contraseñas. Cuarto, se revisa el largo de
   `newPassword` ya recortada (8 a 72) y da `NEW_PASSWORD_LENGTH`. Quinto, se compara `currentPassword` ya recortada. Una
   `currentPassword` de solo espacios sigue dando `CURRENT_PASSWORD_INCORRECT`, como hoy.
-- **Fechas del préstamo:** si falta alguna → fila 24 (como hoy). Si está pero no es un día real `AAAA-MM-DD` → fila 40.
-  Después vienen, como hoy, "ya pasó" (25) y "fin antes que inicio" (26). Se aceptan los años bisiestos (`2028-02-29`
-  vale, `2027-02-29` no).
+- **Fechas del préstamo:** si falta alguna → fila 24 (como hoy). Si la nota es larga → fila 27 (como hoy). Si una fecha
+  está pero no es un día real `AAAA-MM-DD` → fila 40. Después vienen, como hoy, "ya pasó" (25) y "fin antes que inicio"
+  (26). Se aceptan los años bisiestos (`2028-02-29` vale, `2027-02-29` no). El año `0000` cuenta como formato válido:
+  sigue dando la 25 o la 26, como hoy.
 - **Página:** ausente o vacía (`?page=`) = 1, como hoy. Repetida (aunque sea vacía, `?page=&page=`) → `BAD_REQUEST`.
   Si viene una vez con valor, tiene que ser solo dígitos, con valor entre 1 y 9007199254740991. Si no,
   `BAD_REQUEST`. Una página válida pero más allá de la última devuelve el listado vacío, como hoy.
@@ -314,10 +317,11 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **AC-1** — Given cualquier pedido fijado hoy por una prueba o por la lista de bordes de *What result they get*, When
   se manda después del cambio, Then recibe el mismo status y el mismo código (salvo las filas de respuestas nuevas).
 - **AC-2** — Given un pedido a una ruta del alcance con dos o más campos inválidos, When se manda, Then gana el mismo
-  código que hoy, salvo las filas de respuestas nuevas (una prueba por cada ruta con dos o más campos revisables).
+  código que hoy, salvo las filas de respuestas nuevas (una prueba por cada par de reglas consecutivas con
+  código distinto, en cada ruta con dos o más campos revisables).
 - **AC-3** — Given un usuario con sesión y una herramienta disponible, When pide un préstamo con
   `startDate: "mañana"`, Then recibe 400 `LOAN_DATE_INVALID`.
-- **AC-4** — Given lo mismo, When `endDate` es `"2099-02-30"`, `"2026-1-5"`, `"2027-02-29"`, `"20990110"`,
+- **AC-4** — Given lo mismo, con un "hoy" fijado por la prueba en 2027-01-01 y `startDate: "2027-01-10"`, When `endDate` es `"2099-02-30"`, `"2026-1-5"`, `"2027-02-29"`, `"20990110"`,
   `"2099-01-10T00:00:00Z"`, `"tomorrow"`, `"infinity"`, `"20266-01-05"` o `"1/2/2099"`, Then recibe 400
   `LOAN_DATE_INVALID` en cada caso; y con `"2028-02-29"` como fin válido no recibe ese código.
 - **AC-4b** — Given un usuario con sesión, When pide un préstamo con `endDate: "mañana"` sobre una herramienta que no
@@ -327,11 +331,13 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   `"01/02/2099"`, Then recibe 400 `LOAN_DATE_INVALID` (la fila 40 gana a la 25 y a la 26).
 - **AC-5** — Given lo mismo, When falta `startDate` y `endDate` es `"mañana"`, Then recibe 400 `LOAN_DATES_MISSING`
   (la fila 24 gana a la 40).
+- **AC-5b** — Given lo mismo, When la nota tiene 301 caracteres y `endDate` es `"mañana"`, Then recibe 400
+  `LOAN_NOTE_TOO_LONG` (la fila 27 gana a la 40).
 - **AC-6** — Given lo mismo, When las fechas tienen espacios alrededor (`" 2099-01-10 "`), Then se aceptan como hoy.
 - **AC-7** — Given `GET /api/tools`, When `page` es `1abc`, `1.5`, `%202`, `-1`, `0`, `9007199254740992`,
   `99999999999999999999` o se repite (`page=1&page=2`, `page=&page=`), Then recibe 400 `BAD_REQUEST` en cada caso, también si `q` pasa de 60.
-- **AC-8** — Given `GET /api/tools`, When `page` falta, viene vacía, es `2`, `007` o `9007199254740991`, Then
-  responde 200 como hoy.
+- **AC-8** — Given `GET /api/tools`, When `page` falta, viene vacía, es `2`, `007`, 30 ceros y un `7`, o
+  `9007199254740991`, Then responde 200 como hoy (con ceros adelante, la página 7).
 - **AC-9** — Given una ruta del alcance y una entrada que falla una regla de las que hoy corren antes de cualquier
   trabajo del manejador, When se manda, Then el manejador no hace ninguna consulta a la base después del chequeo de
   sesión y no calcula ningún hash.
@@ -355,8 +361,12 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   acepta (204).
 - **AC-13e** — Given una cuenta cuya contraseña guardada es `" clave123 "` (hash con espacios), When cambia la contraseña
   con esa `currentPassword`, Then recibe 401 `CURRENT_PASSWORD_INCORRECT`, y borrar la cuenta sigue funcionando.
+- **AC-13f** — Given el cambio de contraseña, When `currentPassword` es `"   "` y `newPassword` es válida, Then recibe 401
+  `CURRENT_PASSWORD_INCORRECT`, como hoy.
 - **AC-14** — Given el control de la suite, When cualquier ruta del server (las del alcance y las que se agreguen
-  después) lee cuerpo, query o id sin un esquema declarado, Then el control falla.
+  después) lee cuerpo, query o id sin un esquema declarado, Then el control falla. Se lo ve fallar en cuatro casos:
+  cuerpo, query e id leídos sin esquema, y una ruta que valida el id pero lee el cuerpo sin esquema, en un archivo donde
+  otras rutas sí lo usan.
 - **AC-15** — Given el cliente, When el server responde `LOAN_DATE_INVALID`, Then la pantalla muestra el texto de la
   fila 40.
 - **AC-16** — Given un error que produce el esquema (no los de transición de préstamo), un id mal codificado o un cuerpo
@@ -370,12 +380,15 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **AC-20** — Given cada campo de la lista del carácter nulo, When se manda con `\u0000` adentro y el resto válido, Then
   recibe 400 `BAD_REQUEST` y el manejador no consulta la base ni calcula hashes; When además falla otra regla anterior a
   la base con un código distinto (la fila 40 incluida), Then gana esa otra; When es un `PATCH` con `is_paused: true`,
-  Then la herramienta no queda pausada; When el nulo está en una contraseña, Then no recibe `BAD_REQUEST`; When el id es `%00`, Then recibe 404.
+  Then la herramienta no queda pausada; When el nulo está en una contraseña, Then no recibe `BAD_REQUEST`; When el id es `%00`, Then recibe 404;
+  When el nulo está en un valor que decide una lista o un formato, Then no da `BAD_REQUEST` por el nulo: barrio del
+  registro → `REGISTER_NEIGHBORHOOD_INVALID`; `status` de un préstamo propio → `LOAN_TRANSITION_INVALID`; `category` en un
+  `PATCH` sobre una herramienta ajena → `TOOL_NOT_OWNER`; una fecha del préstamo → `LOAN_DATE_INVALID`.
 - **AC-21** — Given `GET /api/tools/%zz`, Then recibe 400 `BAD_REQUEST`; Given `DELETE /api/tools/%zz` sin sesión, Then
-  recibe `SESSION_REQUIRED`, y con sesión, 400 `BAD_REQUEST`.
+  recibe `SESSION_REQUIRED`, y con sesión, 400 `BAD_REQUEST`. Nada va al log de errores en los 400.
 - **AC-22** — Given un cuerpo con charset no soportado, con `Content-Encoding` no soportado, gzip corrupto, formulario con
-  40 niveles o formulario con 1100 campos, When se manda al login, o a una ruta protegida sin sesión, Then recibe 400 `BAD_REQUEST`
-  en cada caso y nada va al log de errores; When el cuerpo pasa los 10 kb, Then sigue recibiendo 413 `PAYLOAD_TOO_LARGE`; When una ruta tira un error propio, Then sigue
+  40 niveles o formulario con 1100 campos, When se manda al login, o a una ruta protegida sin sesión, también sin `Origin` y
+  con el límite de pedidos agotado, Then recibe 400 `BAD_REQUEST` en cada caso y nada va al log de errores; When el cuerpo pasa los 10 kb, Then sigue recibiendo 413 `PAYLOAD_TOO_LARGE`; When una ruta tira un error propio, Then sigue
   siendo 500 `INTERNAL_ERROR` y va al log.
 - **AC-24** — Given el registro, When el email es `İ` repetida 254 veces y el resto es válido, Then recibe 400
   `REGISTER_EMAIL_TOO_LONG` y el manejador no consulta la base ni calcula hashes; When el email trae una `İ` y en
@@ -383,8 +396,8 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **AC-23** — Given una ruta del alcance con cuerpo o query, When llega un campo desconocido junto a una entrada válida,
   Then responde como hoy.
 - **AC-17** — Given staging con Postgres real, When se mandan `endDate: "mañana"`, `startDate: "2099-02-30"`,
-  `?page=99999999999999999999`, `?q=%00`, un login con `\u0000` en el email y un registro con el email de AC-24, Then responden 400 (y queda escrito si
-  antes daban 500).
+  `?page=99999999999999999999`, `?q=%00`, un login con `\u0000` en el email un registro con el email de AC-24 y `endDate: "infinity"`, Then responden 400 (y
+  queda escrito qué daban antes: 500, o 201 en el último caso).
 
 ## Points to clarify
 
@@ -423,7 +436,8 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   (4xx) da 400 `BAD_REQUEST`, salvo el de cuerpo de más de 10 kb (el de más de 1000 campos también da 400). *Base:* un código tiene un solo status, y sumar un 415 exigiría otra
   fila sin beneficio para la pantalla. *Riesgo:* bajo; la API pierde el detalle de 415.
 - **suposición tomada** (clarify) — un id mal codificado da 400 y no 404. *Base:* falla antes de saber qué entidad se
-  pide. *Riesgo:* bajo; la pantalla codifica bien los ids.
+  pide. *Riesgo:* bajo; la pantalla usa el id de su URL tal cual, así que solo quien la edita a mano (`/tools/%25zz`)
+  llega ahí, y ve la fila 37 antes y después.
 - **suposición tomada** (clarify) — el selector de fecha de la pantalla no suma un tope de año; el server rechaza y la
   pantalla muestra la fila 40. *Base:* *Non-goals* deja los formularios del cliente fuera. *Riesgo:* quien tipea un año
   de 5 cifras ve el error después de enviar, no antes.
@@ -496,5 +510,8 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **2026-11-23 — revisión con ojos frescos 5** (1 bloqueo, 8 should-fix y 10 nits, todos aplicados). Tres decisiones de
   Hernán: email medido en minúsculas (AC-24), la página inválida gana a `q` largo y el tope de página. El resto: lugar
   exacto del carácter nulo, `errorCodes.test.ts` reconocida como prueba que cambia, AC-16 cubre los errores anteriores a
-  la ruta, AC-10 ya no choca con AC-21, AC-23 (campos desconocidos). La tabla suma 2 filas más. Falta que Hernán vuelva a
-  aprobar.
+  la ruta, AC-10 ya no choca con AC-21, AC-23 (campos desconocidos). La tabla suma 2 filas más.
+- **2026-11-23 — revisión con ojos frescos 6** (pedida por Hernán; 0 bloqueos, 5 should-fix y 8 nits, todos aplicados, sin
+  decisiones nuevas). El email que crece gana al barrio inválido, ahora listado; AC-20 prueba los campos exentos del
+  carácter nulo; AC-5b y AC-13f nuevos; AC-2 y AC-14 más estrictos; cuatro bordes más para AC-18. Además, AC-4 fija el
+  "hoy" de la prueba para que no venza. Falta que Hernán vuelva a aprobar.
