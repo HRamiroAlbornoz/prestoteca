@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: Analyze — zod-routes (control cruzado antes de implementar)
-description: Cruce de constitución v1.3.0, spec zod-routes (33 criterios), plan y tareas T001-T013.
+description: Cruce de constitución v1.4.0 (v1.3.0 en la corrida 1), spec zod-routes (33 criterios), plan y tareas T001-T013.
 tags: [sdd, analysis, validation, server]
 timestamp: 2026-11-23T23:00:00Z
 topic: sdd
@@ -10,15 +10,22 @@ slug: zod-routes
 
 # Analyze — zod-routes
 
-> Constitución: [v1.3.0](../constitution.md) · Spec: [zod-routes](../specs/zod-routes.md) (approved, 33 criterios) ·
-> Plan + tareas: [zod-routes](../plans/zod-routes.md) (approved, T001-T013) · Corrida 1, 2026-11-23
+> Constitución: [v1.4.0](../constitution.md) · Spec: [zod-routes](../specs/zod-routes.md) (approved, 33 criterios) ·
+> Plan + tareas: [zod-routes](../plans/zod-routes.md) (approved, T001-T013) · Corrida 2, 2026-11-23
 
 ## Veredicto
 
-**GATE: BLOCKED** — 1 CRITICAL (F1), 0 HIGH, 5 MEDIUM (F2-F6), 3 LOW (F7-F9).
+**GATE: PASS** (corrida 2) — 0 CRITICAL, 0 HIGH, 0 MEDIUM, 0 LOW abiertos.
 
-El diseño no está en duda. F1 es una regla escrita que la feature promete cumplir y que, leída al pie de la letra, no va a
-cumplir del todo. Los cinco MEDIUM son ajustes de texto en las tareas.
+- **Corrida 1** (misma fecha): BLOCKED — 1 CRITICAL (F1), 5 MEDIUM (F2-F6), 3 LOW (F7-F9). Detalle en la tabla de abajo.
+- **Resolución** (Hernán: "Si a todos"): F1 con la opción A (constitución v1.4.0, decisión [D19](../decisions.md)); F2, se
+  adopta rsc 4.1.9; F3 a F7 en el plan; F8 en la spec; F9, la salida de cada control queda en `progress/`.
+- **Corrida 2:** cada arreglo está donde dice. La unión de los ids de los tres archivos de T001 es igual a la lista anterior (74
+  ids); `task-brief` extrae los bloques de T001, T006 y T009; `spec gate` con 4.1.9 sale con 0; T002 a T008 miden el mismo
+  nivel de riesgo con 4.1.9. Dos contradicciones que traían los propios arreglos se corrigieron antes de cerrar: la
+  línea de D15 en la spec ("no enmendarlo") y el texto nuevo del principio 13, que pedía largo también a lo que decide una
+  lista cerrada o un formato.
+- **Queda del lado de Hernán:** el commit de `.rsc.json` con 4.1.9.
 
 ## Mapa de cobertura (spec → plan → tareas)
 
@@ -47,7 +54,9 @@ cumplir del todo. Los cinco MEDIUM son ajustes de texto en las tareas.
 - **Números cruzados:** 51 pares (8 nuevos, 43 en T001), 14 bordes, 9 reglas y 21 filas coinciden entre la spec, el §5 y la
   columna *Done-check*. Las lecturas directas de hoy en el código son 15, más `req.path` en `index.ts`, como dice el plan.
 
-## Hallazgos
+## Hallazgos (corrida 1, con su estado después de la corrida 2)
+
+Estado: F1 a F8 **resueltos** · F9 **resuelto** con la salida copiada en `progress/` (el script sigue fuera del repo).
 
 | # | Severidad | Tipo | Artefacto A (lugar) | Artefacto B (lugar) | Conflicto | Resolver en |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -84,7 +93,7 @@ depende de F1; depende que la regla escrita diga la verdad.
 - **F3:** la primera entrega de T006 llegaría en rojo sin culpa de Qwen, y costaría una vuelta entera.
 - **F4, F5, F6:** Qwen ve solo su brief. Lo que no esté copiado ahí no se prueba, y el control de ids podría dar "todos".
 
-## Ruteo recomendado
+## Ruteo recomendado (corrida 1, ya hecho)
 
 - **`constitution` (F1):** Hernán elige A, B o C.
 - **Decisión de Hernán (F2):** adoptar 4.1.9 (como las subidas anteriores, en un commit `chore(rsc)`) o volver a 4.1.8; después
@@ -92,9 +101,9 @@ depende de F1; depende que la regla escrita diga la verdad.
 - **`tasks` (F3 a F7):** ajustes de texto, sin cambiar el diseño.
 - **`clarify` (F8) y aceptar (F9).**
 
-Con eso se corre `analyze` otra vez sobre los cambios.
+Lo próximo es el PR de documentos y después `implement`, empezando por T001.
 
-## Límites de esta corrida
+## Límites de las dos corridas
 
-- La hizo la misma sesión que escribió el plan, no un agente con ojos frescos.
+- Las hizo la misma sesión que escribió el plan, no un agente con ojos frescos.
 - No se ejecutó ninguna tarea. Lo que otra revisión midió (mutantes, comparaciones viejo/nuevo) no se repitió.
