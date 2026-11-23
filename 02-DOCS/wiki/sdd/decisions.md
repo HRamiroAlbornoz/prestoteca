@@ -292,3 +292,20 @@ timestamp: 2026-10-04T00:00:00Z
     el registro y el login.
   - ✅ En el pedido de préstamo, una fecha mal formada gana contra "la herramienta no existe / está pausada / es
     propia" (el formato se revisa antes de la base). Propuesto por Claude en la revisión 3, aceptado por Hernán.
+
+## D17 — zod-routes suma los 500 que fallan antes de la ruta, y acepta una contraseña vieja sin salida
+
+- **Fecha:** 2026-11-23
+- **Contexto:** `clarify` de [zod-routes](specs/zod-routes.md). El objetivo prometía "ninguna entrada mal formada da 500",
+  pero la lista cubría dos. Probando la app aparecieron dos más (id mal codificado, cuerpo que no se puede leer) y,
+  leyendo el código, una tercera (carácter nulo en un texto). Además, recortar la contraseña actual deja sin salida a
+  quien tiene guardada una con espacios, al revés de lo que la spec decía.
+- **Opciones:** para los 500: los tres grupos, solo el carácter nulo, o ninguno. Para la contraseña: aceptarlo, comparar
+  dos veces (recortada y sin recortar), o no recortar la actual.
+- **Decisión (Hernán):** los tres grupos dan 400 `BAD_REQUEST`; la contraseña vieja se acepta y se corrige el texto.
+- **Por qué:** cumplir el objetivo como está escrito cuesta pocas líneas; con 1 cuenta activa en producción no se
+  justifica una segunda comparación de hash.
+- **Consecuencias:**
+  - ✅ Los 4xx del lector del cuerpo dejan de ensuciar el log como errores del server.
+  - ⚠️ El manejador de errores entra en el cambio (antes solo entraban las rutas). Los errores propios siguen en 500.
+  - ⚠️ Quien tenga una contraseña guardada con espacios solo puede borrar la cuenta.
