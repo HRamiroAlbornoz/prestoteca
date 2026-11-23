@@ -21,7 +21,8 @@ approved_by: Hernán — "La apruebo" (2026-11-20, antes de `clarify`) y "Sí a 
 
 ## Problem & why
 
-El principio 13 de la constitución pide que todo dato externo se valide en el server con esquemas Zod y `safeParse`.
+El principio 13 de la constitución (v1.3.0) pedía que todo dato externo se validara en el server con esquemas Zod y
+`safeParse`; desde la v1.4.0 lo pide para cuerpo, query e id.
 Hoy solo las variables de entorno lo cumplen. Las rutas validan con chequeos escritos a mano, cada una con su estilo:
 algunos en la ruta, otros en el servicio o en el repositorio (la lista de categorías se revisa en cuatro lugares).
 
