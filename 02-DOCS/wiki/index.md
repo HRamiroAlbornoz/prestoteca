@@ -56,6 +56,7 @@ timestamp: 2026-10-04T00:00:00Z
 | El servidor valida el barrio del registro contra la lista fija | done | [02-DOCS/wiki/ftd/neighborhood-validation.md](./ftd/neighborhood-validation.md) |
 | Cuentas de prueba en producción: limpiar y dejar una fija | done | [02-DOCS/wiki/ftd/prod-test-accounts.md](./ftd/prod-test-accounts.md) |
 | "Cerrando sesiones..." mientras se cierran las otras sesiones | done | [02-DOCS/wiki/ftd/closing-sessions-label.md](./ftd/closing-sessions-label.md) |
+| La prueba de "fin antes que inicio" no vence con el calendario | in-progress | [02-DOCS/wiki/ftd/loan-date-test.md](./ftd/loan-date-test.md) |
 
 ## Product docs
 
