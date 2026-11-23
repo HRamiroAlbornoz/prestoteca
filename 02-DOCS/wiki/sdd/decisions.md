@@ -272,3 +272,89 @@ timestamp: 2026-10-04T00:00:00Z
     valor, cualquier otro → 400 `BAD_REQUEST`), probado en AC-25.
   - ⚠️ El principio 13 sigue sin cumplirse en las rutas hasta la feature nueva (backlog); `analyze` de otras features
     lo va a volver a marcar hasta entonces.
+
+## D16 — Alcance de zod-routes: mismas respuestas, dos endurecimientos, fila 40
+
+- **Fecha:** 2026-11-20
+- **Contexto:** `specify` de [zod-routes](specs/zod-routes.md), la feature que D15 prometió. Las rutas ya rechazan los
+  tipos equivocados (5b, 5d, 5e, 5f); quedan dos entradas que probablemente dan 500 (fecha de préstamo mal formada,
+  página enorme) y `page` acepta valores como `1abc`.
+- **Opciones elegidas por Hernán:** fecha mal formada → código nuevo, fila 40 (no `BAD_REQUEST` ni
+  `LOAN_DATES_MISSING`), con el texto "Las fechas tienen que ser días reales del calendario, con el formato
+  AAAA-MM-DD."; `page` solo dígitos, si no 400; alcance = cuerpo, query e id (la cookie de sesión y `Origin` quedan
+  fuera); cadena ASDD con parada en cada fase.
+- **Por qué:** el refactor no debe cambiar lo que ya está fijado por pruebas; la cookie y `Origin` ya tienen chequeos
+  estrictos y propios, y tocarlos suma riesgo de tier 2 sin ganar nada visible.
+- **Consecuencias:**
+  - ✅ El principio 13 queda cumplido en las rutas al cerrar la feature; F1 deja de aparecer en `analyze`.
+  - ⚠️ La fila 40 obliga a tocar el cliente (texto + prueba) en la misma rama que el server.
+  - ✅ Hernán sumó el arreglo de la contraseña ("Sumalo a este cambio"): el cambio de contraseña pasa a recortar, como
+    el registro y el login.
+  - ✅ En el pedido de préstamo, una fecha mal formada gana contra "la herramienta no existe / está pausada / es
+    propia" (el formato se revisa antes de la base). Propuesto por Claude en la revisión 3, aceptado por Hernán.
+
+## D17 — zod-routes suma los 500 que fallan antes de la ruta, y acepta una contraseña vieja sin salida
+
+- **Fecha:** 2026-11-23
+- **Contexto:** `clarify` de [zod-routes](specs/zod-routes.md). El objetivo prometía "ninguna entrada mal formada da 500",
+  pero la lista cubría dos. Probando la app aparecieron dos más (id mal codificado, cuerpo que no se puede leer) y,
+  leyendo el código, una tercera (carácter nulo en un texto). Además, recortar la contraseña actual deja sin salida a
+  quien tiene guardada una con espacios, al revés de lo que la spec decía.
+- **Opciones:** para los 500: los tres grupos, solo el carácter nulo, o ninguno. Para la contraseña: aceptarlo, comparar
+  dos veces (recortada y sin recortar), o no recortar la actual.
+- **Decisión (Hernán):** los tres grupos dan 400 `BAD_REQUEST`; la contraseña vieja se acepta y se corrige el texto.
+- **Por qué:** cumplir el objetivo como está escrito cuesta pocas líneas; con 1 cuenta activa en producción no se
+  justifica una segunda comparación de hash.
+- **Consecuencias:**
+  - ✅ Los 4xx del lector del cuerpo dejan de ensuciar el log como errores del server.
+  - ⚠️ El manejador de errores entra en el cambio (antes solo entraban las rutas). Los errores propios siguen en 500.
+  - ⚠️ Quien tenga una contraseña guardada con espacios solo puede borrar la cuenta.
+- **Sumado el mismo día por la revisión con ojos frescos 5 (Hernán):** el largo del email se mide en minúsculas (la letra
+  `İ` crece y daba otro 500); una página inválida siempre gana a `q` largo; el tope de página es 9007199254740991.
+
+## D18 — zod-routes: reglas en cadena, un solo lector de entradas y una sola lista de categorías
+
+- **Fecha:** 2026-11-23
+- **Estado:** aceptada. Propuesta por Claude en el [plan](plans/zod-routes.md) y aprobada por Hernán con él ("Apruebo el
+  plan, con las tres recomendaciones", 2026-11-23).
+- **Contexto:** hoy gana un error según el orden de los `if` de cada ruta, y la spec prohíbe que cambie. Un esquema Zod
+  escrito "de forma natural" junta los errores por campo y cambiaría ese orden.
+- **Opciones:** A) esquema natural por campo; B) reglas en cadena, la primera que falla gana; C) middleware
+  `validate(schema)` por ruta; D) que el lector lance `AppError`.
+- **Decisión:** B, con un único archivo que lee cuerpo, query e id (`validation/requestInput.ts`) y un control de la suite
+  hecho con los tipos de TypeScript que prohíbe leerlos en otro lado. Además, las listas de categorías y condiciones pasan
+  a un solo archivo (`tools/toolOptions.ts`); cierra una decisión diferida de la spec.
+- **Por qué:** con B el archivo se lee en el mismo orden en que ganan los errores. A cambia respuestas; C corre antes del
+  chequeo de sesión del manejador; D rompe las pruebas que montan routers sin manejador de errores. La lista unificada
+  entra porque el esquema la necesita: sin eso habría una tercera copia.
+- **Consecuencias:**
+  - ✅ La precedencia queda a la vista y cada regla se puede mutar por separado.
+  - ⚠️ En Zod 4.6.7 `.optional()` importa en los dos sentidos (comprobado): sin él, una clave que puede faltar falla; con
+    él, una clave requerida ausente pasa sin revisarse. El plan §0 fija los cuatro casos.
+  - ⚠️ El control no ve `Reflect.get`, un pedido disfrazado con un tipo propio que no hereda de él, la lectura a mano ni un
+    `z` reexportado, entre otras formas listadas en el plan §3.7; quedan como límite
+    escrito.
+  - ⚠️ Los chequeos de categoría del servicio y del repositorio se quedan (solo comparten la lista).
+
+## D19 — El principio 13 dice cómo se valida cada tipo de dato (constitución v1.4.0)
+
+- **Fecha:** 2026-11-23
+- **Contexto:** `analyze` de [zod-routes](analysis/zod-routes.md) (F1, CRITICAL). El principio 13 pedía Zod y largo máximo
+  para **todo** dato externo. Al cerrar la feature, la cookie y `Origin` siguen con sus chequeos propios (D16), y varios
+  textos que no se guardan siguen sin largo propio: email y contraseña del login, contraseña actual, categoría y barrio de
+  la búsqueda, id y `status`.
+- **Opciones:** A) enmendar el principio a lo que se cumple; B) aceptar la excepción sin tocar la constitución; C) agregar
+  los largos que faltan.
+- **Decisión:** A. Elegido por Hernán ("Si a todos", 2026-11-23); el texto final se le mostró después y lo ratificó ("Si a
+  todos", 2026-11-23).
+- **Por qué:** B deja que `analyze` lo marque en cada feature, que es lo que zod-routes viene a terminar; C cambia
+  respuestas que la spec aprobada fija (un email largo en el login da 401).
+- **Por qué no contradice D15:** D15 rechazó bajar el principio a los chequeos a mano de las rutas. Acá las rutas pasan a Zod
+  igual; la enmienda solo escribe lo que D16 y la spec ya dejaban fuera (cookie, `Origin`, largos que no existen).
+- **Consecuencias:**
+  - ✅ Al mergear zod-routes, lo que se guarda tiene largo máximo, una lista cerrada o un formato fijo; lo demás queda
+    acotado por el cuerpo de 10 kb y por el tope de encabezados de Node (16 KiB, medido en esta máquina; incluye la URL).
+  - ✅ El principio nombra lo que abarca: las variables de entorno se validan al arrancar, y los demás encabezados (entre
+    ellos el que da la IP al límite de pedidos) no se guardan.
+  - ⚠️ El principio se cumple recién al mergear zod-routes: hasta entonces las rutas siguen sin esquema (D15).
+  - ⚠️ Un campo nuevo que se guarde tiene que traer un largo, una lista o un formato.

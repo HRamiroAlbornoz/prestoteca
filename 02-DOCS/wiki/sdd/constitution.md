@@ -5,12 +5,12 @@ description: The non-negotiable principles every rsc-sdd phase obeys.
 tags: [sdd, constitution]
 timestamp: 2026-10-04T00:00:00Z
 topic: sdd
-version: v1.3.0
+version: v1.4.0
 ---
 
 # Prestoteca — Constitution
 
-> Version: v1.3.0 · Ratified: 2026-10-04 · Last amended: 2026-11-18
+> Version: v1.4.0 · Ratified: 2026-10-04 · Last amended: 2026-11-23
 > The non-negotiable principles every rsc-sdd phase obeys. Stack mechanics live in
 > `02-DOCS/wiki/stack/*`; this file ratifies the principle and links the detail.
 
@@ -58,7 +58,17 @@ version: v1.3.0
 ## 5. Security & privacy floor
 
 12. No secret is ever committed. Secrets load from `server/.env` (gitignored). Baseline: `secure-coding`.
-13. All external data validated server-side (Zod schemas, length limits, safeParse). SQL always parameterized. Passwords hashed with bcrypt (max 72 chars, 12 salt rounds). XSS: React default escaping, no `dangerouslySetInnerHTML`. CSRF: `SameSite=Lax` + Origin header check on mutating requests. Rate limiting on login/register (5/min/IP). JSON body max 10kb. Helmet 8+ (HSTS 365d default) + CORS. `app.disable('x-powered-by')`. `app.set('trust proxy', 1)`.
+13. Every request body, query, path parameter, session cookie and `Origin` header is validated server-side. Body, query
+    and path parameters: a declared Zod schema read with `safeParse`, in every route that reads them. The session cookie
+    and `Origin`: their own strict checks. Environment variables: Zod at startup. Other headers are read only by Express
+    and its middleware, and by the rate limiter as an opaque key; they are never stored. Every text that is stored has an
+    explicit maximum length, a closed list of values or a fixed format; any other text is bounded by the 10kb body limit
+    or by Node's request header limit (16 KiB, URL included). Detail: spec `zod-routes`, decisions D16 and D19.
+    SQL always parameterized. Passwords hashed with bcrypt (max 72 chars, 12 salt rounds). XSS: React default escaping,
+    no `dangerouslySetInnerHTML`. CSRF: `SameSite=Lax` + Origin header check on mutating requests. Rate limiting on
+    login/register (5/min/IP). JSON body max 10kb. Helmet 8+ (HSTS 365d default) + CORS. `app.disable('x-powered-by')`.
+    `app.set('trust proxy', 1)`.
+    *Superseded in v1.4.0: "All external data validated server-side (Zod schemas, length limits, safeParse)".*
 
 ## 6. UX / accessibility floor
 
@@ -95,3 +105,4 @@ A change ships only when ALL hold:
 | 2026-11-03 | v1.1.0 | Principle 4 rewritten to the real tooling: oxlint in the client, no server linter yet (open debt), no Prettier, no pre-commit; check runs in `verify`. Principle 6: coverage measured per changed file with `@vitest/coverage-v8`. DoD updated. | `analyze` of error-codes (H3, H2): the old text asked for tools the repo never had, so no change could meet the DoD. Approved by Hernán ("aplicá todo"). Decision D8. |
 | 2026-11-18 | v1.2.0 | Principle 8: session is an opaque, server-revocable identifier in an httpOnly cookie (7 days idle with "Recordarme", 12 h idle without), replacing "JWT in httpOnly cookie (1h expiry)". Principle 10: `main` is open, direct pushes allowed after `verify` (tier 2 also needs panel + human approval), replacing "branch + PR only". DoD updated. | Principle 8: approved spec `server-sessions`; since 5c every protected request already checks the account in the database, so a short JWT adds no revocation (decision D10). Principle 10: the text contradicted how the project works since 5b (direct pushes, `rsc main` open), found during this amendment (decision D11). Ratified by Hernán ("Ratifico tal cual"; principle 10: "Enmendarlo a main abierta"). |
 | 2026-11-18 | v1.3.0 | Principle 10 back to branch + PR, tightened: GitHub protection on `main` requires a PR (admins included) and rsc keeps `main` closed for the agent; docs-only changes too. DoD restored. | Hernán: "Que el principio 10 vuelva a 'rama + PR'. Quiero que main esté protegida." Matches his global rule to protect `main` on GitHub. Decision D12 (reverses D11). |
+| 2026-11-23 | v1.4.0 | Principle 13: says how each kind of external data is validated (Zod schema for body, query and path parameters; own strict checks for the session cookie and `Origin`; Zod at startup for the environment; other headers never stored) and how each text is bounded (the stored ones by a maximum length, a closed list or a fixed format; the rest by the body and header limits). | `analyze` of zod-routes (F1): read literally, the old text would still be unmet after the feature that exists to meet it. No code changes because of this text. Ratified by Hernán on the shown final text ("Si a todos" to "¿ratificás el texto del principio 13…?"), after choosing option A. Decision D19. |

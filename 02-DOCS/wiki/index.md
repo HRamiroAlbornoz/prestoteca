@@ -16,14 +16,17 @@ timestamp: 2026-10-04T00:00:00Z
 | Spec | Prestoteca MVP — Spec | [02-DOCS/wiki/sdd/specs/prestoteca-mvp.md](./sdd/specs/prestoteca-mvp.md) |
 | Spec | Códigos de error específicos y mensajes en español (approved 2026-11-03) | [02-DOCS/wiki/sdd/specs/error-codes.md](./sdd/specs/error-codes.md) |
 | Spec | Sesiones de 7 días que el logout anula de verdad (approved 2026-11-18) | [02-DOCS/wiki/sdd/specs/server-sessions.md](./sdd/specs/server-sessions.md) |
+| Spec | Toda entrada externa del server validada por un esquema declarado (approved 2026-11-23) | [02-DOCS/wiki/sdd/specs/zod-routes.md](./sdd/specs/zod-routes.md) |
 | Plan | Prestoteca MVP — Plan | [02-DOCS/wiki/sdd/plans/prestoteca-mvp.md](./sdd/plans/prestoteca-mvp.md) |
 | Plan | Códigos de error específicos y mensajes en español (approved 2026-11-03) | [02-DOCS/wiki/sdd/plans/error-codes.md](./sdd/plans/error-codes.md) |
 | Plan | Sesiones de 7 días que el logout anula de verdad (approved 2026-11-18) | [02-DOCS/wiki/sdd/plans/server-sessions.md](./sdd/plans/server-sessions.md) |
+| Plan | Toda entrada externa del server validada por un esquema declarado (approved 2026-11-23) | [02-DOCS/wiki/sdd/plans/zod-routes.md](./sdd/plans/zod-routes.md) |
 | Decisions | Prestoteca — Decision Records | [02-DOCS/wiki/sdd/decisions.md](./sdd/decisions.md) |
 | Analysis | Prestoteca — Consistency Gate | [02-DOCS/wiki/sdd/analysis/prestoteca-mvp.md](./sdd/analysis/prestoteca-mvp.md) |
 | Analysis | error-codes — control cruzado (PASS 2026-11-03, 2.ª corrida) | [02-DOCS/wiki/sdd/analysis/error-codes.md](./sdd/analysis/error-codes.md) |
 | Progress | server-sessions — avance de implement | [02-DOCS/wiki/sdd/progress/server-sessions.md](./sdd/progress/server-sessions.md) |
 | Analysis | server-sessions — control cruzado (PASS 2026-11-18, 2.ª corrida) | [02-DOCS/wiki/sdd/analysis/server-sessions.md](./sdd/analysis/server-sessions.md) |
+| Analysis | zod-routes — control cruzado (PASS 2026-11-23, 3.ª corrida) | [02-DOCS/wiki/sdd/analysis/zod-routes.md](./sdd/analysis/zod-routes.md) |
 | Progress | error-codes — avance de implement | [02-DOCS/wiki/sdd/progress/error-codes.md](./sdd/progress/error-codes.md) |
 | Review | error-codes — revisión de cierre PR 3 (APPROVE WITH NITS 2026-11-12, tier 2, panel de 3) | [02-DOCS/wiki/sdd/reviews/error-codes.md](./sdd/reviews/error-codes.md) |
 | Verification | error-codes — cierre T016 (PASS 2026-11-12: done-checks, cobertura 34/34 ≥ 80 %, staging) | [02-DOCS/wiki/sdd/verifications/error-codes-2026-11-12.md](./sdd/verifications/error-codes-2026-11-12.md) |
@@ -55,7 +58,7 @@ timestamp: 2026-10-04T00:00:00Z
 | El servidor valida el barrio del registro contra la lista fija | done | [02-DOCS/wiki/ftd/neighborhood-validation.md](./ftd/neighborhood-validation.md) |
 | Cuentas de prueba en producción: limpiar y dejar una fija | done | [02-DOCS/wiki/ftd/prod-test-accounts.md](./ftd/prod-test-accounts.md) |
 | "Cerrando sesiones..." mientras se cierran las otras sesiones | done | [02-DOCS/wiki/ftd/closing-sessions-label.md](./ftd/closing-sessions-label.md) |
-| La prueba de "fin antes que inicio" no vence con el calendario | in-progress | [02-DOCS/wiki/ftd/loan-date-test.md](./ftd/loan-date-test.md) |
+| La prueba de "fin antes que inicio" no vence con el calendario | done | [02-DOCS/wiki/ftd/loan-date-test.md](./ftd/loan-date-test.md) |
 
 ## Product docs
 
