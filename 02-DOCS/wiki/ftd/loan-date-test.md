@@ -1,7 +1,9 @@
 ---
 author: HRamiroAlbornoz
 branch: fix/loan-date-test
-status: in-progress
+status: done
+merged: 2026-11-23
+pr: #58
 ---
 # La prueba de "fin antes que inicio" no vence con el calendario
 
@@ -35,7 +37,8 @@ Hernán pidió el 2026-11-23 arreglarlo en su propia rama antes de `zod-routes`.
   mutante 3.1 (`===` en la ruta) y mutante 3.2 (fechas intercambiadas en el test) fallan.
 - [x] **Riesgo y revisión.** Prueba: `rsc risk` tier 1; Claude repitió los controles en una copia aparte y un
   revisor con contexto fresco aprobó sin hallazgos que bloqueen.
-- [ ] **PR y merge.** Prueba: pendiente.
+- [x] **PR y merge.** Prueba: PR #58 mergeado por Hernán el 2026-11-23 (`9c5adbd`); el contenido de `main` es
+  idéntico al de la rama.
 
 ## Evidence
 
@@ -63,4 +66,4 @@ Hernán pidió el 2026-11-23 arreglarlo en su propia rama antes de `zod-routes`.
 
 ## Next
 
-Commit, PR y merge de Hernán.
+Fusionado en main el 2026-11-23 (9c5adbd).

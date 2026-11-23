@@ -311,3 +311,23 @@ timestamp: 2026-10-04T00:00:00Z
   - ⚠️ Quien tenga una contraseña guardada con espacios solo puede borrar la cuenta.
 - **Sumado el mismo día por la revisión con ojos frescos 5 (Hernán):** el largo del email se mide en minúsculas (la letra
   `İ` crece y daba otro 500); una página inválida siempre gana a `q` largo; el tope de página es 9007199254740991.
+
+## D18 — zod-routes: reglas en cadena, un solo lector de entradas y una sola lista de categorías
+
+- **Fecha:** 2026-11-23
+- **Estado:** propuesta por Claude en el [plan](plans/zod-routes.md); vale cuando Hernán apruebe el plan.
+- **Contexto:** hoy gana un error según el orden de los `if` de cada ruta, y la spec prohíbe que cambie. Un esquema Zod
+  escrito "de forma natural" junta los errores por campo y cambiaría ese orden.
+- **Opciones:** A) esquema natural por campo; B) reglas en cadena, la primera que falla gana; C) middleware
+  `validate(schema)` por ruta; D) que el lector lance `AppError`.
+- **Decisión:** B, con un único archivo que lee cuerpo, query e id (`validation/requestInput.ts`) y un control de la suite
+  hecho con los tipos de TypeScript que prohíbe leerlos en otro lado. Además, las listas de categorías y condiciones pasan
+  a un solo archivo (`tools/toolOptions.ts`); cierra una decisión diferida de la spec.
+- **Por qué:** con B el archivo se lee en el mismo orden en que ganan los errores. A cambia respuestas; C corre antes del
+  chequeo de sesión del manejador; D rompe las pruebas que montan routers sin manejador de errores. La lista unificada
+  entra porque el esquema la necesita: sin eso habría una tercera copia.
+- **Consecuencias:**
+  - ✅ La precedencia queda a la vista y cada regla se puede mutar por separado.
+  - ⚠️ En Zod 4.6.7 un campo ausente declarado `z.unknown()` o `z.custom()` falla sin `.optional()` (comprobado).
+  - ⚠️ El control no ve un pedido disfrazado con un tipo propio; queda como límite escrito.
+  - ⚠️ Los chequeos de categoría del servicio y del repositorio se quedan (solo comparten la lista).
