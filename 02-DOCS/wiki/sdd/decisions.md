@@ -328,6 +328,8 @@ timestamp: 2026-10-04T00:00:00Z
   entra porque el esquema la necesita: sin eso habría una tercera copia.
 - **Consecuencias:**
   - ✅ La precedencia queda a la vista y cada regla se puede mutar por separado.
-  - ⚠️ En Zod 4.6.7 un campo ausente declarado `z.unknown()` o `z.custom()` falla sin `.optional()` (comprobado).
-  - ⚠️ El control no ve un pedido disfrazado con un tipo propio; queda como límite escrito.
+  - ⚠️ En Zod 4.6.7 `.optional()` importa en los dos sentidos (comprobado): sin él, una clave que puede faltar falla; con
+    él, una clave requerida ausente pasa sin revisarse. El plan §0 fija los tres casos.
+  - ⚠️ El control no ve `Reflect.get`, un pedido disfrazado con un tipo propio ni la lectura a mano; quedan como límite
+    escrito.
   - ⚠️ Los chequeos de categoría del servicio y del repositorio se quedan (solo comparten la lista).
