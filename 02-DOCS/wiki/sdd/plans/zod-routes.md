@@ -311,8 +311,8 @@ Un solo PR desde `main`, con un commit por paso. Cada paso termina con las suite
 | R8. Un 4xx propio se confunde con el del lector del cuerpo | `unreadableBody` montado más abajo | un bug queda oculto como 400 | va pegado a los lectores; una prueba hace fallar una ruta con un error que trae `status: 404` y exige 500 y log |
 | R9. Quien tiene una contraseña guardada con espacios no puede cambiarla | 1 cuenta activa en producción | aceptado en la spec | ninguna |
 
-**Open decisions:** ninguna bloquea. Cierran con la aprobación del plan: un solo PR (recomendado) y el nombre de la rama
-de código (`feat/zod-routes`).
+**Open decisions:** ninguna. Decidido por Hernán el 2026-11-23: un solo PR, y el código va aislado en la rama
+`feat/zod-routes`, que sale de `main` después del PR de documentos (paso 0).
 
 ## Revisions
 
