@@ -20,6 +20,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Plan | Prestoteca MVP — Plan | [02-DOCS/wiki/sdd/plans/prestoteca-mvp.md](./sdd/plans/prestoteca-mvp.md) |
 | Plan | Códigos de error específicos y mensajes en español (approved 2026-11-03) | [02-DOCS/wiki/sdd/plans/error-codes.md](./sdd/plans/error-codes.md) |
 | Plan | Sesiones de 7 días que el logout anula de verdad (approved 2026-11-18) | [02-DOCS/wiki/sdd/plans/server-sessions.md](./sdd/plans/server-sessions.md) |
+| Plan | Toda entrada externa del server validada por un esquema declarado (draft 2026-11-23) | [02-DOCS/wiki/sdd/plans/zod-routes.md](./sdd/plans/zod-routes.md) |
 | Decisions | Prestoteca — Decision Records | [02-DOCS/wiki/sdd/decisions.md](./sdd/decisions.md) |
 | Analysis | Prestoteca — Consistency Gate | [02-DOCS/wiki/sdd/analysis/prestoteca-mvp.md](./sdd/analysis/prestoteca-mvp.md) |
 | Analysis | error-codes — control cruzado (PASS 2026-11-03, 2.ª corrida) | [02-DOCS/wiki/sdd/analysis/error-codes.md](./sdd/analysis/error-codes.md) |
@@ -56,6 +57,7 @@ timestamp: 2026-10-04T00:00:00Z
 | El servidor valida el barrio del registro contra la lista fija | done | [02-DOCS/wiki/ftd/neighborhood-validation.md](./ftd/neighborhood-validation.md) |
 | Cuentas de prueba en producción: limpiar y dejar una fija | done | [02-DOCS/wiki/ftd/prod-test-accounts.md](./ftd/prod-test-accounts.md) |
 | "Cerrando sesiones..." mientras se cierran las otras sesiones | done | [02-DOCS/wiki/ftd/closing-sessions-label.md](./ftd/closing-sessions-label.md) |
+| La prueba de "fin antes que inicio" no vence con el calendario | done | [02-DOCS/wiki/ftd/loan-date-test.md](./ftd/loan-date-test.md) |
 
 ## Product docs
 
