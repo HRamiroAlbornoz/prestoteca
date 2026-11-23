@@ -363,7 +363,7 @@ describe('loans routes', () => {
         .post('/api/tools/tool-1/loans')
         .set('Authorization', 'Bearer user-2')
         .set('Origin', 'http://localhost:5173')
-        .send({ startDate: '2026-12-01', endDate: '2026-11-01' })
+        .send({ startDate: END_DATE, endDate: START_DATE })
 
       expect(res.status).toBe(400)
       expect(res.body.error).toEqual({
