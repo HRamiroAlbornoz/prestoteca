@@ -7,13 +7,13 @@ timestamp: 2026-11-20T19:00:00Z
 topic: sdd
 slug: zod-routes
 status: approved
-approved: 2026-11-20
-approved_by: Hernán — "La apruebo" (aprobada ítem por ítem, no en autopiloto, tras cuatro revisiones con ojos frescos; `clarify` corre en la sesión siguiente)
+approved: 2026-11-23
+approved_by: Hernán — "La apruebo" (2026-11-20, antes de `clarify`) y "Sí a las tres" a "¿Aprobás la spec así?" (2026-11-23, después de `clarify` y de seis revisiones con ojos frescos; ítem por ítem, no en autopiloto)
 ---
 
 # Spec — Toda entrada externa del server validada por un esquema declarado
 
-> Slug: `zod-routes` · Status: approved (2026-11-20) · Created: 2026-11-20
+> Slug: `zod-routes` · Status: approved (2026-11-23) · Created: 2026-11-20
 > Inherits: [constitution](../constitution.md) (principio 13: "All external data validated server-side (Zod schemas,
 > length limits, safeParse)")
 > Origen: punto 8 del backlog y decisión [D15](../decisions.md) (excepción aceptada en server-sessions, "Zod después,
@@ -514,4 +514,5 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **2026-11-23 — revisión con ojos frescos 6** (pedida por Hernán; 0 bloqueos, 5 should-fix y 8 nits, todos aplicados, sin
   decisiones nuevas). El email que crece gana al barrio inválido, ahora listado; AC-20 prueba los campos exentos del
   carácter nulo; AC-5b y AC-13f nuevos; AC-2 y AC-14 más estrictos; cuatro bordes más para AC-18. Además, AC-4 fija el
-  "hoy" de la prueba para que no venza. Falta que Hernán vuelva a aprobar.
+  "hoy" de la prueba para que no venza.
+- **2026-11-23 — aprobada de nuevo.** Hernán: "Sí a las tres" (una era "¿Aprobás la spec así?"). Lo siguiente es `plan`.

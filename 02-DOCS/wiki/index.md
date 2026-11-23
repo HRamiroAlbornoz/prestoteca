@@ -16,7 +16,7 @@ timestamp: 2026-10-04T00:00:00Z
 | Spec | Prestoteca MVP — Spec | [02-DOCS/wiki/sdd/specs/prestoteca-mvp.md](./sdd/specs/prestoteca-mvp.md) |
 | Spec | Códigos de error específicos y mensajes en español (approved 2026-11-03) | [02-DOCS/wiki/sdd/specs/error-codes.md](./sdd/specs/error-codes.md) |
 | Spec | Sesiones de 7 días que el logout anula de verdad (approved 2026-11-18) | [02-DOCS/wiki/sdd/specs/server-sessions.md](./sdd/specs/server-sessions.md) |
-| Spec | Toda entrada externa del server validada por un esquema declarado (approved 2026-11-20) | [02-DOCS/wiki/sdd/specs/zod-routes.md](./sdd/specs/zod-routes.md) |
+| Spec | Toda entrada externa del server validada por un esquema declarado (approved 2026-11-23) | [02-DOCS/wiki/sdd/specs/zod-routes.md](./sdd/specs/zod-routes.md) |
 | Plan | Prestoteca MVP — Plan | [02-DOCS/wiki/sdd/plans/prestoteca-mvp.md](./sdd/plans/prestoteca-mvp.md) |
 | Plan | Códigos de error específicos y mensajes en español (approved 2026-11-03) | [02-DOCS/wiki/sdd/plans/error-codes.md](./sdd/plans/error-codes.md) |
 | Plan | Sesiones de 7 días que el logout anula de verdad (approved 2026-11-18) | [02-DOCS/wiki/sdd/plans/server-sessions.md](./sdd/plans/server-sessions.md) |
