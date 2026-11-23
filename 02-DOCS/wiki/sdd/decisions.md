@@ -309,3 +309,5 @@ timestamp: 2026-10-04T00:00:00Z
   - ✅ Los 4xx del lector del cuerpo dejan de ensuciar el log como errores del server.
   - ⚠️ El manejador de errores entra en el cambio (antes solo entraban las rutas). Los errores propios siguen en 500.
   - ⚠️ Quien tenga una contraseña guardada con espacios solo puede borrar la cuenta.
+- **Sumado el mismo día por la revisión con ojos frescos 5 (Hernán):** el largo del email se mide en minúsculas (la letra
+  `İ` crece y daba otro 500); una página inválida siempre gana a `q` largo; el tope de página es 9007199254740991.
