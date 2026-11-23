@@ -11,20 +11,25 @@ slug: zod-routes
 # Analyze — zod-routes
 
 > Constitución: [v1.4.0](../constitution.md) · Spec: [zod-routes](../specs/zod-routes.md) (approved, 33 criterios) ·
-> Plan + tareas: [zod-routes](../plans/zod-routes.md) (approved, T001-T013) · Corrida 2, 2026-11-23
+> Plan + tareas: [zod-routes](../plans/zod-routes.md) (approved, T001-T013) · Corrida 3, 2026-11-23
 
 ## Veredicto
 
-**GATE: PASS** (corrida 2) — 0 CRITICAL, 0 HIGH, 0 MEDIUM, 0 LOW abiertos.
+**GATE: PASS** (corrida 3) — 0 CRITICAL, 0 HIGH, 0 MEDIUM, 0 LOW abiertos.
 
 - **Corrida 1** (misma fecha): BLOCKED — 1 CRITICAL (F1), 5 MEDIUM (F2-F6), 3 LOW (F7-F9). Detalle en la tabla de abajo.
 - **Resolución** (Hernán: "Si a todos"): F1 con la opción A (constitución v1.4.0, decisión [D19](../decisions.md)); F2, se
   adopta rsc 4.1.9; F3 a F7 en el plan; F8 en la spec; F9, la salida de cada control queda en `progress/`.
-- **Corrida 2:** cada arreglo está donde dice. La unión de los ids de los tres archivos de T001 es igual a la lista anterior (74
+- **Corrida 2:** PASS, sin CRITICAL ni HIGH. La unión de los ids de los tres archivos de T001 es igual a la lista anterior (74
   ids); `task-brief` extrae los bloques de T001, T006 y T009; `spec gate` con 4.1.9 sale con 0; T002 a T008 miden el mismo
-  nivel de riesgo con 4.1.9. Dos contradicciones que traían los propios arreglos se corrigieron antes de cerrar: la
-  línea de D15 en la spec ("no enmendarlo") y el texto nuevo del principio 13, que pedía largo también a lo que decide una
-  lista cerrada o un formato.
+  nivel de riesgo con 4.1.9. Dos contradicciones que traían los propios arreglos volvieron a `clarify` y `constitution`, y el
+  control se repitió: la línea de D15 en la spec ("no enmendarlo") y el texto nuevo del principio 13, que pedía largo también a
+  lo que decide una lista cerrada o un formato.
+- **Revisión con ojos frescos** (pedida por Hernán): 0 bloqueos, 6 should-fix y 9 nits. Esta corrida había dado F4 y F7 por
+  resueltos y estaban a medias, y el texto final del principio 13 no tenía ratificación. Hernán lo ratificó y aprobó los
+  arreglos ("Si a todos").
+- **Corrida 3:** los arreglos están en el plan, la spec, la constitución y D19. F4: la lista de qué copia cada brief. F7: la fila
+  de AC-19 en el §5. Los ids de T001 pasan de 74 a 78 (AC-5, AC-13b, AC-13f, AC-21).
 - **Queda del lado de Hernán:** el commit de `.rsc.json` con 4.1.9.
 
 ## Mapa de cobertura (spec → plan → tareas)
@@ -33,19 +38,19 @@ slug: zod-routes
 | --- | --- | --- | --- | --- |
 | AC-1, AC-18 | mismas respuestas; bordes de hoy | §0, §5 (`B`, `M`) | T001, T009 | covered — ver F5, F6 |
 | AC-2 | gana el mismo error | §3.3, §5 (51 pares) | T001, T004-T007, T009 | covered |
-| AC-3, AC-4, AC-4b, AC-4c, AC-5, AC-5b | fecha mal formada (fila 40) y su orden | §3.3, §3.6, §5 | T006, T009 | covered |
+| AC-3, AC-4, AC-4b, AC-4c, AC-5, AC-5b | fecha mal formada (fila 40) y su orden | §3.3, §3.6, §5 | T001 (AC-5), T006, T009 | covered |
 | AC-6 | fechas con espacios | §3.3, §5 | T001, T006, T009 | covered |
 | AC-7, AC-8 | página | §0, §3.3, §5 | T001 (AC-8), T005, T009 | covered |
 | AC-9 | sin base ni hashes | §5 (espías) | T004-T007, T009 | covered |
 | AC-10, AC-10b | id que no es UUID; herramienta ajena | §3.3, §5 | T001, T009 | covered |
 | AC-11, AC-12, AC-23 | sin sesión; formulario; campo desconocido | §3.3, §5 | T001, T009 | covered — ver F5 |
-| AC-13 a AC-13f | cambio de contraseña | §3.3, §5 | T007, T009 | covered |
+| AC-13 a AC-13f | cambio de contraseña | §3.3, §5 | T001 (parte de 13b, 13f), T007, T009 | covered |
 | AC-14 | control de la suite | §3.7, §5 | T008 | covered |
 | AC-15, AC-19 | texto de la fila 40; 40 filas | §3.6, §5 | T006 | covered — ver F3, F7 |
 | AC-16 | el `message` no repite el valor | §0, §5 | T002-T007, T009 | covered |
 | AC-17 | staging antes y después | §5, §6 paso 11 | T011 | covered |
 | AC-20 | carácter nulo | §0, §3.3, §5 | T001, T004-T007, T009 | covered — ver F6 |
-| AC-21, AC-22 | id mal codificado; cuerpo ilegible | §3.5, §5 | T002, T009 | covered |
+| AC-21, AC-22 | id mal codificado; cuerpo ilegible | §3.5, §5 | T001 (parte de AC-21), T002, T009 | covered |
 | AC-24 | email que crece en minúsculas | §0, §3.3, §5 | T004, T009 | covered |
 
 - **GAP:** ninguno. Los 33 criterios (contados en la spec) tienen plan y tarea.
@@ -54,7 +59,7 @@ slug: zod-routes
 - **Números cruzados:** 51 pares (8 nuevos, 43 en T001), 14 bordes, 9 reglas y 21 filas coinciden entre la spec, el §5 y la
   columna *Done-check*. Las lecturas directas de hoy en el código son 15, más `req.path` en `index.ts`, como dice el plan.
 
-## Hallazgos (corrida 1, con su estado después de la corrida 2)
+## Hallazgos (corrida 1, con su estado después de la corrida 3)
 
 Estado: F1 a F8 **resueltos** · F9 **resuelto** con la salida copiada en `progress/` (el script sigue fuera del repo).
 
@@ -65,7 +70,7 @@ Estado: F1 a F8 **resueltos** · F9 **resuelto** con la salida copiada en `progr
 | F3 | MEDIUM | Ambigüedad | plan §7, T006 en dos entregas: primero "esquemas y rutas", después "fila 40" | `loanSchemas.ts` usa `LOAN_DATE_INVALID`; `client/src/errors/messages.ts` es `Record<ClientErrorCode, string>` y `messages.test.ts` recorre `ERROR_CODES` y la tabla de la spec | la primera entrega no compila sin el código nuevo, y con él deja al cliente en rojo. Ninguna de las dos se puede revisar sola | `tasks` (invertir: primero la fila 40 de los dos lados, después esquemas y rutas) |
 | F4 | MEDIUM | Ambigüedad (portador) | plan, *Interfaces por tarea* ("En T004 a T007, el brief copia además entera la fila del §3.3 …") | T001, T002, T003, T008 y T009 dependen de listas que viven en §5, §3.5, §3.1-3.2, §3.7 y la spec; T009 no tiene bloque de interfaces | quien implementa aislado no ve esas listas, y ninguna línea dice qué copiar en esas tareas | `tasks` |
 | F5 | MEDIUM | Ambigüedad | plan §5 y T001 (`IDS zodToday` sobre los tres archivos juntos) | plan §7 (tres entregas) | no está escrito qué ids van en cada archivo. Y los ids que valen en varias rutas (`B-5`, `M-1`, `M-2`, `M-8`, `M-9`, `AC-11`, `AC-23`) dan "todos" con que pasen en uno solo | `tasks` (una lista de ids por archivo, con los repetidos en cada uno) |
-| F6 | MEDIUM | Ambigüedad | spec, criterios con varios casos: AC-4 (9 entradas), AC-7 (8), AC-20 (7 cláusulas), AC-22 (5), y cada `B-n` y `FILA-n` | done-checks con `IDS` | el control prueba "al menos una prueba con ese id", no que estén todos los casos. En particular, "fila 40 gana al nulo en la nota" (AC-20) no tiene par ni id propio | `tasks` (cada brief lista los casos y el revisor los tilda; id propio para ese par) |
+| F6 | MEDIUM | Ambigüedad | spec, criterios con varios casos: AC-4 (9 entradas), AC-7 (7 valores y 2 repeticiones), AC-20 (6 cláusulas), AC-22 (5), y cada `B-n` y `FILA-n` | done-checks con `IDS` | el control prueba "al menos una prueba con ese id", no que estén todos los casos. En particular, "fila 40 gana al nulo en la nota" (AC-20) no tiene par ni id propio | `tasks` (cada brief lista los casos y el revisor los tilda; id propio para ese par) |
 | F7 | LOW | Contradicción | plan, *Cobertura de criterios* ("AC-15 y AC-19 se prueban en el cliente") | spec AC-19 (también la tabla del server, con status 400) | AC-19 también se prueba en `server/tests/errorCodes.test.ts` (VERDE de T006 lo corre) | `tasks` (una frase) |
 | F8 | LOW | Contradicción | spec, primera *suposición tomada* (cada `message` de hoy se conserva "palabra por palabra") | plan §0, dos excepciones de `message` | están decididas y aprobadas con el plan, pero la spec no las menciona | `clarify` (una frase) o aceptar |
 | F9 | LOW | Ambigüedad | plan, `IDS` (`check-test-ids.mjs` fuera del repo) | done-checks T001 a T009 | quien lea la evidencia después no puede repetir el control solo con el repo | aceptar, o copiar la salida completa en `progress/` |
@@ -103,7 +108,7 @@ depende de F1; depende que la regla escrita diga la verdad.
 
 Lo próximo es el PR de documentos y después `implement`, empezando por T001.
 
-## Límites de las dos corridas
+## Límites de las tres corridas
 
 - Las hizo la misma sesión que escribió el plan, no un agente con ojos frescos.
 - No se ejecutó ninguna tarea. Lo que otra revisión midió (mutantes, comparaciones viejo/nuevo) no se repitió.

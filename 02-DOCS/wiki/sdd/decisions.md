@@ -345,12 +345,16 @@ timestamp: 2026-10-04T00:00:00Z
   la búsqueda, id y `status`.
 - **Opciones:** A) enmendar el principio a lo que se cumple; B) aceptar la excepción sin tocar la constitución; C) agregar
   los largos que faltan.
-- **Decisión:** A. Elegido por Hernán ("Si a todos", 2026-11-23).
+- **Decisión:** A. Elegido por Hernán ("Si a todos", 2026-11-23); el texto final se le mostró después y lo ratificó ("Si a
+  todos", 2026-11-23).
 - **Por qué:** B deja que `analyze` lo marque en cada feature, que es lo que zod-routes viene a terminar; C cambia
   respuestas que la spec aprobada fija (un email largo en el login da 401).
+- **Por qué no contradice D15:** D15 rechazó bajar el principio a los chequeos a mano de las rutas. Acá las rutas pasan a Zod
+  igual; la enmienda solo escribe lo que D16 y la spec ya dejaban fuera (cookie, `Origin`, largos que no existen).
 - **Consecuencias:**
-  - ✅ Lo que se guarda tiene largo máximo, una lista cerrada o un formato fijo; lo demás queda acotado por el cuerpo de 10 kb y por el tope de
-    encabezados de Node (16 KiB, medido con `http.maxHeaderSize` en esta máquina; incluye la URL).
+  - ✅ Al mergear zod-routes, lo que se guarda tiene largo máximo, una lista cerrada o un formato fijo; lo demás queda
+    acotado por el cuerpo de 10 kb y por el tope de encabezados de Node (16 KiB, medido en esta máquina; incluye la URL).
+  - ✅ El principio nombra lo que abarca: las variables de entorno se validan al arrancar, y los demás encabezados (entre
+    ellos el que da la IP al límite de pedidos) no se guardan.
   - ⚠️ El principio se cumple recién al mergear zod-routes: hasta entonces las rutas siguen sin esquema (D15).
-  - ⚠️ Un campo nuevo que se guarde tiene que traer una de las tres.
-- **También decidido:** se adopta rsc 4.1.9, que se instaló solo, en su propio commit `chore(rsc)`.
+  - ⚠️ Un campo nuevo que se guarde tiene que traer un largo, una lista o un formato.
