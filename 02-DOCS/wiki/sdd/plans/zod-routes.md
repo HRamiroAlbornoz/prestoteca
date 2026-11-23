@@ -15,7 +15,7 @@ branch: docs/zod-routes-spec
 # Plan — Toda entrada externa del server validada por un esquema declarado
 
 > Spec: [../specs/zod-routes.md](../specs/zod-routes.md) (approved 2026-11-23) · Constitution:
-> [../constitution.md](../constitution.md) v1.3.0 · Decisiones: D15, D16, D17 y D18 en [../decisions.md](../decisions.md)
+> [../constitution.md](../constitution.md) v1.4.0 · Decisiones: D15 a D19 en [../decisions.md](../decisions.md)
 > · Status: approved (2026-11-23) · Last updated: 2026-11-23
 
 ## 0. Global Constraints
@@ -72,7 +72,8 @@ Valores exactos que toda tarea respeta. El revisor de cada tarea los lee primero
   códigos).
 - **Calidad:** `tsc -b` en 0 (server y cliente), oxlint del cliente en 0, TDD, cobertura de líneas ≥ 80 % por archivo
   cambiado. **Sin dependencias nuevas.**
-- **rsc:** siempre la versión fijada en `.rsc.json` (`npx @ericrisco/rsc@4.1.8`), nunca `@latest` ni sin versión.
+- **rsc:** siempre `npx @ericrisco/rsc@4.1.9` (la de `.rsc.json`), nunca `@latest` ni sin versión. Si rsc se actualiza solo
+  durante la feature, se avisa a Hernán y su cambio en `.rsc.json` no entra en el commit de ninguna tarea.
 - **Git:** rama + PR, autoría de Hernán, sin `Co-Authored-By` ni "generated with". Tier 2 (toca auth): panel de 3 y
   aprobación de Hernán en **cada tarea** que mida tier 2 (sus dependientes esperan), y otra vez sobre la rama entera antes
   del push.
@@ -303,6 +304,9 @@ Niveles: **unit** (esquema o función), **app** (la app real con `createApp`, se
 - **Archivos** en `server/tests/` (`.test.ts`): paso 1 `zodTodayAuth` (registro, login, contraseña), `zodTodayTools` y
   `zodTodayLoans`; después uno por paso: 2 `zodPreRoute`, 3 `zodValidation`, 4 `zodAuth`, 5 `zodTools`, 6 `zodLoans`,
   7 `zodPassword`, 8 `inputGuard`, 9 `zodSweep`.
+- **Casos, no solo ids:** el control de ids prueba que haya al menos una prueba por id, no que estén todos sus casos. Por eso
+  cada brief lista, uno por uno, los casos de cada criterio, borde (`B-n`), regla (`M-n`) y fila (`FILA-n`) que toca (AC-4, AC-7,
+  AC-20 y AC-22 traen varios), cada caso es una prueba con su valor en el nombre, y el revisor los tilda contra la spec.
 - **Ids en el nombre de cada prueba**, entre corchetes: `[AC-n]`, `[P-…]` (pares), `[B-n]` (bordes de AC-18), `[M-n]` (reglas
   de hoy) y `[FILA-n]` (filas de respuestas nuevas), según las listas de abajo. Se comprueban sobre el **informe JSON** de la
   corrida, donde solo cuentan las pruebas que pasaron (un comentario o una prueba salteada no valen).
@@ -325,7 +329,7 @@ Niveles: **unit** (esquema o función), **app** (la app real con `createApp`, se
 | AC-14 | unit (control) | los 4 casos de la spec más los alias fallan; `server/src` pasa | — |
 | AC-15, AC-19 | cliente | AC-15: la pantalla del pedido muestra el texto de la fila 40 ante `LOAN_DATE_INVALID` (caso nuevo en C1 de `requestLoan.test.tsx`); AC-19: 40 filas | `fetch` |
 | AC-16 | unit + app | por cada esquema y por los dos errores previos: un valor marcador enviado no aparece en `message` | — |
-| AC-20 | app | cada campo con nulo; cada campo exento; `%00` → 404; `PATCH` con pausa no pausa | repositorios |
+| AC-20 | app | cada campo con nulo; cada campo exento; `%00` → 404; `PATCH` con pausa no pausa; fecha mal formada y nota con nulo → `LOAN_DATE_INVALID` (id propio `AC-20-fila40`: no es un par consecutivo) | repositorios |
 | AC-21, AC-22 | app | status y código; `console.error` sin llamadas en los 400; 413 sigue. **Solo AC-22:** también sin `Origin`, sin sesión y con el límite agotado. **AC-21:** con `Origin` y sin agotar el límite (si no, ganan 403 y 429, como hoy); afirma `Malformed URL`. Un error propio que **llega** a `errorHandler` (`sendFile` simulado que falla con `status: 404`) da 500 y va al log; `{ status: 500 }`, `{ status: 302 }` y `{ status: 400.5 }` pasan por `unreadableBody` sin tocar | `sendFile` solo en ese caso |
 | AC-23 | app | campo desconocido en cada ruta con cuerpo o query | repositorios |
 | AC-24 | unit + app | `İ` × 254 → `REGISTER_EMAIL_TOO_LONG`; una `İ` que entra en 254 se acepta | repositorios |
@@ -412,10 +416,10 @@ también los nuevos y los de igual código. La evidencia de cada paso va en `pro
     - seguridad: skill `security-audit` sobre el diff (toca entrada y auth);
     - pruebas viejas: `git diff --no-renames --diff-filter=MD --name-only origin/main -- server/tests client/src | grep "test\."` lista
       exactamente las de §0, y su diff no cambia ningún `expect` salvo los de la fila 40;
-    - `npx @ericrisco/rsc@4.1.8 risk --base origin/main` → tier 2;
-      `npx @ericrisco/rsc@4.1.8 spec gate 02-DOCS/wiki/sdd/specs/zod-routes.md` → PASS (la rama `feat/zod-routes` se enlaza con la
+    - `npx @ericrisco/rsc@4.1.9 risk --base origin/main` → tier 2;
+      `npx @ericrisco/rsc@4.1.9 spec gate 02-DOCS/wiki/sdd/specs/zod-routes.md` → PASS (la rama `feat/zod-routes` se enlaza con la
       spec por el nombre; no hace falta `branch:`);
-    - panel de 3 y `npx @ericrisco/rsc@4.1.8 review ledger panel zod-routes/closing --lenses correctness,security,tests`, **después del
+    - panel de 3 y `npx @ericrisco/rsc@4.1.9 review ledger panel zod-routes/closing --lenses correctness,security,tests`, **después del
       último commit de código**.
 11. **Staging** (AC-17): **primero** se despliega `main` (para saber qué código es el "antes") y se miden las entradas;
     después se despliega la rama y se repiten; al final `node server/scripts/smoke.mjs <url de staging>` con salida 0, que recorre los
@@ -464,7 +468,8 @@ también los nuevos y los de igual código. La evidencia de cada paso va en `pro
 Decidido por Hernán el 2026-11-23:
 
 - T001 va en **tres entregas** de Qwen (`zodTodayAuth` con la ayuda y el control, `zodTodayTools`, `zodTodayLoans`) y T006 en
-  **dos** (esquemas y rutas; fila 40), cada tarea en un solo commit ("Si a todos");
+  **dos** (primero la fila 40 de los dos lados, después esquemas y rutas: al revés, la primera no compila o deja al cliente en
+  rojo), cada tarea en un solo commit ("Si a todos");
 
 - un solo PR, y el código va aislado en la rama `feat/zod-routes`, que sale de `main` después del PR de documentos (paso 0);
 - AC-15 se prueba con un caso nuevo en C1 de `client/src/pages/requestLoan.test.tsx`;
@@ -475,8 +480,8 @@ Decidido por Hernán el 2026-11-23:
 <!-- generated by tasks on 2026-11-23; IDs are stable, do not renumber -->
 
 Siguen el §6 desde el paso 1 (T00*n* = paso *n*). El paso 0 (PR de documentos) queda fuera de la tabla: es previo a la rama
-`feat/zod-routes`, que crea Hernán desde `main` actualizado. Riesgo calculado con `npx @ericrisco/rsc@4.1.8 risk <rutas
-esperadas>` el 2026-11-23.
+`feat/zod-routes`, que crea Hernán desde `main` actualizado. Riesgo calculado con `npx @ericrisco/rsc@4.1.9 risk <rutas
+esperadas>` el 2026-11-23 (T002 a T008 dan lo mismo que con 4.1.8).
 
 **Comandos** (cada uno arranca en la **raíz** del árbol; los paréntesis hacen que el `cd` no siga valiendo después):
 
@@ -494,16 +499,16 @@ esperadas>` el 2026-11-23.
 
 Cada tarea es un commit de Hernán; Qwen deja sus cambios sin commitear en su worktree. `progress/zod-routes.md` lo crea Claude
 en T001 (con su fila en `index.md`) y lo escribe Claude al integrar cada tarea, de a una; Qwen entrega la evidencia en su
-informe.
+informe. La salida completa de cada `IDS` se copia ahí: el script no está en el repo.
 
 | ID | [P] | Task | Done-check | Depends-on | Trace | Risk |
 | --- | --- | --- | --- | --- | --- | --- |
-| T001 |  | Write the characterization tests and the frozen helpers against today's code | `V zodToday` verde con el código de hoy: `git status --short -- server/src` **y** `git diff --stat origin/main -- server/src` vacíos; `IDS zodToday: P-reg-{1..5} P-log-{1,2,3,5} P-lis-{1..4} P-pub-{1..5} P-edi-{1,2} P-edi-{4..14} P-pre-{1,2,3,6,7,8} P-est-{1..3} P-con-{1,3,4} B-{1..14} M-{1..9} AC-6 AC-8 AC-10 AC-10b AC-11 AC-12 AC-20 AC-23`; los tres huecos heredados; el control de los espías (registro 201, login 200 y cambio 204, con `handlerCalls` > 0 y bcrypt llamado); VERDE | — | AC-1, AC-2, AC-6, AC-8, AC-10, AC-10b, AC-11, AC-12, AC-18, AC-20, AC-23 | 1 |
+| T001 |  | Write the characterization tests and the frozen helpers against today's code | `V zodToday` verde con el código de hoy: `git status --short -- server/src` **y** `git diff --stat origin/main -- server/src` vacíos; los tres `IDS` de **T001 — Ids de cada entrega** (abajo), uno por archivo; los tres huecos heredados; el control de los espías (registro 201, login 200 y cambio 204, con `handlerCalls` > 0 y bcrypt llamado); VERDE | — | AC-1, AC-2, AC-6, AC-8, AC-10, AC-10b, AC-11, AC-12, AC-18, AC-20, AC-23 | 1 |
 | T002 | [P] | Add `unreadableBody` and the malformed-URL case of `errorHandler` | `V zodPreRoute` rojo antes del código y verde después; `IDS zodPreRoute: AC-16 AC-21 AC-22 FILA-14 FILA-15`; `sendFile` simulado → 500 y log; `{ status: 500 }`, `{ status: 302 }` y `{ status: 400.5 }` sin tocar; sus mutantes mueren; VERDE | T001 | AC-16, AC-21, AC-22 | 1 |
 | T003 | [P] | Implement `validation/rules.ts` and `validation/requestInput.ts` | `V zodValidation` rojo → verde: los cuatro casos de `.optional()`, primer problema, red de seguridad con `z.string()` sin regla, `errorCode` que no está en `ERROR_CODES`, lista y cuerpo ausente = objeto vacío, `abort` (una regla del objeto que no es la última), `idParams`; `V errorGuard`; sus mutantes mueren; VERDE | T001 | AC-16 | 1 |
 | T004 | [P] | Validate register and login with `authSchemas.ts` | `V zodAuth` rojo → verde; `IDS zodAuth: P-reg-{1..6} P-log-{1..5} AC-9 AC-16 AC-20 AC-24 FILA-13`; unitarias de los dos esquemas; 0 llamadas a la base y a bcrypt por cada regla; `SIN-REQ server/src/modules/auth/authRoutes.ts`; sus mutantes mueren; VERDE; **cierre de tier 2** | T001, T003 | AC-2, AC-9, AC-16, AC-20, AC-24 | 2 |
 | T005 | [P] | Validate tools and search with `toolSchemas.ts` and unify the lists in `toolOptions.ts` | `V zodTools` rojo → verde; `IDS zodTools: P-lis-{1..4} P-pub-{1..5} P-edi-{1..15} AC-7 AC-8 AC-9 AC-16 AC-20 FILA-{8..11}`; unitarias; `PATCH` con pausa; `toStrictEqual` sobre el argumento de `repo.update`; `grep -rln -e "const VALID_CATEGORIES" -e "const VALID_CONDITIONS" server/src` da solo `server/src/modules/tools/toolOptions.ts`; `grep -n "as never" server/src/modules/tools/toolsRoutes.ts` sin salida; `SIN-REQ server/src/modules/tools/toolsRoutes.ts`; sus mutantes mueren; VERDE | T001, T003 | AC-2, AC-7, AC-8, AC-9, AC-16, AC-20 | 1 |
-| T006 | [P] | Validate loans with `loanSchemas.ts` and add row 40 on both sides | `V zodLoans` rojo → verde; `IDS zodLoans: P-pre-{1..9} P-est-{1..3} AC-3 AC-4 AC-4b AC-4c AC-5 AC-5b AC-6 AC-9 AC-16 AC-20 FILA-{1..7}`, con la fecha con nulo → `LOAN_DATE_INVALID`; unitarias (tabla de fechas); dos "hoy" en el mismo router; `(cd client && npx vitest run src/errors/messages.test.ts src/pages/requestLoan.test.tsx)` verde; antes del commit `git status --short` lista los seis archivos del §3.6, y después los lista `git show --stat`; la entrada de *Revisions* de error-codes dice "de 39 a 40 mensajes"; `SIN-REQ server/src/modules/loans/loansRoutes.ts`; sus mutantes mueren; VERDE con cliente | T001, T003 | AC-2, AC-3, AC-4, AC-4b, AC-4c, AC-5, AC-5b, AC-6, AC-9, AC-15, AC-16, AC-19, AC-20 | 1 |
+| T006 | [P] | Validate loans with `loanSchemas.ts` and add row 40 on both sides | `V zodLoans` rojo → verde; `IDS zodLoans: P-pre-{1..9} P-est-{1..3} AC-3 AC-4 AC-4b AC-4c AC-5 AC-5b AC-6 AC-9 AC-16 AC-20 AC-20-fila40 FILA-{1..7}`, con la fecha con nulo → `LOAN_DATE_INVALID`; unitarias (tabla de fechas); dos "hoy" en el mismo router; `(cd client && npx vitest run src/errors/messages.test.ts src/pages/requestLoan.test.tsx)` verde; antes del commit `git status --short` lista los seis archivos del §3.6, y después los lista `git show --stat`; la entrada de *Revisions* de error-codes dice "de 39 a 40 mensajes"; `SIN-REQ server/src/modules/loans/loansRoutes.ts`; sus mutantes mueren; VERDE con cliente | T001, T003 | AC-2, AC-3, AC-4, AC-4b, AC-4c, AC-5, AC-5b, AC-6, AC-9, AC-15, AC-16, AC-19, AC-20 | 1 |
 | T007 | [P] | Validate and trim the password change with `meAccountSchemas.ts` | `V zodPassword` rojo → verde, con bcrypt real; `IDS zodPassword: P-con-{1..4} AC-9 AC-13 AC-13b AC-13c AC-13d AC-13e AC-13f AC-16 AC-20 FILA-{16..21}`; cambio y login después; borrar la cuenta en AC-13e; nulo en una contraseña no da `BAD_REQUEST`; `SIN-REQ server/src/modules/me/meAccountRoutes.ts`; sus mutantes mueren; VERDE; **cierre de tier 2** | T001, T003 | AC-2, AC-9, AC-13, AC-13b, AC-13c, AC-13d, AC-13e, AC-13f, AC-16, AC-20 | 2 |
 | T008 |  | Add the suite control `inputGuard.test.ts` | `V inputGuard` verde sobre `server/src`; `IDS inputGuard: AC-14`; los 4 casos de AC-14 y las muestras del §3.7 marcados, las legales no; los límites aceptados escritos en la prueba; visto en rojo con una lectura `req.body` puesta a mano en una ruta y quitada; `grep -nE -e "writeFile" -e "appendFile" server/tests/inputGuard.test.ts` sin salida; VERDE | T004, T005, T006, T007 | AC-14 | 1 |
 | T009 |  | Sweep every row and criterion through the real app and run the cross-cutting mutants | `V zod` (todos los archivos `zod*`) verde; `IDS zod: FILA-{1..21} AC-{3..13} AC-16 AC-{20..24} AC-4b AC-4c AC-5b AC-10b AC-13b AC-13c AC-13d AC-13e AC-13f` (AC-1, AC-2 y AC-18 se comprueban con `B`, `M` y `P`); AC-16 con un valor marcador en cada esquema y en los dos errores previos; los mutantes que cruzan todo, cada uno con la prueba que lo mata o su justificación; `git status --short -- server/src client/src` vacío; VERDE con cliente | T002, T008 | AC-1 a AC-16, AC-18 a AC-24 | 1 |
@@ -512,15 +517,24 @@ informe.
 | T012 |  | Ship to production | aprobación explícita de Hernán anotada; push, PR y merge; deploys de los dos entornos en SUCCESS; `smoke.mjs` de producción con salida 0 en la verificación. Vuelta atrás: revertir el PR (§4) | T011 | todos | 2 |
 | T013 |  | All done-checks pass, both suites green on `main` | cada fila de arriba con su evidencia en `progress/zod-routes.md`; VERDE con cliente sobre `main` (sin el `git diff` contra T001: el squash lo deja fuera de `main`); por rama + PR: spec, plan e índice cerrados, D15 y F1 anotados como cerrados | T012 | todos | — |
 
-**Cierre de tier 2** (T004 y T007): `npx @ericrisco/rsc@4.1.8 risk --base <commit anterior>` → tier 2; revisión de las tres
-lentes; `npx @ericrisco/rsc@4.1.8 review ledger panel zod-routes/<tarea> --lenses correctness,security,tests` sobre el commit; y
+**T001 — Ids de cada entrega** (se comprueban con `V <archivo>` y su `IDS`; un id que vale en varias rutas va en el archivo de
+cada una, con sus casos de ahí; huecos heredados: fin igual al inicio en `zodTodayLoans`, `PATCH` recortado y `q` de 60 en
+`zodTodayTools`):
+- `IDS zodTodayAuth: P-reg-{1..5} P-log-{1,2,3,5} P-con-{1,3,4} B-5 B-13 M-1 M-2 M-3 M-7 M-8 M-9 AC-11 AC-12 AC-20 AC-23`
+- `IDS zodTodayTools: P-lis-{1..4} P-pub-{1..5} P-edi-{1,2} P-edi-{4..14} B-{4..12} M-1 M-2 M-4 M-5 M-6 M-9 AC-8 AC-10 AC-10b
+  AC-11 AC-20 AC-23`
+- `IDS zodTodayLoans: P-pre-{1,2,3,6,7,8} P-est-{1..3} B-1 B-2 B-3 B-5 B-14 M-1 M-2 M-6 M-8 M-9 AC-6 AC-10 AC-11 AC-20 AC-23`
+
+**Cierre de tier 2** (T004 y T007): `npx @ericrisco/rsc@4.1.9 risk --base <commit anterior>` → tier 2; revisión de las tres
+lentes; `npx @ericrisco/rsc@4.1.9 review ledger panel zod-routes/<tarea> --lenses correctness,security,tests` sobre el commit; y
 la aprobación de Hernán anotada en *Decision queue* de `progress/zod-routes.md`. T008 espera a las dos.
 
 T011 mide tier 0 por sus rutas (solo un documento) y T010 y T012 no tocan rutas propias; se tratan como tier 2 **por
 decisión de este plan**, porque actúan sobre la rama entera, que es de auth.
 
 **Cobertura de criterios:** los 33 criterios (AC-1 a AC-24, con 4b, 4c, 5b, 10b y 13b a 13f) tienen al menos una tarea, y
-toda tarea tiene al menos un criterio. AC-15 y AC-19 se prueban en el cliente (T006); AC-17, solo en staging (T011).
+toda tarea tiene al menos un criterio. AC-15 se prueba en el cliente y AC-19 en el cliente y en `errorCodes.test.ts` del server
+(T006); AC-17, solo en staging (T011).
 
 ### Staging y producción (T011, T012)
 
@@ -541,7 +555,17 @@ Claude prepara y lee; Hernán corre los de git y `gh`, y da el OK antes de cada 
 
 ### Interfaces por tarea (para quien implementa sin el resto del plan)
 
-En T004 a T007, el brief copia además entera la fila del §3.3 de cada esquema, su lista de pares y el §0.
+Cada brief copia además, enteros, el §0 y los criterios de la spec que traza su tarea, con todos sus casos. Y según la tarea:
+
+- **T001:** los 14 bordes (de la spec), `M-1` a `M-9`, los pares que no son **N** y los párrafos de espías, "hoy" fijo, límites
+  de pedidos y qué se simula en `PATCH` del §5; en cada entrega, solo lo de su archivo.
+- **T002:** §3.5 y la fila AC-21/AC-22 del §5.
+- **T003:** §3.1 y §3.2.
+- **T004 a T007:** la fila del §3.3 de cada esquema con las notas de abajo de esa tabla, su lista de pares y sus `FILA-n` (de la
+  spec); T006 suma el §3.6.
+- **T008:** §3.7.
+- **T009:** las 21 filas (de la spec) y los mutantes que cruzan todo (§5).
+- **T010:** el paso 10 del §6. **T013:** su fila.
 
 **T001 — Interfaces**
 - Produce `server/tests/zodHelpers.ts`, congelado después: `ALLOWED_ORIGIN = 'http://localhost:5173'`; `SESSION_COOKIE:
@@ -594,6 +618,8 @@ En T004 a T007, el brief copia además entera la fila del §3.3 de cada esquema,
 - Produce `LOAN_DATE_INVALID: { status: 400 }` (sección Loans, `row 40`); el texto de la fila 40 en `messages.ts`; la fila 40
   en la sección **Préstamos** de error-codes, después de la 27; y una entrada en sus *Revisions* ("la tabla pasa de 39 a 40
   mensajes"). **Todo en un commit**; la fila 40 se escribe con el código ya en el mismo árbol, sin commitear (§3.6).
+- Dos entregas. **1, fila 40:** los seis archivos del §3.6 (la spec, al final); sale con las dos suites, los dos `tsc -b` y el
+  lint del cliente en verde. **2, esquemas y rutas:** `loanSchemas.ts`, `loansRoutes.ts` y `zodLoans`, sobre la 1 sin commitear.
 
 **T007 — Interfaces**
 - Consume: T003 y las ayudas de T001. Mismo uso en la ruta.
@@ -605,11 +631,16 @@ En T004 a T007, el brief copia además entera la fila del §3.3 de cada esquema,
 - Produce: una función que recibe archivos en memoria y devuelve las lecturas prohibidas, usada por las muestras y por
   `server/src`.
 
+**T009 — Interfaces**
+- Consume: las ayudas de T001, las rutas ya migradas y los archivos `zod*` de T001 a T007.
+- Produce: solo `server/tests/zodSweep.test.ts`. No toca `src/`, ni los archivos congelados, ni los de otra tarea. Si falta una
+  regla en `src/`, se para y se avisa: vuelve a su tarea.
+
 ### Reparto entre Qwen y Claude (opción D; cada brief se revisa y se muestra a Hernán antes de lanzar)
 
 | Tarea | Quién |
 | --- | --- |
-| T001 a T009 | Qwen escribe código y pruebas desde un brief con requisitos, sin código para copiar, y corre sus mutantes; Claude revisa (T004 y T007, panel de 3). T001 y T006 son las más grandes: ver *Open decisions* |
+| T001 a T009 | Qwen escribe código y pruebas desde un brief con requisitos, sin código para copiar, y corre sus mutantes; Claude revisa (T004 y T007, panel de 3). T001 va en tres entregas y T006 en dos (§7) |
 | T010 | Qwen corre y reporta; Claude repite los números clave y lanza el panel |
 | T011, T012 | Claude + Hernán |
 | T013 | Qwen corre y reporta; Claude confirma y cierra los documentos |
@@ -667,3 +698,6 @@ En T004 a T007, el brief copia además entera la fila del §3.3 de cada esquema,
   `PATCH`; T003 depende de T001; un bloque de interfaces por tarea; mutantes repartidos; cierre de tier 2 en T004 y T007;
   comandos de staging y producción. También se corrigió la receta de staging, que mostraba las letras en vez de sus escapes.
 - **2026-11-23 — tamaño de las entregas.** Hernán: "Si a todos" (T001 en tres, T006 en dos). *Open decisions* queda vacía.
+- **2026-11-23 — arreglos de `analyze`** (F1 a F9; Hernán: "Si a todos"). Constitución v1.4.0 y D19; rsc 4.1.9; T006 empieza por la
+  fila 40; qué copia cada brief, con bloque de interfaces para T009; ids de T001 por archivo; casos además de ids, con
+  `AC-20-fila40`; AC-19 también en el server; la salida de cada `IDS` queda en `progress/`. El diseño no cambia.

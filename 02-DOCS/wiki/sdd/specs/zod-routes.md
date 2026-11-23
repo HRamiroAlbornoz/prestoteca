@@ -14,8 +14,8 @@ approved_by: Hernán — "La apruebo" (2026-11-20, antes de `clarify`) y "Sí a 
 # Spec — Toda entrada externa del server validada por un esquema declarado
 
 > Slug: `zod-routes` · Status: approved (2026-11-23) · Created: 2026-11-20
-> Inherits: [constitution](../constitution.md) (principio 13: "All external data validated server-side (Zod schemas,
-> length limits, safeParse)")
+> Inherits: [constitution](../constitution.md) v1.4.0 (principio 13: esquema Zod con `safeParse` para cuerpo, query e id en
+> cada ruta; el texto anterior pedía "Zod schemas, length limits, safeParse" para todo, ver D19)
 > Origen: punto 8 del backlog y decisión [D15](../decisions.md) (excepción aceptada en server-sessions, "Zod después,
 > como feature"). Enmienda la spec [error-codes](error-codes.md) con la fila 40.
 
@@ -225,7 +225,8 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 
 ## What it must respect
 
-- **D15**: esta es la feature que D15 prometió. Cerrarla es cumplir el principio 13, no enmendarlo.
+- **D15**: esta es la feature que D15 prometió. Las rutas cumplen el principio 13; no se lo baja a los chequeos a mano de
+  hoy. La enmienda v1.4.0 (D19) solo escribe lo que esta spec ya dejaba fuera: la cookie, `Origin` y los largos que no existen.
 - **Lo que ya arreglaron 5b, 5d, 5e y 5f** ([server-input-bugs](../../ftd/server-input-bugs.md),
   [malformed-input-leftovers](../../ftd/malformed-input-leftovers.md)):
   - un tipo inesperado en un campo de texto (número, lista, objeto) se trata como "falta" donde hoy se hace así;
@@ -403,7 +404,9 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 ## Points to clarify
 
 - **suposición tomada** — el texto de desarrollo (`message`) de cada error de hoy se conserva palabra por palabra.
-  *Base:* algunas pruebas lo fijan (p. ej. `originWiring.test.ts:64`) y AC-1 pide no tocar expectativas. *Riesgo:* si
+  *Base:* algunas pruebas lo fijan (p. ej. `originWiring.test.ts:64`) y AC-1 pide no tocar expectativas. Dos excepciones,
+  aprobadas con el plan (§0), salen de las filas de respuestas nuevas y no cambian status ni código: la página que deja de
+  aceptarse junto con otro parámetro repetido, y el carácter nulo en una edición con categoría o condición inválida. *Riesgo:* si
   conviene unificar esos textos, cambian pruebas y se vuelve un cambio visible para quien lee la API.
 - **suposición tomada** — el código de la fila 40 se llama `LOAN_DATE_INVALID` y su status es 400. *Base:* el patrón de
   nombres `LOAN_*` y el resto de errores de entrada. *Riesgo:* bajo; solo cambia el nombre.
@@ -522,3 +525,6 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   `LOAN_DATES_OVERLAP`) y `"  abcdef  "` con la contraseña actual incorrecta o la cuenta borrada (hoy 401 o 404). La columna
   "Después", las reglas y los criterios no cambian. Se acepta también que cambie una tercera prueba vieja, que solo suma un
   caso de la fila 40: `client/src/pages/requestLoan.test.tsx` (listada en el plan, como pide *How it proves it*).
+- **2026-11-23 — arreglos de `analyze`** (F1 y F8; Hernán: "Si a todos"). La spec cita el principio 13 de la constitución
+  v1.4.0 (D19) y nombra las dos excepciones de `message` que ya estaban aprobadas en el plan. Ningún criterio ni respuesta
+  cambia.

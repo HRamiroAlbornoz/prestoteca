@@ -335,3 +335,22 @@ timestamp: 2026-10-04T00:00:00Z
     `z` reexportado, entre otras formas listadas en el plan §3.7; quedan como límite
     escrito.
   - ⚠️ Los chequeos de categoría del servicio y del repositorio se quedan (solo comparten la lista).
+
+## D19 — El principio 13 dice cómo se valida cada tipo de dato (constitución v1.4.0)
+
+- **Fecha:** 2026-11-23
+- **Contexto:** `analyze` de [zod-routes](analysis/zod-routes.md) (F1, CRITICAL). El principio 13 pedía Zod y largo máximo
+  para **todo** dato externo. Al cerrar la feature, la cookie y `Origin` siguen con sus chequeos propios (D16), y varios
+  textos que no se guardan siguen sin largo propio: email y contraseña del login, contraseña actual, categoría y barrio de
+  la búsqueda, id y `status`.
+- **Opciones:** A) enmendar el principio a lo que se cumple; B) aceptar la excepción sin tocar la constitución; C) agregar
+  los largos que faltan.
+- **Decisión:** A. Elegido por Hernán ("Si a todos", 2026-11-23).
+- **Por qué:** B deja que `analyze` lo marque en cada feature, que es lo que zod-routes viene a terminar; C cambia
+  respuestas que la spec aprobada fija (un email largo en el login da 401).
+- **Consecuencias:**
+  - ✅ Lo que se guarda tiene largo máximo, una lista cerrada o un formato fijo; lo demás queda acotado por el cuerpo de 10 kb y por el tope de
+    encabezados de Node (16 KiB, medido con `http.maxHeaderSize` en esta máquina; incluye la URL).
+  - ⚠️ El principio se cumple recién al mergear zod-routes: hasta entonces las rutas siguen sin esquema (D15).
+  - ⚠️ Un campo nuevo que se guarde tiene que traer una de las tres.
+- **También decidido:** se adopta rsc 4.1.9, que se instaló solo, en su propio commit `chore(rsc)`.
