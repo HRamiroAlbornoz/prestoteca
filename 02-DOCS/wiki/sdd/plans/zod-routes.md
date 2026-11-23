@@ -166,7 +166,7 @@ integer`. `Search query must be at most 60 characters`, `Invalid category` e `In
 | Esquema | Salida | Reglas, en orden |
 | --- | --- | --- |
 | `registerBody` | `{ name, email, password, neighborhood }` recortados, email en minúsculas | 1 falta alguno → `REGISTER_MISSING_FIELDS` · 2 nombre 2-50 → `REGISTER_NAME_LENGTH` · 3 contraseña 8-72 → `REGISTER_PASSWORD_LENGTH` · 4 email en minúsculas > 254 → `REGISTER_EMAIL_TOO_LONG` · 5 barrio → `REGISTER_NEIGHBORHOOD_INVALID` · 6 nulo en `name` o `email` → BR |
-| `loginBody` | `{ email, password, remember: boolean }` | 1 falta → `LOGIN_MISSING_FIELDS` · 2 `remember` presente y no booleano → BR · 3 nulo en `email` → BR |
+| `loginBody` | `{ email, password, remember: boolean }`, textos recortados, email en minúsculas | 1 falta → `LOGIN_MISSING_FIELDS` · 2 `remember` presente y no booleano → BR · 3 nulo en `email` → BR |
 | `toolListQuery` | `{ page: number, q?, category?, neighborhood? }` sin recortar | 1 página → BR · 2 `q`, `category`, `neighborhood` no texto → BR · 3 `q` > 60 → `SEARCH_QUERY_TOO_LONG` · 4 nulo en cualquiera de los tres → BR |
 | `toolIdParams`, `loanIdParams` | `{ id: string }` | 1 no es texto → BR `Invalid tool ID` / `Invalid loan ID` |
 | `publishToolBody` | `{ name, description, category, condition }` | 1 falta (los "falsos" en categoría y condición cuentan) → `TOOL_MISSING_FIELDS` · 2 nombre 3-60 → `TOOL_NAME_LENGTH` · 3 descripción > 500 → `TOOL_DESCRIPTION_TOO_LONG` · 4 categoría fuera de la lista → BR `Invalid category` · 5 condición → BR `Invalid condition` · 6 nulo en `name` o `description` → BR |
@@ -186,8 +186,9 @@ integer`. `Search query must be at most 60 characters`, `Invalid category` e `In
     él da `unknown`;
   - `ToolService.edit` recibe `category?: unknown` y `condition?: unknown`. Las **saca a variables**, las afina con
     `isValidCategory` / `isValidCondition` en el mismo lugar de hoy y llama a `repo.update` con esas variables; afinar
-    `updates.category` no afina el objeto. Las claves que no llegaron no se agregan como definidas. Se va el `as never` de
-    la ruta;
+    `updates.category` no afina el objeto. Las claves que no llegaron **no aparecen** en lo que recibe `repo.update`, ni con
+    valor `undefined`; se prueba con `toStrictEqual` sobre ese argumento (`toHaveBeenCalledWith` ignora `undefined`). Se va
+    el `as never` de la ruta;
   - `passwordChangeBody`: la regla 1 sobre `z.unknown().optional()`, después `.pipe(…)` con dos `z.string().trim()`, y
     recién ahí las reglas 2 y 3.
 - Los chequeos de `SearchService` (`page < 1`, `q` > 60) **se quedan**: los fijan sus pruebas unitarias.
@@ -242,7 +243,7 @@ Recorre `server/src` con el compilador de TypeScript (ya es dependencia de desar
 1. una lectura de las siete propiedades de §0, fuera de los lugares permitidos: por punto (también `?.`), por corchetes
    (también con una constante), desarmando el objeto al declarar o al asignar, o con clave calculada;
 2. un `.param(…)` o `['param'](…)` de router o de app;
-3. un `import`, `export … from` o `import()` de `zod` fuera de los lugares de §0 (así una ruta no puede armar un `z.any()`
+3. un `import`, `export … from` o `import()` de `zod` o de una subruta (`zod/v4`, `zod/mini`) fuera de los lugares de §0 (así una ruta no puede armar un `z.any()`
    en línea).
 
 Reconoce el pedido por **dónde está declarada la propiedad** (la interfaz `Request` de `@types/express-serve-static-core` o
@@ -254,7 +255,8 @@ programa, con un tiempo máximo propio: la prueba no escribe archivos en `src/`.
 Borrador probado el 2026-11-23 con TypeScript 6.0.3: encuentra las 15 lecturas de hoy en ~1 s, más las dos permitidas
 (`req.path` en `index.ts`, `zod` en `env.ts`), detecta 21 de 21 muestras y no da falsas alarmas con `pool.query(…)`, un objeto
 propio con `params` y `path`, ni una fila `any` con `.url`. **Límites aceptados (R4), escritos en la prueba:**
-`Reflect.get(req, 'body')`; un tipo propio que no hereda del pedido, con o sin cast (parámetro o variable `{ body: … }`,
+`Reflect.get(req, 'body')`, `Object.entries(req)` y `Object.values(req)`; `(req as any)._parsedUrl`; desarmar al asignar en
+forma anidada, en una lista o en un `for…of`; un tipo propio que no hereda del pedido, con o sin cast (parámetro o variable `{ body: … }`,
 `Omit<Request, 'body'> & …`); una clave `string` o `url`/`path` sobre `any`; `.param` por `.call`, `.bind` o desarmado; leer
 el pedido a mano (`req.on('data')`, `for await`); `require` de `zod`; y reexportar `z` desde `rules.ts`.
 
@@ -291,8 +293,11 @@ Niveles: **unit** (esquema o función), **app** (la app real con `createApp`, se
   problema. Se afirma además **un solo** problema cuando la regla rota es la única o es del objeto. No cuando se rompen dos
   reglas de campo a la vez (listado, edición, categoría y condición al publicar): ahí Zod junta 2 o 3 y vale el primero.
   Cubren lo que por la ruta no se distingue: `abort`, `idParams`, condición al publicar (el servicio la repite).
-- **Archivos:** uno por paso, para que los pasos 4 a 7 no choquen: `zodAuth`, `zodTools`, `zodLoans` y `zodPassword`
-  (`.test.ts`). El nombre de cada prueba lleva el id de su AC.
+- **Archivos** en `server/tests/` (`.test.ts`), uno por paso: 1 `zodRoutesToday`, 2 `zodPreRoute`, 3 `zodValidation`,
+  4 `zodAuth`, 5 `zodTools`, 6 `zodLoans`, 7 `zodPassword`, 8 `inputGuard`, 9 `zodSweep`. El nombre de cada prueba lleva el
+  id de su AC.
+- **Ayuda común** (base falsa, sesión, espías): `server/tests/zodHelpers.ts`, creada en el paso 1 y **congelada** después.
+  Si un paso posterior necesita más, va en otro archivo: editarla cambiaría la caracterización sin que se note.
 
 | Criterio | Nivel | Qué afirma | Qué simula |
 | --- | --- | --- | --- |
@@ -309,7 +314,7 @@ Niveles: **unit** (esquema o función), **app** (la app real con `createApp`, se
 | AC-15, AC-19 | cliente | AC-15: la pantalla del pedido muestra el texto de la fila 40 ante `LOAN_DATE_INVALID` (lugar: *Open decisions*); AC-19: 40 filas | `fetch` |
 | AC-16 | unit + app | por cada esquema y por los dos errores previos: un valor marcador enviado no aparece en `message` | — |
 | AC-20 | app | cada campo con nulo; cada campo exento; `%00` → 404; `PATCH` con pausa no pausa | repositorios |
-| AC-21, AC-22 | app | status y código; `console.error` sin llamadas en los 400; 413 sigue; también sin `Origin` y con el límite agotado. AC-21 afirma `Malformed URL`. Un error propio que **llega** a `errorHandler` (`sendFile` simulado que falla con `status: 404`) da 500 y va al log; `{ status: 500 }` pasa por `unreadableBody` sin tocar | `sendFile` solo en ese caso |
+| AC-21, AC-22 | app | status y código; `console.error` sin llamadas en los 400; 413 sigue. **Solo AC-22:** también sin `Origin`, sin sesión y con el límite agotado. **AC-21:** con `Origin` y sin agotar el límite (si no, ganan 403 y 429, como hoy); afirma `Malformed URL`. Un error propio que **llega** a `errorHandler` (`sendFile` simulado que falla con `status: 404`) da 500 y va al log; `{ status: 500 }`, `{ status: 302 }` y `{ status: 400.5 }` pasan por `unreadableBody` sin tocar | `sendFile` solo en ese caso |
 | AC-23 | app | campo desconocido en cada ruta con cuerpo o query | repositorios |
 | AC-24 | unit + app | `İ` × 254 → `REGISTER_EMAIL_TOO_LONG`; una `İ` que entra en 254 se acepta | repositorios |
 | AC-17 | staging | antes y después de cada entrada, escrito en el archivo de verificación | nada |
@@ -329,16 +334,25 @@ Niveles: **unit** (esquema o función), **app** (la app real con `createApp`, se
 
 **Pares con el mismo código y distinto `message`** (por §0, también conservan el orden): página/tipo en el listado;
 `remember`/nulo en el login; categoría/condición y condición/nulo al publicar; `is_paused`/tipo y tipo/nulo al editar;
-categoría/condición al editar; falta/tipo en el estado.
+categoría/condición al editar; falta/tipo en el estado; y la excepción (b) de §0, nulo/categoría al editar.
+
+**Cuáles van en el paso 1** (pasan contra el código viejo) y cuáles no:
+
+- **Nuevos, no van en el paso 1:** nulo/email ya usado · nulo/credenciales · nulo/no existe (editar y préstamo) ·
+  nulo/categoría (editar) · fecha/ya pasó · fecha/fin antes · solo espacios/largo.
+- **Con dos variantes** (la de hoy en el paso 1, la nueva en su paso): email/barrio (255 letras; `İ`), página/`q` larga y
+  página/tipo (`page=0`; `page=1abc`).
+- **Todos los demás van en el paso 1**, también los de igual código, que sin eso no tendrían referencia del `message` viejo.
+- En "tipo/`q` larga" el parámetro repetido es `category` o `neighborhood` (`q` no puede ser repetida y larga a la vez).
 
 - **Línea e2e:** no hay pruebas de navegador nuevas. La pantalla solo suma un texto, que cubren la prueba de la
   tabla y la de AC-15.
 - **Real sí o sí:** bcrypt en AC-13 a AC-13f; Postgres en AC-17 (los 500 de hoy son deducidos); el lector del cuerpo y el
   router de Express en AC-21 y AC-22.
-- **Mutantes mínimos:** sacar cada regla de cada esquema; intercambiar cada par de la lista; quitar `abort` de `rule()` (lo
+- **Mutantes mínimos:** sacar el esquema de una ruta (lo mata el control); sacar cada regla de cada esquema; intercambiar cada par de la lista; quitar `abort` de `rule()` (lo
   mata una regla **del objeto** que no sea la última; en `z.custom` es equivalente, porque ya corta solo); quitar un
   `.optional()`; **agregarlo** a `status`, `type` o `id`; medir el email antes de minúsculas; sacar el recorte de cada
-  contraseña; `unreadableBody` para todo error, para 5xx, o montado al final; el `URIError` sin mirar el status; `readBody`
+  contraseña; `unreadableBody` para todo error, para 5xx, para menos de 400, sin exigir entero, o montado al final; el `URIError` sin mirar el status; `readBody`
   sin tratar la lista como vacía; devolver el texto de Zod en la red de seguridad (una prueba con `z.string()` sin regla);
   llamar a `getToday()` una sola vez por router (una prueba con dos "hoy" en el mismo router). **Ninguno se deja en la
   suite.**
@@ -357,8 +371,10 @@ Un solo PR desde `main`, con un commit por paso. Cada paso termina con las suite
 también los nuevos y los de igual código. La evidencia de cada paso va en `progress/zod-routes.md`.
 
 1. **Caracterización.** `server/tests/zodRoutesToday.test.ts`: AC-18 completo, los pares de AC-2 que no son respuestas
-   nuevas, AC-10, AC-10b, AC-11, AC-12, AC-23 y los huecos heredados de §5. Verde contra el código de hoy, **sin tocar
-   `src/`** — depende de: 0 — serial.
+   nuevas (la lista está en §5), AC-6, AC-8, AC-10, AC-10b, AC-11, AC-12, AC-23, los campos exentos de AC-20, cada regla de
+   *What it must respect* que ya vale hoy (sin cuerpo, `Content-Type` ajeno, JSON de nivel superior que no es objeto ni
+   lista, parámetro repetido…) y los huecos heredados de §5. Verde contra el código de hoy, **sin tocar `src/`** — depende
+   de: 0 — serial.
 2. **Errores antes de la ruta** (§3.5): AC-21, AC-22 — depende de: 0 — paralelizable con 1 y 3.
 3. **`validation/` y sus pruebas unitarias** (§3.1, §3.2) — depende de: 0 — paralelizable con 1 y 2.
 4. **Registro y login**: AC-9, AC-20 y AC-24 de esas rutas — depende de: 1, 3 — paralelizable con 5, 6 y 7.
@@ -367,22 +383,40 @@ también los nuevos y los de igual código. La evidencia de cada paso va en `pro
    3 — paralelizable.
 7. **Cambio de contraseña**: AC-9, AC-13 a AC-13f, AC-20 (nulo en una contraseña) — depende de: 1, 3 — paralelizable.
 8. **Control de la suite** (§3.7): AC-14 — depende de: 4, 5, 6, 7 (antes está en rojo por las 15 lecturas) — serial.
-9. **Barrido**: cada fila de la tabla de la spec, cada regla de *What it must respect* (sin cuerpo, `Content-Type` ajeno,
-   JSON de nivel superior que no es objeto ni lista, parámetro repetido…) y cada AC con su prueba por la app real; AC-16;
-   mutantes — depende de: 2, 8 — serial.
-10. **Puerta de push de tier 2, en local**: `verify` con cobertura por archivo; diff de las pruebas viejas contra
-    `origin/main` sin ningún `it(` ni `expect` cambiado, salvo los archivos de §0; `rsc risk --base origin/main`;
-    `rsc spec gate`; panel de 3 registrado **después del último commit de código** — depende de: 9.
+9. **Barrido**: cada fila de la tabla de la spec y cada AC con su prueba por la app real; AC-16; mutantes. Control: para
+   cada AC menos AC-15, AC-17 y AC-19, `grep -lE "AC-<n>\b" server/tests/zod*.test.ts server/tests/inputGuard.test.ts`
+   devuelve algo (solo los archivos **nuevos**: los ids ya aparecen en pruebas de otras features) — depende de: 2, 8 —
+   serial.
+10. **Puerta de push de tier 2, en local** — depende de: 9:
+    - `npm test` y `npx tsc -b` en `server/`; `npm test`, `npx tsc -b` y `npm run lint` en `client/`;
+      `npx vitest run --coverage` en los dos, ≥ 80 % de líneas por archivo cambiado;
+    - pruebas viejas: `git diff --diff-filter=MD --name-only origin/main -- server/tests client/src | grep "test\."` lista
+      exactamente las de §0, y su diff no cambia ningún `expect` salvo los de la fila 40;
+    - `npx @ericrisco/rsc risk --base origin/main` → tier 2;
+      `npx @ericrisco/rsc spec gate 02-DOCS/wiki/sdd/specs/zod-routes.md` → PASS (la rama `feat/zod-routes` se enlaza con la
+      spec por el nombre; no hace falta `branch:`);
+    - panel de 3 y `npx @ericrisco/rsc review ledger panel zod-routes --lenses correctness,security,tests`, **después del
+      último commit de código**.
 11. **Staging** (AC-17): se anota qué commit corre; **primero** se miden las entradas contra el código viejo; después
-    `railway up` y se repiten. Queda en `verifications/zod-routes-<fecha>.md`. Si obliga a tocar código, se repite 10 —
-    depende de: 10.
-12. **Aprobación de Hernán** → push → PR → merge → lista de deploys de los dos entornos → smoke en producción; después,
-    cierre de documentos (F1 de `analyze` deja de aplicar) — depende de: 11.
+    `railway up` y se repiten; al final `node server/scripts/smoke.mjs <url de staging>` con salida 0, que recorre los
+    caminos buenos con Postgres real (esperando el minuto de `/api/auth`). Queda en `verifications/zod-routes-<fecha>.md`.
+    Si obliga a tocar código, se repite 10 — depende de: 10.
+12. **Aprobación de Hernán** → push → PR → merge → lista de deploys de los dos entornos →
+    `node server/scripts/smoke.mjs <url de producción>` con salida 0; después, cierre de documentos (F1 de `analyze` deja de
+    aplicar) — depende de: 11.
 
-**Receta de staging:** dos cuentas `qa-zod-*@example.com` (dueño y quien pide) y una herramienta; `Origin` de staging; dos
-registros, el login con nulo y el registro con `İ` son 4 de los 5 pedidos por minuto de `/api/auth`. `startDate:
-"2099-02-30"` va con `endDate: "2099-03-01"`. `infinity` va al final. Si el registro con `İ` diera 201 en el código viejo,
-esa cuenta se borra. Al terminar se borran las cuentas.
+**Receta de staging:**
+
+- dos cuentas `qa-zod-*@example.com` (dueño y quien pide) y una herramienta; `Origin` de staging; dos registros, el login
+  con nulo y el registro con `İ` son 4 de los 5 pedidos por minuto de `/api/auth`;
+- **los cuerpos con `İ`, `ñ` o nulo van con escapes JSON** (`İ`, `ñ`, `\u0000`), desde un archivo
+  (`--data-binary @archivo`) o un script de Node, **nunca** como argumento de `curl`: Git Bash manda `İ` como `I`
+  (comprobado), y el registro daría 201 sin probar nada. Un 201 con `İ` es un error de medición: se revisa el byte enviado
+  antes de seguir, y si la cuenta se creó, se borra;
+- `startDate: "2099-02-30"` va con `endDate: "2099-03-01"`; `endDate: "infinity"` va al final, con `startDate:
+  "2099-01-10"`, y se anota el id del préstamo al crearlo. Mientras existe, los listados muestran esa fecha como `null`; se
+  cancela enseguida;
+- al terminar se borran las cuentas y se resuelve el préstamo según *Open decisions*.
 
 - **En paralelo, si se quiere:** 4, 5, 6 y 7 tocan archivos distintos. Con un solo agente local van en serie.
 - **Orden duro:** 1 antes que 4-7 (sin eso no hay referencia del código viejo); 8 después de 4-7; la medición "antes" de
@@ -395,21 +429,26 @@ esa cuenta se borra. Al terminar se borran las cuentas.
 | --- | --- | --- | --- |
 | R1. Un borde cambia sin que nada falle | un esquema más estricto o más laxo que el `if` de hoy | respuesta distinta en producción | paso 1 contra el código viejo, pares de AC-2, mutantes |
 | R2. Un `.optional()` de menos o de más | se escribe sin mirar cuál de los cuatro casos de §0 es | de menos: un pedido válido pasa a 400. De más: un requerido ausente **pasa** (`GET /api/loans` sin `type` daría 200) | los cuatro casos están en §0; mutantes propios en los dos sentidos; la red "Invalid request data" se afirma **nunca** alcanzada en las pruebas de rutas |
-| R3. Las pruebas de caracterización se ajustan al código nuevo | alguien edita el paso 1 durante 4-7 | se pierde la referencia | el commit del paso 1 va solo; en la revisión, `git diff` de ese archivo contra ese commit tiene que salir vacío |
+| R3. Las pruebas de caracterización se ajustan al código nuevo | alguien edita el paso 1 durante 4-7 | se pierde la referencia | el commit del paso 1 va solo; en cada paso, `git diff <commit del paso 1> -- server/tests/zodRoutesToday.test.ts server/tests/zodHelpers.ts` sale vacío |
 | R4. El control de AC-14 se esquiva | cualquiera de los límites listados en §3.7; el más natural es una función que recibe `{ body: unknown }` | una ruta futura sin esquema | límite aceptado y escrito en la prueba; lo cubre la revisión |
 | R5. TypeScript 7 cambia el compilador que usa el control | actualización mayor | la prueba deja de correr | fijado en `~6.0.2`; al subir se adapta solo esa prueba |
 | R6. Las suposiciones sobre Postgres no se cumplen | fecha, página, nulo o email no dan 500 | cambia la columna "Hoy", no el resultado | AC-17 lo mide antes y después |
-| R7. Datos raros en staging | medir "antes" crea un préstamo con fecha `infinity` | listados con una fecha inválida | cuentas `qa-zod-*@example.com`; cancelar ese préstamo enseguida y borrar las cuentas al final |
+| R7. Datos raros en staging | medir "antes" crea un préstamo con fecha `infinity` | listados con una fecha inválida | cuentas `qa-zod-*@example.com`; cancelar ese préstamo enseguida, borrar las cuentas al final y aplicar lo que se decida sobre la fila (*Open decisions*) |
 | R8. Un 4xx propio se confunde con el del lector del cuerpo | `unreadableBody` montado más abajo | un bug queda oculto como 400 | va pegado a los lectores; una prueba simula un `sendFile` que falla con `status: 404` y exige 500 y log. Dentro de una ruta con `catch` no serviría: nunca llega a `errorHandler` |
-| R10. La fila 40 llega a `main` sin su código | el hook de documentos la commitea sola, u otro PR de documentos la lleva | la suite del cliente queda en rojo (39 contra 40) | regla y control de §3.6 |
-| R9. Quien tiene una contraseña guardada con espacios no puede cambiarla | 1 cuenta activa en producción | aceptado en la spec | ninguna |
+| R9. La fila 40 llega a `main` sin su código | el hook de documentos la commitea sola, u otro PR de documentos la lleva | la suite del cliente queda en rojo (39 contra 40) | regla y control de §3.6 |
+| R10. Quien tiene una contraseña guardada con espacios no puede cambiarla | 1 cuenta activa en producción | aceptado en la spec | ninguna |
 
 **Open decisions** (de Hernán, antes de aprobar):
 
-- **AC-15 en la pantalla:** sumar un caso `LOAN_DATE_INVALID` a C1 de `client/src/pages/requestLoan.test.tsx` (recomendado;
-  no cambia ninguna expectativa, pero la spec dice que solo dos pruebas viejas cambian), o una prueba en un archivo nuevo.
-- **El préstamo `infinity` de staging:** borrarlo con `psql` al terminar (recomendado), o dejarlo cancelado para siempre (la
-  API no borra préstamos).
+- **AC-15 en la pantalla:** sumar un caso `LOAN_DATE_INVALID` a C1 de `client/src/pages/requestLoan.test.tsx` (recomendado),
+  o una prueba en un archivo nuevo. La spec lo permite si se lista acá con su razón ("ya se sabe de dos"). Si va el caso, se
+  suma ese archivo a *Pruebas viejas* de §0 y al control de §3.6, y el comentario de C1 pasa de 8 a 9 códigos.
+- **El préstamo `infinity` de staging:** borrarlo con `psql` por su id al terminar (recomendado), o dejarlo cancelado para
+  siempre (la API no borra préstamos).
+- **Dos celdas de la tabla de la spec, columna "Hoy", incompletas** (el "Después" no cambia; ya sale de *Behaviour*):
+  (1) una fecha mal formada que Postgres acepta, sobre fechas ya pedidas, hoy da 409 `LOAN_DATES_OVERLAP`;
+  (2) `newPassword: "  abcdef  "` con la actual incorrecta o la cuenta borrada hoy da 401 o 404. Completarlas (recomendado),
+  o darlas por cubiertas.
 
 Decidido por Hernán el 2026-11-23: un solo PR, y el código va aislado en la rama
 `feat/zod-routes`, que sale de `main` después del PR de documentos (paso 0).
@@ -434,8 +473,16 @@ Decidido por Hernán el 2026-11-23: un solo PR, y el código va aislado en la ra
   con un oráculo propio: casi 511 000 entradas, 0 diferencias (informado por el revisor). Cambios: (1) "sin casts" no
   compilaba como estaba escrito (§3.3; confirmado por Claude con `tsc`); (2) `remember` estaba en el caso equivocado de
   `.optional()`; (3) "un solo problema" no vale con dos reglas de campo rotas; (4) panel → staging → aprobación → push, como
-  en `server-sessions`; (5) cómo convive la fila 40 con el hook de documentos (R10); (6) unitarias y pares asignados a sus
+  en `server-sessions`; (5) cómo convive la fila 40 con el hook de documentos (R9); (6) unitarias y pares asignados a sus
   pasos, un archivo de prueba por paso, reglas de *What it must respect* y diff de pruebas viejas; (7) AC-15 en la pantalla;
   (8) el control suma los tipos que heredan del pedido y el resto queda escrito como límite (borrador 3 probado por Claude:
   21 de 21). Nits: mensajes copiados de la ruta, segunda excepción de `message`, hora de "hoy", doble límite de pedidos,
   pares que faltaban, receta de staging, documentos del paso 0 y el mutante de `abort`.
+- **2026-11-23 — revisión con ojos frescos 3** (pedida por Hernán; 0 bloqueos, 8 should-fix y 9 nits; aplicados todos menos
+  los puntos de *Open decisions*). El revisor construyó los pasos 1 a 8 uno por uno, todos en verde, y los pasos 2 y 4 a 7
+  también en otro orden; 128 de 130 mutantes mueren y 60 000 entradas comparadas viejo/nuevo no dan diferencias inesperadas
+  (informado por el revisor). Cambios: (1) AC-21 y AC-22 tenían las condiciones mezcladas; (2) `İ` no llega por `curl` en
+  Git Bash (confirmado por Claude); (3) las reglas de hoy pasan todas al paso 1; (4) qué pares son de hoy y cuáles nuevos;
+  (5) un archivo de prueba por paso y la ayuda común congelada; (6) `smoke.mjs` en staging; (7) comandos literales en los
+  pasos 9 a 12; (8) la razón de AC-15 en *Open decisions*. Nits: los dos mutantes que sobrevivían, `toStrictEqual`, límites
+  del control, numeración de riesgos y datos de la receta.
