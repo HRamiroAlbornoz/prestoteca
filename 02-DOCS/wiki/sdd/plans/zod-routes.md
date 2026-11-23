@@ -459,11 +459,12 @@ también los nuevos y los de igual código. La evidencia de cada paso va en `pro
 | R9. La fila 40 llega a `main` sin su código | el hook de documentos la commitea sola, u otro PR de documentos la lleva | la suite del cliente queda en rojo (39 contra 40) | regla y control de §3.6 |
 | R10. Quien tiene una contraseña guardada con espacios no puede cambiarla | 1 cuenta activa en producción | aceptado en la spec | ninguna |
 
-**Open decisions** (de Hernán, antes de lanzar T001): T001 son unas 140 pruebas en tres archivos. O Qwen la hace en **tres
-entregas** (`zodTodayAuth` con la ayuda y el control, `zodTodayTools`, `zodTodayLoans`) dentro de un solo commit
-(recomendado), o en una sola. Lo mismo con T006: dos entregas (esquemas y rutas; fila 40) o una.
+**Open decisions:** ninguna.
 
 Decidido por Hernán el 2026-11-23:
+
+- T001 va en **tres entregas** de Qwen (`zodTodayAuth` con la ayuda y el control, `zodTodayTools`, `zodTodayLoans`) y T006 en
+  **dos** (esquemas y rutas; fila 40), cada tarea en un solo commit ("Si a todos");
 
 - un solo PR, y el código va aislado en la rama `feat/zod-routes`, que sale de `main` después del PR de documentos (paso 0);
 - AC-15 se prueba con un caso nuevo en C1 de `client/src/pages/requestLoan.test.tsx`;
@@ -665,3 +666,4 @@ En T004 a T007, el brief copia además entera la fila del §3.3 de cada esquema,
   (probado por Claude: un comentario, una prueba salteada o una en rojo no cuentan); `startApp` completa; `update` real en
   `PATCH`; T003 depende de T001; un bloque de interfaces por tarea; mutantes repartidos; cierre de tier 2 en T004 y T007;
   comandos de staging y producción. También se corrigió la receta de staging, que mostraba las letras en vez de sus escapes.
+- **2026-11-23 — tamaño de las entregas.** Hernán: "Si a todos" (T001 en tres, T006 en dos). *Open decisions* queda vacía.
