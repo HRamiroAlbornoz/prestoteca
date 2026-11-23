@@ -6,7 +6,9 @@ tags: [sdd, plan, validation, server]
 timestamp: 2026-11-23T19:30:00Z
 topic: sdd
 slug: zod-routes
-status: draft
+status: approved
+approved: 2026-11-23
+approved_by: Hernán — "Apruebo el plan, con las tres recomendaciones." (ítem por ítem, no en autopiloto, tras tres revisiones con ojos frescos)
 branch: docs/zod-routes-spec
 ---
 
@@ -14,7 +16,7 @@ branch: docs/zod-routes-spec
 
 > Spec: [../specs/zod-routes.md](../specs/zod-routes.md) (approved 2026-11-23) · Constitution:
 > [../constitution.md](../constitution.md) v1.3.0 · Decisiones: D15, D16, D17 y D18 en [../decisions.md](../decisions.md)
-> · Status: draft · Last updated: 2026-11-23
+> · Status: approved (2026-11-23) · Last updated: 2026-11-23
 
 ## 0. Global Constraints
 
@@ -64,10 +66,13 @@ Valores exactos que toda tarea respeta. El revisor de cada tarea los lee primero
 - **Sin conversión de tipos** en el cuerpo; el mismo esquema para JSON y formulario; los campos desconocidos se ignoran.
 - **Fuera de alcance, no tocar:** la cookie de sesión, `Origin`, límites de pedidos, `backup/`, formularios del cliente,
   formato UUID, formato de email.
-- **Pruebas viejas:** ninguna expectativa cambia, salvo `client/src/errors/messages.test.ts` (39 → 40 filas) y
-  `server/tests/errorCodes.test.ts` (suma `LOAN_DATE_INVALID: 400`).
+- **Pruebas viejas:** ninguna expectativa cambia, salvo la fila 40 en tres archivos: `client/src/errors/messages.test.ts`
+  (39 → 40 filas), `server/tests/errorCodes.test.ts` (suma `LOAN_DATE_INVALID: 400`) y
+  `client/src/pages/requestLoan.test.tsx` (C1 suma el caso `LOAN_DATE_INVALID`, por AC-15, y su comentario pasa de 8 a 9
+  códigos).
 - **Calidad:** `tsc -b` en 0 (server y cliente), oxlint del cliente en 0, TDD, cobertura de líneas ≥ 80 % por archivo
   cambiado. **Sin dependencias nuevas.**
+- **rsc:** siempre la versión fijada en `.rsc.json` (`npx @ericrisco/rsc@4.1.8`), nunca `@latest` ni sin versión.
 - **Git:** rama + PR, autoría de Hernán, sin `Co-Authored-By` ni "generated with". Tier 2 (toca auth): panel de 3 y
   aprobación de Hernán antes del push.
 - **Deploy a staging:** `railway up -e staging --service prestoteca --ci`; **nunca** `railway service source connect`.
@@ -227,14 +232,15 @@ el error. Comprobado el 2026-11-23: charset y `Content-Encoding` 415, gzip y br 
 
 ### 3.6 `LOAN_DATE_INVALID`
 
-`errorCodes.ts` (sección Loans, `row 40`), `client/src/errors/messages.ts`, las dos pruebas de §0 y la spec
+`errorCodes.ts` (sección Loans, `row 40`), `client/src/errors/messages.ts`, las tres pruebas de §0 y la spec
 [error-codes](../specs/error-codes.md) (fila 40 después de la 27 y una entrada en *Revisions*). **Todo en el mismo
 commit**: la prueba del cliente lee la tabla de la spec y se pone en rojo si llega por separado.
 
 **El hook de documentos de rsc** commitea `02-DOCS/` por su cuenta cuando no hay código sin commitear. Por eso la fila 40 se
 escribe en la spec **solo con el código del paso 6 ya en el mismo árbol, sin commitear**, y entre ese commit y el merge no
 se mergea otro PR de documentos que la lleve (ya pasó con la fila 39, PR #48). Control: `git show --stat` de ese commit
-lista `errorCodes.ts`, `errorCodes.test.ts`, `messages.ts`, `messages.test.ts` y `specs/error-codes.md`.
+lista `errorCodes.ts`, `errorCodes.test.ts`, `messages.ts`, `messages.test.ts`, `requestLoan.test.tsx` y
+`specs/error-codes.md`.
 
 ### 3.7 Control de la suite (`tests/inputGuard.test.ts`)
 
@@ -311,7 +317,7 @@ Niveles: **unit** (esquema o función), **app** (la app real con `createApp`, se
 | AC-12 | app | registro y login por formulario: mismos códigos; `remember=true` → `BAD_REQUEST` | repositorios |
 | AC-13, 13b, 13c, 13d, 13e, 13f | app, con bcrypt **real** (costo 4 al sembrar) | login con la contraseña recién cambiada; códigos de cada caso; borrar la cuenta sigue en 204 | repositorios con un hash real |
 | AC-14 | unit (control) | los 4 casos de la spec más los alias fallan; `server/src` pasa | — |
-| AC-15, AC-19 | cliente | AC-15: la pantalla del pedido muestra el texto de la fila 40 ante `LOAN_DATE_INVALID` (lugar: *Open decisions*); AC-19: 40 filas | `fetch` |
+| AC-15, AC-19 | cliente | AC-15: la pantalla del pedido muestra el texto de la fila 40 ante `LOAN_DATE_INVALID` (caso nuevo en C1 de `requestLoan.test.tsx`); AC-19: 40 filas | `fetch` |
 | AC-16 | unit + app | por cada esquema y por los dos errores previos: un valor marcador enviado no aparece en `message` | — |
 | AC-20 | app | cada campo con nulo; cada campo exento; `%00` → 404; `PATCH` con pausa no pausa | repositorios |
 | AC-21, AC-22 | app | status y código; `console.error` sin llamadas en los 400; 413 sigue. **Solo AC-22:** también sin `Origin`, sin sesión y con el límite agotado. **AC-21:** con `Origin` y sin agotar el límite (si no, ganan 403 y 429, como hoy); afirma `Malformed URL`. Un error propio que **llega** a `errorHandler` (`sendFile` simulado que falla con `status: 404`) da 500 y va al log; `{ status: 500 }`, `{ status: 302 }` y `{ status: 400.5 }` pasan por `unreadableBody` sin tocar | `sendFile` solo en ese caso |
@@ -375,7 +381,7 @@ también los nuevos y los de igual código. La evidencia de cada paso va en `pro
    *What it must respect* que ya vale hoy (sin cuerpo, `Content-Type` ajeno, JSON de nivel superior que no es objeto ni
    lista, parámetro repetido…) y los huecos heredados de §5. Verde contra el código de hoy, **sin tocar `src/`** — depende
    de: 0 — serial.
-2. **Errores antes de la ruta** (§3.5): AC-21, AC-22 — depende de: 0 — paralelizable con 1 y 3.
+2. **Errores antes de la ruta** (§3.5): AC-21, AC-22 — depende de: 1 (usa la ayuda común) — paralelizable con 3 a 7.
 3. **`validation/` y sus pruebas unitarias** (§3.1, §3.2) — depende de: 0 — paralelizable con 1 y 2.
 4. **Registro y login**: AC-9, AC-20 y AC-24 de esas rutas — depende de: 1, 3 — paralelizable con 5, 6 y 7.
 5. **Herramientas y búsqueda**, con `toolOptions.ts`: AC-7, AC-8, AC-9, AC-20 — depende de: 1, 3 — paralelizable.
@@ -392,10 +398,10 @@ también los nuevos y los de igual código. La evidencia de cada paso va en `pro
       `npx vitest run --coverage` en los dos, ≥ 80 % de líneas por archivo cambiado;
     - pruebas viejas: `git diff --diff-filter=MD --name-only origin/main -- server/tests client/src | grep "test\."` lista
       exactamente las de §0, y su diff no cambia ningún `expect` salvo los de la fila 40;
-    - `npx @ericrisco/rsc risk --base origin/main` → tier 2;
-      `npx @ericrisco/rsc spec gate 02-DOCS/wiki/sdd/specs/zod-routes.md` → PASS (la rama `feat/zod-routes` se enlaza con la
+    - `npx @ericrisco/rsc@4.1.8 risk --base origin/main` → tier 2;
+      `npx @ericrisco/rsc@4.1.8 spec gate 02-DOCS/wiki/sdd/specs/zod-routes.md` → PASS (la rama `feat/zod-routes` se enlaza con la
       spec por el nombre; no hace falta `branch:`);
-    - panel de 3 y `npx @ericrisco/rsc review ledger panel zod-routes --lenses correctness,security,tests`, **después del
+    - panel de 3 y `npx @ericrisco/rsc@4.1.8 review ledger panel zod-routes --lenses correctness,security,tests`, **después del
       último commit de código**.
 11. **Staging** (AC-17): se anota qué commit corre; **primero** se miden las entradas contra el código viejo; después
     `railway up` y se repiten; al final `node server/scripts/smoke.mjs <url de staging>` con salida 0, que recorre los
@@ -416,7 +422,8 @@ también los nuevos y los de igual código. La evidencia de cada paso va en `pro
 - `startDate: "2099-02-30"` va con `endDate: "2099-03-01"`; `endDate: "infinity"` va al final, con `startDate:
   "2099-01-10"`, y se anota el id del préstamo al crearlo. Mientras existe, los listados muestran esa fecha como `null`; se
   cancela enseguida;
-- al terminar se borran las cuentas y se resuelve el préstamo según *Open decisions*.
+- al terminar se borra el préstamo `infinity` con `psql` en staging, **por su id** (`DELETE FROM loans WHERE id = '<id>' AND
+  end_date = 'infinity'`, se espera `DELETE 1`), y después se borran las cuentas desde la app.
 
 - **En paralelo, si se quiere:** 4, 5, 6 y 7 tocan archivos distintos. Con un solo agente local van en serie.
 - **Orden duro:** 1 antes que 4-7 (sin eso no hay referencia del código viejo); 8 después de 4-7; la medición "antes" de
@@ -433,25 +440,105 @@ también los nuevos y los de igual código. La evidencia de cada paso va en `pro
 | R4. El control de AC-14 se esquiva | cualquiera de los límites listados en §3.7; el más natural es una función que recibe `{ body: unknown }` | una ruta futura sin esquema | límite aceptado y escrito en la prueba; lo cubre la revisión |
 | R5. TypeScript 7 cambia el compilador que usa el control | actualización mayor | la prueba deja de correr | fijado en `~6.0.2`; al subir se adapta solo esa prueba |
 | R6. Las suposiciones sobre Postgres no se cumplen | fecha, página, nulo o email no dan 500 | cambia la columna "Hoy", no el resultado | AC-17 lo mide antes y después |
-| R7. Datos raros en staging | medir "antes" crea un préstamo con fecha `infinity` | listados con una fecha inválida | cuentas `qa-zod-*@example.com`; cancelar ese préstamo enseguida, borrar las cuentas al final y aplicar lo que se decida sobre la fila (*Open decisions*) |
+| R7. Datos raros en staging | medir "antes" crea un préstamo con fecha `infinity` | listados con una fecha inválida | cuentas `qa-zod-*@example.com`; cancelar ese préstamo enseguida; al final, borrarlo con `psql` por su id y borrar las cuentas |
 | R8. Un 4xx propio se confunde con el del lector del cuerpo | `unreadableBody` montado más abajo | un bug queda oculto como 400 | va pegado a los lectores; una prueba simula un `sendFile` que falla con `status: 404` y exige 500 y log. Dentro de una ruta con `catch` no serviría: nunca llega a `errorHandler` |
 | R9. La fila 40 llega a `main` sin su código | el hook de documentos la commitea sola, u otro PR de documentos la lleva | la suite del cliente queda en rojo (39 contra 40) | regla y control de §3.6 |
 | R10. Quien tiene una contraseña guardada con espacios no puede cambiarla | 1 cuenta activa en producción | aceptado en la spec | ninguna |
 
-**Open decisions** (de Hernán, antes de aprobar):
+**Open decisions:** ninguna. Decidido por Hernán el 2026-11-23:
 
-- **AC-15 en la pantalla:** sumar un caso `LOAN_DATE_INVALID` a C1 de `client/src/pages/requestLoan.test.tsx` (recomendado),
-  o una prueba en un archivo nuevo. La spec lo permite si se lista acá con su razón ("ya se sabe de dos"). Si va el caso, se
-  suma ese archivo a *Pruebas viejas* de §0 y al control de §3.6, y el comentario de C1 pasa de 8 a 9 códigos.
-- **El préstamo `infinity` de staging:** borrarlo con `psql` por su id al terminar (recomendado), o dejarlo cancelado para
-  siempre (la API no borra préstamos).
-- **Dos celdas de la tabla de la spec, columna "Hoy", incompletas** (el "Después" no cambia; ya sale de *Behaviour*):
-  (1) una fecha mal formada que Postgres acepta, sobre fechas ya pedidas, hoy da 409 `LOAN_DATES_OVERLAP`;
-  (2) `newPassword: "  abcdef  "` con la actual incorrecta o la cuenta borrada hoy da 401 o 404. Completarlas (recomendado),
-  o darlas por cubiertas.
+- un solo PR, y el código va aislado en la rama `feat/zod-routes`, que sale de `main` después del PR de documentos (paso 0);
+- AC-15 se prueba con un caso nuevo en C1 de `client/src/pages/requestLoan.test.tsx`;
+- el préstamo `infinity` de staging se borra con `psql`, por su id;
+- las dos celdas incompletas de la columna "Hoy" de la spec se completaron.
 
-Decidido por Hernán el 2026-11-23: un solo PR, y el código va aislado en la rama
-`feat/zod-routes`, que sale de `main` después del PR de documentos (paso 0).
+## Tasks
+<!-- generated by tasks on 2026-11-23; IDs are stable, do not renumber -->
+
+Siguen el §6 desde el paso 1 (T00*n* = paso *n*). El paso 0 (PR de documentos) queda fuera de la tabla: es previo a la rama
+`feat/zod-routes`. Riesgo calculado con `npx @ericrisco/rsc@4.1.8 risk <rutas esperadas>` el 2026-11-23.
+
+**VERDE** (parte del done-check de T001 a T009): `cd server && npm test && npx tsc -b` con salida 0; si la tarea tocó el
+cliente, también `cd client && npm test && npx tsc -b && npm run lint`; y `git diff <commit de T001> --
+server/tests/zodRoutesToday.test.ts server/tests/zodHelpers.ts` vacío (desde T002). Cada tarea es un commit de Hernán.
+`V <archivo>` = `cd server && npx vitest run tests/<archivo>.test.ts`.
+
+| ID | [P] | Task | Done-check | Depends-on | Trace | Risk |
+| --- | --- | --- | --- | --- | --- | --- |
+| T001 |  | Write the characterization tests and the frozen helpers against today's code | `V zodRoutesToday` verde **sin cambios en `server/src`** (`git diff --stat origin/main -- server/src` vacío); cubre la lista del §6 paso 1 y los pares "de hoy" del §5; cada par afirma código y `message`; una prueba de control muestra que los espías ven un registro, un login y un cambio de contraseña válidos; VERDE | — | AC-1, AC-2, AC-6, AC-8, AC-10, AC-10b, AC-11, AC-12, AC-18, AC-20, AC-23 | 1 |
+| T002 | [P] | Add `unreadableBody` and the malformed-URL case of `errorHandler` | `V zodPreRoute` visto en rojo antes del código y verde después; casos del §5 (AC-21, AC-22), `sendFile` simulado → 500 y log, `{ status: 500 }`, `{ status: 302 }` y `{ status: 400.5 }` sin tocar; VERDE | T001 | AC-16, AC-21, AC-22 | 1 |
+| T003 | [P] | Implement `validation/rules.ts` and `validation/requestInput.ts` | `V zodValidation` rojo → verde: los cuatro casos de `.optional()`, primer problema, red de seguridad con `z.string()` sin regla, `errorCode` que no está en `ERROR_CODES`, lista y cuerpo ausente = objeto vacío, `abort` (una regla del objeto que no es la última); `V errorGuard` verde; VERDE | — | AC-16 | 1 |
+| T004 | [P] | Validate register and login with `authSchemas.ts` | `V zodAuth` rojo → verde: unitarias de los dos esquemas, sus pares de AC-2, 0 llamadas a la base y a bcrypt por cada regla, nulos, `İ`; `grep -nE "req\.(body\|query\|params)" server/src/modules/auth/authRoutes.ts` vacío; VERDE | T001, T003 | AC-2, AC-9, AC-16, AC-20, AC-24 | 2 |
+| T005 | [P] | Validate tools and search with `toolSchemas.ts` and unify the lists in `toolOptions.ts` | `V zodTools` rojo → verde: unitarias, pares, AC-7, AC-8, nulos, `PATCH` con pausa, `toStrictEqual` sobre el argumento de `repo.update`; `grep -rn "const VALID_CATEGORIES\|const VALID_CONDITIONS" server/src` da solo `toolOptions.ts`; `grep -n "as never" server/src/modules/tools/toolsRoutes.ts` vacío; el mismo `grep` de `req.` vacío en `toolsRoutes.ts`; VERDE | T001, T003 | AC-2, AC-7, AC-8, AC-9, AC-16, AC-20 | 1 |
+| T006 | [P] | Validate loans with `loanSchemas.ts` and add row 40 on both sides | `V zodLoans` rojo → verde: unitarias (tabla de fechas), pares, AC-3 a AC-6, dos "hoy" en el mismo router, nulos; `cd client && npx vitest run src/errors/messages.test.ts src/pages/requestLoan.test.tsx` verde; el commit lista los seis archivos del §3.6; el mismo `grep` de `req.` vacío en `loansRoutes.ts`; VERDE con cliente | T001, T003 | AC-2, AC-3, AC-4, AC-4b, AC-4c, AC-5, AC-5b, AC-6, AC-9, AC-15, AC-16, AC-19, AC-20 | 1 |
+| T007 | [P] | Validate and trim the password change with `meAccountSchemas.ts` | `V zodPassword` rojo → verde, con bcrypt real: cambio y login después, borrar la cuenta en AC-13e, pares, nulo en una contraseña no da `BAD_REQUEST`; el mismo `grep` de `req.` vacío en `meAccountRoutes.ts`; VERDE | T001, T003 | AC-2, AC-9, AC-13, AC-13b, AC-13c, AC-13d, AC-13e, AC-13f, AC-16, AC-20 | 2 |
+| T008 |  | Add the suite control `inputGuard.test.ts` | `V inputGuard` verde sobre `server/src`; los 4 casos de AC-14 y las muestras del §3.7 marcados, las muestras legales no; los límites aceptados escritos en la prueba; visto en rojo con una lectura `req.body` puesta a mano en una ruta y quitada; ningún `writeFile` en la prueba; VERDE | T004, T005, T006, T007 | AC-14 | 1 |
+| T009 |  | Sweep every row and criterion through the real app and run the mutants | `V zodSweep` verde; el `grep` de ids del §6 paso 9 devuelve algo para cada AC; AC-16 con un valor marcador en cada esquema y en los dos errores previos; la lista de mutantes del §5 corrida, cada uno con la prueba que lo mata, anotada en `progress/zod-routes.md`, y `git status` limpio al final; VERDE con cliente | T002, T008 | AC-1 a AC-16, AC-18 a AC-24 | 1 |
+| T010 |  | Run the local tier-2 push gate | cada comando del §6 paso 10 con su salida en `progress/zod-routes.md`; cobertura ≥ 80 % de líneas por archivo cambiado; panel de 3 registrado después del último commit de código | T009 | todos menos AC-17 | 2 |
+| T011 |  | Verify on staging, before and after | `verifications/zod-routes-<fecha>.md` con: el commit que corría, cada entrada de AC-17 **antes** y después, `railway up -e staging`, deploys de los dos entornos (producción sin cambios), `smoke.mjs` con salida 0, `DELETE 1` del préstamo `infinity` y 0 cuentas activas `qa-zod-*` | T010 | AC-17 | 2 |
+| T012 |  | Ship to production | aprobación explícita de Hernán; push, PR, merge; deploys de los dos entornos; `smoke.mjs` de producción con salida 0 anotado en la verificación | T011 | todos | 2 |
+| T013 |  | All done-checks pass, both suites green on `main` | cada fila de arriba con su evidencia en `progress/zod-routes.md`; VERDE con cliente sobre `main`; spec, plan e índice cerrados por rama + PR | T012 | todos | — |
+
+T011 mide tier 0 por sus rutas (solo un documento) y T010 y T012 no tocan rutas propias; se tratan como tier 2 **por
+decisión de este plan**, porque actúan sobre la rama entera, que es de auth.
+
+**Cobertura de criterios:** los 33 criterios (AC-1 a AC-24, con 4b, 4c, 5b, 10b y 13b a 13f) tienen al menos una tarea, y
+toda tarea tiene al menos un criterio. AC-15 y AC-19 se prueban en el cliente (T006); AC-17, solo en staging (T011).
+
+### Interfaces por tarea (para quien implementa sin el resto del plan)
+
+**T001 — Interfaces**
+- Produce `server/tests/zodHelpers.ts`, congelado después:
+  `ALLOWED_ORIGIN = 'http://localhost:5173'`; `SESSION_COOKIE: string` (`token=` y 43 caracteres base64url);
+  `startApp() -> Promise<{ app, db: { query, connect }, hashes: { hash, compare } }>` (instala los espías de
+  `Pool.prototype.query`, `Pool.prototype.connect`, bcrypt y `SessionRepository.prototype.touchActive`, que responde
+  `{ userId: 'user-1', remember: false }`, **antes** de `createApp`); `handlerCalls(db) -> number` (consultas más conexiones).
+- Consume: la app de hoy. Nada de `modules/validation`.
+
+**T002 — Interfaces**
+- Produce: `unreadableBody(err: unknown, req, res, next): void` exportado de `errors/AppError.ts`, montado en `index.ts` en
+  la línea siguiente a `express.urlencoded(…)`; `errorHandler` con el caso `URIError` + `status === 400`.
+
+**T003 — Interfaces**
+- Produce `rules.ts`: `rule(code: ServerErrorCode, message: string)`, `text`, `optionalText(message: string)`,
+  `hasNul(value: string | null | undefined): boolean`, `NUL_MESSAGE`, `idParams(message: string)`, `toolIdParams`,
+  `loanIdParams`.
+- Produce `requestInput.ts`: `type Input<T> = { ok: true; data: T } | { ok: false; code: ServerErrorCode; message: string }`;
+  `readBody`, `readQuery` y `readParams`, los tres `<S extends z.ZodType>(req: Request, schema: S) => Input<z.output<S>>`.
+
+**T004 a T007 — Interfaces**
+- Consumen: todo lo de T003 (firmas de arriba) y las ayudas de T001.
+- Uso en la ruta: `const input = readBody(req, schema); if (!input.ok) { sendErrorCode(res, input.code, input.message); return }`.
+- Producen los esquemas del §3.3: T004 `registerBody`, `loginBody`; T005 `toolListQuery`, `publishToolBody`,
+  `editToolBody`; T006 `loanRequestBody(getToday: () => string)`, `loanStatusBody`, `loanListQuery`; T007
+  `passwordChangeBody`.
+- T005 produce `toolOptions.ts` (§3.4) y cambia `ToolService.edit(id, userId, updates: { name?: string; description?: string;
+  category?: unknown; condition?: unknown })`.
+- T006 produce el código `LOAN_DATE_INVALID: { status: 400 }` y el texto de la fila 40 (§0).
+
+**T008 — Interfaces**
+- Consume: los lugares permitidos de §0 (lecturas: `requestInput.ts` y `req.path` en `index.ts`; `zod`:
+  `modules/validation/`, `*Schemas.ts`, `modules/config/env.ts`).
+- Produce: una función que recibe archivos en memoria y devuelve las lecturas prohibidas, usada por las muestras y por
+  `server/src`.
+
+### Reparto entre Qwen y Claude (opción D; cada brief se revisa y se muestra a Hernán antes de lanzar)
+
+| Tarea | Quién |
+| --- | --- |
+| T001 a T009 | Qwen escribe código y pruebas desde un brief con requisitos, sin código para copiar; Claude revisa (T004 y T007, panel de 3) |
+| T010 | Qwen corre y reporta; Claude repite los números clave y lanza el panel |
+| T011, T012 | Claude + Hernán |
+| T013 | Qwen corre y reporta; Claude confirma y cierra los documentos |
+
+## Review Workload Forecast
+
+| Dimension | Forecast | Why |
+| --- | --- | --- |
+| Estimated changed lines | ≈ 2 500-3 500 (≈ 500-700 de código, el resto pruebas) | 9 archivos de prueba nuevos; 7 archivos de código nuevos y 8 cambiados en el server |
+| Files / areas | ≈ 30 (validation, auth, tools, loans, me, errors, tests, 3 del cliente, documentos) | una pieza por módulo |
+| Risk | máximo tier 2; tier 2 en T004, T007 y T010 a T012 | `rsc risk` marca auth en T004 y T007: panel de 3 y aprobación de Hernán en cada una |
+| Suggested delivery | **un solo PR, excepción aprobada por Hernán** (2026-11-23); supera `line_budget` 400 y `file_budget` 12 | se revisa por tarea, un commit cada una; partirlo exigiría dos pasadas por staging y dos paneles |
 
 ## Revisions
 
@@ -486,3 +573,6 @@ Decidido por Hernán el 2026-11-23: un solo PR, y el código va aislado en la ra
   (5) un archivo de prueba por paso y la ayuda común congelada; (6) `smoke.mjs` en staging; (7) comandos literales en los
   pasos 9 a 12; (8) la razón de AC-15 en *Open decisions*. Nits: los dos mutantes que sobrevivían, `toStrictEqual`, límites
   del control, numeración de riesgos y datos de la receta.
+- **2026-11-23 — aprobado.** Hernán: "Apruebo el plan, con las tres recomendaciones." *Open decisions* queda vacía.
+- **2026-11-23 — `tasks`.** T001 a T013. Dos ajustes al armarlas: el paso 2 depende del 1 (usa la ayuda común) y los comandos
+  de `rsc` llevan la versión fijada, 4.1.8 (sin versión, `npx` buscaba la 4.1.9, que el proyecto no adoptó).

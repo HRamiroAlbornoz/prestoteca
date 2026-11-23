@@ -315,7 +315,8 @@ timestamp: 2026-10-04T00:00:00Z
 ## D18 — zod-routes: reglas en cadena, un solo lector de entradas y una sola lista de categorías
 
 - **Fecha:** 2026-11-23
-- **Estado:** propuesta por Claude en el [plan](plans/zod-routes.md); vale cuando Hernán apruebe el plan.
+- **Estado:** aceptada. Propuesta por Claude en el [plan](plans/zod-routes.md) y aprobada por Hernán con él ("Apruebo el
+  plan, con las tres recomendaciones", 2026-11-23).
 - **Contexto:** hoy gana un error según el orden de los `if` de cada ruta, y la spec prohíbe que cambie. Un esquema Zod
   escrito "de forma natural" junta los errores por campo y cambiaría ese orden.
 - **Opciones:** A) esquema natural por campo; B) reglas en cadena, la primera que falla gana; C) middleware

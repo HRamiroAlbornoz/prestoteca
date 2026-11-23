@@ -184,7 +184,7 @@ Las únicas respuestas nuevas son estas:
 | --- | --- | --- |
 | `endDate` que no es un día real (`"mañana"`, `"2099-02-30"`) con cualquier `startDate` que pase las comparaciones (real o no, p. ej. las dos `"mañana"`), o `startDate: "2099-02-30"` | pasa las comparaciones de texto y llega a la base: probablemente 500 `INTERNAL_ERROR` | 400 `LOAN_DATE_INVALID` (fila 40) |
 | `startDate: "mañana"` con un `endDate` real | 400 `LOAN_END_BEFORE_START` (`"2099-…" < "mañana"` en texto) | 400 `LOAN_DATE_INVALID` (fila 40) |
-| fecha mal formada que hoy pasa las comparaciones de texto, sobre una herramienta inexistente (o id no UUID), pausada o propia | 404 `TOOL_NOT_FOUND`, 409 `TOOL_PAUSED` o 400 `LOAN_OWN_TOOL` (la fecha recién llega a la base después de esos chequeos) | 400 `LOAN_DATE_INVALID`: el formato se revisa antes de buscar la herramienta |
+| fecha mal formada que hoy pasa las comparaciones de texto, sobre una herramienta inexistente (o id no UUID), pausada o propia; o una que además Postgres acepta, sobre fechas ya pedidas | 404 `TOOL_NOT_FOUND`, 409 `TOOL_PAUSED`, 400 `LOAN_OWN_TOOL` o 409 `LOAN_DATES_OVERLAP` (la fecha recién llega a la base después de los tres primeros chequeos) | 400 `LOAN_DATE_INVALID`: el formato se revisa antes de buscar la herramienta |
 | una fecha real sin ceros (`"2026-1-5"`) | la base la acepta, pero la comparación de texto con "hoy" y con la otra fecha da resultados equivocados (p. ej. `endDate: "2027-1-5"` con `startDate: "2027-01-10"` pasa como "fin después del inicio", porque `"2027-01-10" < "2027-1-5"` en texto) | 400 `LOAN_DATE_INVALID` (fila 40) |
 | una fecha mal formada que hoy pierde una comparación de texto: `startDate: "01/02/2099"` (hoy "ya pasó"), `endDate: "1/2/2099"` con inicio `2099-01-10` (hoy "fin antes que inicio"), o un inicio pasado junto con `endDate: "mañana"` (hoy "ya pasó") | 400 `LOAN_START_IN_PAST` o `LOAN_END_BEFORE_START` | 400 `LOAN_DATE_INVALID`: el formato de las dos fechas se revisa antes de compararlas |
 | un texto que Postgres acepta como fecha, pero que no es `AAAA-MM-DD`: `"20990110"`, `"2099-01-10T00:00:00Z"`, `"tomorrow"`, `"infinity"` (las dos fechas en `"infinity"` crean un préstamo sin fin) | como fin, probablemente 201; como inicio, según el caso, 201 o `LOAN_END_BEFORE_START` | 400 `LOAN_DATE_INVALID` |
@@ -198,7 +198,7 @@ Las únicas respuestas nuevas son estas:
 | id mal codificado en la URL (`/api/tools/%zz`) en una ruta pública, o con sesión en una protegida | 500 `INTERNAL_ERROR` (probado) | 400 `BAD_REQUEST` |
 | un cuerpo que el server no puede leer: charset no soportado, `Content-Encoding` no soportado, gzip corrupto, formulario demasiado anidado o con más de 1000 campos | 500 `INTERNAL_ERROR` (probado) | 400 `BAD_REQUEST`, antes de la sesión y de la ruta |
 | cambio de contraseña con `newPassword: " clave123 "` | se guarda con los espacios; después el login (que recorta) no entra | se guarda `"clave123"`; el login con `"clave123"` o `" clave123 "` entra |
-| cambio de contraseña con `newPassword` que solo llega a 8 caracteres contando los espacios y no es solo espacios (`"  abcdef  "`) | se acepta (largo 10) | 400 `NEW_PASSWORD_LENGTH` (largo 6 después de recortar, igual que en el registro) |
+| cambio de contraseña con `newPassword` que solo llega a 8 caracteres contando los espacios y no es solo espacios (`"  abcdef  "`) | se acepta (largo 10), o 401 `CURRENT_PASSWORD_INCORRECT` si la actual no coincide, o 404 `ACCOUNT_NOT_FOUND` si la cuenta se borró | 400 `NEW_PASSWORD_LENGTH` (largo 6 después de recortar, igual que en el registro) |
 | cambio de contraseña con `currentPassword` correcta pero con espacios alrededor | 401 `CURRENT_PASSWORD_INCORRECT` | se acepta (se recorta antes de comparar, igual que el login) |
 | cambio de contraseña de una cuenta cuya contraseña guardada tiene espacios alrededor (por un cambio anterior), con `currentPassword` tal cual fue guardada | se acepta (204) | 401 `CURRENT_PASSWORD_INCORRECT` (aceptado; ver *Non-goals*) |
 | cambio de contraseña con `newPassword` de solo espacios y menos de 8 o más de 72 (`"   "`) | 400 `NEW_PASSWORD_LENGTH` (hoy el largo se mira antes que "solo espacios") | 400 `NEW_PASSWORD_BLANK` (solo espacios, de cualquier largo) |
@@ -256,8 +256,9 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
 - **La suite actual sin cambiar ninguna expectativa.** Las pruebas existentes que fijan status y código pasan sin
   editar lo que esperan. Un diff de los `it(` y de los `expect` de las pruebas viejas lo muestra. Las únicas pruebas
   viejas que pueden cambiar son las que fijan una fila de *What result they get*; cada una se lista en el plan con su
-  razón. Ya se sabe de dos, y las dos solo suman la fila 40: `client/src/errors/messages.test.ts` (39 → 40 filas) y
-  `server/tests/errorCodes.test.ts` (su lista de status esperados suma `LOAN_DATE_INVALID: 400`).
+  razón. Ya se sabe de tres, y las tres solo suman la fila 40: `client/src/errors/messages.test.ts` (39 → 40 filas),
+  `server/tests/errorCodes.test.ts` (su lista de status esperados suma `LOAN_DATE_INVALID: 400`) y
+  `client/src/pages/requestLoan.test.tsx` (un caso más en C1, por AC-15).
 - **Un control en la suite** que falla si una ruta lee cuerpo, query o id sin pasarlo por un esquema declarado. Hay que
   verlo fallar en los cuatro casos de AC-14, escritos a propósito.
 - **Mutantes**: sacar el esquema de una ruta, o aflojar una regla, hace fallar alguna prueba.
@@ -516,3 +517,8 @@ El formato de la respuesta de error no cambia: `{ "error": { "code", "message" }
   carácter nulo; AC-5b y AC-13f nuevos; AC-2 y AC-14 más estrictos; cuatro bordes más para AC-18. Además, AC-4 fija el
   "hoy" de la prueba para que no venza.
 - **2026-11-23 — aprobada de nuevo.** Hernán: "Sí a las tres" (una era "¿Aprobás la spec así?"). Lo siguiente es `plan`.
+- **2026-11-23 — dos celdas de "Hoy" completadas, al aprobar el plan** (Hernán: "Apruebo el plan, con las tres
+  recomendaciones"). Las encontró la revisión 3 del plan: la fecha mal formada sobre fechas ya pedidas (hoy 409
+  `LOAN_DATES_OVERLAP`) y `"  abcdef  "` con la contraseña actual incorrecta o la cuenta borrada (hoy 401 o 404). La columna
+  "Después", las reglas y los criterios no cambian. Se acepta también que cambie una tercera prueba vieja, que solo suma un
+  caso de la fila 40: `client/src/pages/requestLoan.test.tsx` (listada en el plan, como pide *How it proves it*).
